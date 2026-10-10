@@ -1,0 +1,111 @@
+{
+    "name": "NEURAL_CONTACT_BETA",
+    "description": "Primary resonance node for inbound identity signals.",
+    "structure": {
+        "rows": [
+            {
+                "id": "row-header",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-header",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "block-header",
+                                "type": "heading",
+                                "properties": {
+                                    "text": "CONTACT_RESONANCE",
+                                    "level": "h2"
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-identity",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-identity",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "field-identity",
+                                "type": "input",
+                                "properties": {
+                                    "label": "IDENTITY_ID",
+                                    "placeholder": "YOUR_NAME...",
+                                    "required": true
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-message",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-message",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "field-message",
+                                "type": "textarea",
+                                "properties": {
+                                    "label": "SIGNAL_CONTENT",
+                                    "placeholder": "TRANSMIT_YOUR_MESSAGE...",
+                                    "rows": 5,
+                                    "required": true
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-submit",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-submit",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "btn-submit",
+                                "type": "button",
+                                "properties": {
+                                    "text": "INITIALIZE_TRANSMISSION"
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            }
+        ],
+        "settings": {
+            "theme": "tenant-admin",
+            "submitButtonText": "INITIALIZE_TRANSMISSION",
+            "width": "600px"
+        }
+    }
+}

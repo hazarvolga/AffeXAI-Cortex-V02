@@ -1,0 +1,113 @@
+# Isolated G0 harness; never reuse the regular compose project or its data.
+# Always use: docker compose --env-file /dev/null -p affexai-g0-isolated -f docker-compose.test.yml ...
+# Build only: ... --profile frontend --profile app build
+# Frontend smoke only: ... --profile frontend up -d frontend-test
+# Explicit migration check only: ... --profile migration run --rm migration-test
+# Cleanup: ... --profile frontend --profile app --profile migration down --volumes --remove-orphans
+# The app profile starts full backend lifecycle: use only for isolated application acceptance.
+# Database/Redis data is ephemeral tmpfs, with no host mounts or reusable named volumes.
+
+x-backend-build: &backend-build
+  context: .
+  dockerfile: apps/backend/Dockerfile
+
+x-database-environment: &database-environment
+  NODE_ENV: production
+  DATABASE_HOST: postgres-test
+  DATABASE_PORT: '5432'
+  DATABASE_USERNAME: g0_test
+  DATABASE_PASSWORD: g0_ephemeral_local_only
+  DATABASE_NAME: affexai_g0_ephemeral
+
+services:
+  frontend-test:
+    profiles: [frontend]
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:19006
+        NEXT_PUBLIC_SOCKET_URL: http://127.0.0.1:19006
+        NEXT_PUBLIC_APP_URL: http://127.0.0.1:19003
+        BACKEND_URL: http://backend-test:9006
+    image: affexai-cortex-frontend:g0-local
+    ports:
+      - '127.0.0.1:19003:3000'
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend-test:9006
+    networks: [g0-private]
+
+  backend-test:
+    profiles: [app]
+    build: *backend-build
+    image: affexai-cortex-backend:g0-local
+    ports:
+      - '127.0.0.1:19006:9006'
+    environment:
+      <<: *database-environment
+      PORT: '9006'
+      REDIS_HOST: redis-test
+      REDIS_PORT: '6379'
+      JWT_SECRET: isolated-local-acceptance-secret-never-for-deployment
+      CORTEX_SERVICE_SECRET: isolated-cortex-service-secret-never-for-deployment
+      PLATFORM_ADMIN_USER_IDS: 7f9b2f7c-5ec4-4a67-8424-f0d20e89a693
+      CORTEX_URL: http://cortex-test:8000
+      QDRANT_URL: http://qdrant-test:6333
+      FRONTEND_URL: http://127.0.0.1:9003
+      CORS_ORIGINS: http://127.0.0.1:9003,http://localhost:9003
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks: [g0-private]
+
+  migration-test:
+    profiles: [migration]
+    build: *backend-build
+    image: affexai-cortex-backend:g0-local
+    # Bypass the application entrypoint: execute the CLI exactly once, never bootstrap Nest/seed hooks.
+    entrypoint: ['node']
+    command: ['apps/backend/dist/core/database/cli.js']
+    environment: *database-environment
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: 'no'
+    networks: [g0-private]
+
+  postgres-test:
+    profiles: [app, migration]
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: g0_test
+      POSTGRES_PASSWORD: g0_ephemeral_local_only
+      POSTGRES_DB: affexai_g0_ephemeral
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U g0_test -d affexai_g0_ephemeral']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [g0-private]
+
+  redis-test:
+    profiles: [app]
+    image: redis:7-alpine
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks: [g0-private]
+
+networks:
+  g0-private:
+    internal: true

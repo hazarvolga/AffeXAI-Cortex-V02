@@ -1,0 +1,2 @@
+-- Mark Migrations Executed Placeholder
+-- This file is copied by Dockerfile but optional for deployment execution.

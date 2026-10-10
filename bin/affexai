@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# AffeXAI Dev Command Wrapper
+# Usage: ./bin/affexai <command>
+
+COMMAND=$1
+
+case $COMMAND in
+  "audit")
+    echo ":: INITIATING QRA RESONANCE AUDIT ::"
+    npx ts-node scripts/qra/probe_factory.ts
+    ;;
+  "manage")
+    echo ":: AFFEXAI COMMAND CENTER ACTIVE ::"
+    echo "Current Status: RESONANT"
+    echo "Check docs/system_circuit_map.json for live links."
+    ;;
+  "heal")
+    echo ":: INITIATING SURGICAL REPAIR MODE ::"
+    # Placeholder for autonomous healing logic
+    ;;
+  *)
+    echo "Usage: $0 {audit|manage|heal}"
+    exit 1
+    ;;
+esac

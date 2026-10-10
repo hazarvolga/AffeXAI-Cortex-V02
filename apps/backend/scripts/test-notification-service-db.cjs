@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict');const {randomUUID}=require('node:crypto');
+const source=require('./dist/core/database/data-source').default;
+const {Notification}=require('./dist/modules/notifications/entities/notification.entity');
+const {User}=require('./dist/modules/users/entities/user.entity');
+const {NotificationsService}=require('./dist/modules/notifications/notifications.service');
+const {TenantService}=require('./dist/core/tenant/tenant.service');
+if(process.env.G3_NOTIFICATION_SERVICE_ISOLATED!=='1'||process.env.DATABASE_NAME!=='affexai_g0_ephemeral')throw new Error('Isolated notification service marker required');
+const tenantId=`notification-${randomUUID()}`,foreignTenant=`notification-${randomUUID()}`;const a=randomUUID(),b=randomUUID(),inactive=randomUUID();
+(async()=>{await source.initialize();const tenants=new TenantService();const repo=source.getRepository(Notification);const service=new NotificationsService(repo,tenants,source.getRepository(User));const run=fn=>tenants.runWithTenant({tenantId,source:'system'},fn);
+try{
+ assert.equal((await source.query('SELECT current_database() AS name'))[0].name,'affexai_g0_ephemeral');
+ for(const [id,t,active]of [[a,tenantId,true],[b,foreignTenant,true],[inactive,tenantId,false]])await source.query('INSERT INTO users(id,tenant_id,email,password,"firstName","lastName","isActive") VALUES($1,$2,$3,$4,$5,$6,$7)',[id,t,`${id}@example.test`,'unusable','Notification','Fixture',active]);
+ for(const userId of [b,inactive])await assert.rejects(run(()=>service.createNotification({userId,message:'Denied',type:'info'})),/Recipient not found/);
+ const created=await run(()=>service.createNotification({userId:a,message:'Persisted',type:'info',metadata:{ticketId:randomUUID()}}));
+ const [stored]=await source.query('SELECT recipient_id,"userId",user_id FROM notifications WHERE id=$1',[created.id]);assert.equal(stored.recipient_id,a);assert.equal(stored.userId,null);assert.equal(stored.user_id,null);
+ const relation=await repo.findOne({where:{id:created.id},relations:['user']});assert.equal(relation.user.id,a);
+ assert.equal((await run(()=>service.findAll(a,1,0))).length,1);assert.equal((await run(()=>service.findAll(a,1,1))).length,0);
+ await assert.rejects(tenants.runWithTenant({tenantId:foreignTenant,source:'system'},()=>service.markAsRead(created.id,b)),/not found/);
+ await Promise.all([run(()=>service.markAsRead(created.id,a)),run(()=>service.markAsRead(created.id,a))]);assert.equal((await repo.findOneByOrFail({id:created.id})).isRead,true);
+ const second=await run(()=>service.createNotification({userId:a,message:'Second',type:'info'}));await run(()=>service.markAllAsRead(a));assert.equal((await repo.findOneByOrFail({id:second.id})).isRead,true);
+ await source.query('DELETE FROM users WHERE id=$1',[a]);assert.equal(await repo.count({where:{tenantId}}),0);
+ console.log('PASS: actual TypeORM recipient_id mapping and compound relation, active recipient checks, paged arrays, foreign read denial, concurrent partial read marking, read-all and recipient cascade. No external calls.');
+}finally{try{await source.query('DELETE FROM notifications WHERE tenant_id=ANY($1::varchar[])',[[tenantId,foreignTenant]]);await source.query('DELETE FROM users WHERE id=ANY($1::uuid[])',[[a,b,inactive]]);}finally{await source.destroy();}}})().catch(error=>{console.error(error.message);process.exitCode=1;});

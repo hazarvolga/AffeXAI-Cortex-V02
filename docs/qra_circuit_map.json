@@ -1,0 +1,68 @@
+{
+    "project": "AffeXAI",
+    "status": "PILOT_REPAIR_COMPLETE",
+    "restoration_tag": "STABLE_BCC_PROD_ROLLOUT",
+    "circuits": [
+        {
+            "id": "SOCIAL_COMPOSE",
+            "frontend": {
+                "page": "apps/frontend/src/app/[tenant]/admin/social/page.tsx",
+                "node": "Button: Compose Signal",
+                "handler": "setIsCreateModalOpen(true)",
+                "intended_service": "socialMediaService.createPost"
+            },
+            "backend": {
+                "controller": "apps/backend/src/modules/social-media/social-media.controller.ts",
+                "endpoint": "POST /social-media/post",
+                "status": "ESTABLISHED"
+            },
+            "resonance": "STABLE",
+            "reason": "L1/L2 link established via CreatePostModal integration."
+        },
+        {
+            "id": "SOCIAL_DELETE",
+            "frontend": {
+                "page": "apps/frontend/src/app/[tenant]/admin/social/page.tsx",
+                "node": "Button: Trash2",
+                "handler": "handleDelete(post.id)",
+                "service": "socialMediaService.deletePost"
+            },
+            "backend": {
+                "controller": "apps/backend/src/modules/social-media/social-post.controller.ts",
+                "endpoint": "DELETE /social-media/posts/:id",
+                "status": "ESTABLISHED"
+            },
+            "resonance": "STABLE",
+            "reason": "Direct signal path verified."
+        },
+        {
+            "id": "BACKUP_TRIGGER",
+            "frontend": {
+                "page": "apps/frontend/src/app/[tenant]/admin/settings/backup/page.tsx",
+                "node": "Button: :: EXECUTE_PULSE",
+                "handler": "createBackupMutation.mutate",
+                "service": "backupService.createBackup"
+            },
+            "backend": {
+                "controller": "apps/backend/src/modules/backup/controllers/backup.controller.ts",
+                "endpoint": "POST /backup",
+                "status": "ESTABLISHED"
+            },
+            "resonance": "STABLE",
+            "reason": "Full circuit connectivity confirmed."
+        },
+        {
+            "id": "BACKUP_CLOUD_RESONANCE",
+            "frontend": {
+                "page": "apps/frontend/src/app/[tenant]/admin/settings/backup/page.tsx",
+                "nodes": [
+                    ":: TEST_SIGNAL",
+                    ":: PERSIST_LINK"
+                ],
+                "status": "ACTIVE_FEEDBACK"
+            },
+            "resonance": "RESONANT",
+            "reason": "Nodes now provide immediate UI resonance via toast feedback."
+        }
+    ]
+}

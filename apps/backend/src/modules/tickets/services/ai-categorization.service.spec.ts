@@ -1,0 +1,31 @@
+import { randomUUID } from 'node:crypto';
+import { AICategorizationService } from './ai-categorization.service';
+
+describe('AICategorizationService keyword heuristic contract',()=>{
+ const tenantId='tenant-a',id=randomUUID(),account=randomUUID(),technical=randomUUID(),billing=randomUUID();
+ const ticket={id,tenantId,subject:'Login password account issue',description:'Cannot login with password'};
+ const tickets={findOne:jest.fn(),count:jest.fn(),update:jest.fn().mockResolvedValue({affected:1})};
+ const categories={find:jest.fn(),findOne:jest.fn()};
+ const service=new AICategorizationService(tickets as never,categories as never,{getTenantId:()=>tenantId} as never);
+ beforeEach(()=>{jest.clearAllMocks();tickets.findOne.mockResolvedValue({...ticket});tickets.count.mockResolvedValue(0);categories.find.mockResolvedValue([{id:account,tenantId,name:'Account & Login'},{id:technical,tenantId,name:'Technical Support'},{id:billing,tenantId,name:'Billing'}]);categories.findOne.mockResolvedValue({id:account,tenantId});});
+ it('produces explicit relative keyword scores',async()=>{const result=await service.predictCategory(ticket as never);expect(result[0]).toEqual(expect.objectContaining({categoryId:account,source:'keyword_heuristic',scoreMeaning:'relative_keyword_match'}));expect(result[0].reasons.length).toBeGreaterThan(0);});
+ it('returns sorted scores',async()=>{const result=await service.predictCategory({...ticket,subject:'Account login invoice billing server error',description:'error'} as never);expect(result.map(p=>p.confidence)).toEqual(result.map(p=>p.confidence).sort((a,b)=>b-a));});
+ it('matches technical category',async()=>{const result=await service.predictCategory({...ticket,subject:'Server error API crash',description:'Error'} as never);expect(result[0].categoryId).toBe(technical);});
+ it('matches billing category',async()=>{const result=await service.predictCategory({...ticket,subject:'Invoice billing payment',description:'Invoice'} as never);expect(result[0].categoryId).toBe(billing);});
+ it('no known keywords means no invented prediction',async()=>{expect(await service.predictCategory({...ticket,subject:'Hello',description:'Greetings'} as never)).toEqual([]);});
+ it('no matching tenant category means no prediction',async()=>{categories.find.mockResolvedValueOnce([]);expect(await service.predictCategory(ticket as never)).toEqual([]);});
+ it('category query is current tenant active only',async()=>{await service.predictCategory(ticket as never);expect(categories.find).toHaveBeenCalledWith({where:{tenantId,isActive:true}});});
+ it.each(['你好 مرحبا','şifre giriş','<script> & $.*','x'.repeat(10000)])('handles literal multilingual or special content',async content=>{expect(await service.predictCategory({...ticket,description:content} as never)).toBeInstanceOf(Array);});
+ it('does not autoassign missing ticket',async()=>{tickets.findOne.mockResolvedValueOnce(null);expect(await service.autoCategorizе(id)).toBeNull();expect(tickets.update).not.toHaveBeenCalled();});
+ it('autoassign uses scoped partial category patch',async()=>{const result=await service.autoCategorizе(id);expect(result?.categoryId).toBe(account);expect(tickets.update).toHaveBeenCalledWith({id,tenantId},{categoryId:account});});
+ it('no prediction leaves ticket unchanged',async()=>{categories.find.mockResolvedValueOnce([]);expect(await service.autoCategorizе(id)).toBeNull();expect(tickets.update).not.toHaveBeenCalled();});
+ it('concurrent missing ticket does not acknowledge assignment',async()=>{tickets.update.mockResolvedValueOnce({affected:0});await expect(service.autoCategorizе(id)).rejects.toThrow();});
+ it('suggestions never mutate ticket',async()=>{expect((await service.getSuggestions(id)).length).toBeGreaterThan(0);expect(tickets.update).not.toHaveBeenCalled();});
+ it('missing suggestion target returns empty list',async()=>{tickets.findOne.mockResolvedValueOnce(null);expect(await service.getSuggestions(id)).toEqual([]);});
+ it('training remains unavailable with or without historical data',async()=>{await expect(service.trainModel()).rejects.toMatchObject({status:503});expect(tickets.count).not.toHaveBeenCalled();});
+ it('empty observed dataset is zero counts and unknown model metrics',async()=>{const result=await service.getStatistics();expect(result.totalTickets).toBe(0);expect(result.categorizedTickets).toBe(0);expect(result.accuracyRate).toBeNull();expect(result.autoAssigned).toBeNull();});
+ it('observed counts are never mislabeled accuracy',async()=>{tickets.count.mockResolvedValueOnce(10).mockResolvedValueOnce(8);const result=await service.getStatistics();expect(result.totalTickets).toBe(10);expect(result.categorizedTickets).toBe(8);expect(result.averageConfidence).toBeNull();});
+ it('comparison checks tenant ticket and tenant categories',async()=>{expect(await service.validatePrediction(id,account,account)).toBe(true);expect(tickets.findOne).toHaveBeenCalledWith({where:{id,tenantId}});expect(categories.findOne).toHaveBeenCalledWith({where:{id:account,tenantId,isActive:true}});});
+ it('different existing categories compare false without recording model result',async()=>{expect(await service.validatePrediction(id,account,technical)).toBe(false);expect(tickets.update).not.toHaveBeenCalled();});
+ it('unavailable category cannot be validated',async()=>{categories.findOne.mockResolvedValueOnce(null);await expect(service.validatePrediction(id,account,account)).rejects.toThrow('Category not found');});
+});

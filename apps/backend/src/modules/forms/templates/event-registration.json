@@ -1,0 +1,120 @@
+{
+    "name": "EVENT_REGISTRATION_ALPHA",
+    "description": "Standard high-fidelity rsvp node for event orchestration.",
+    "structure": {
+        "rows": [
+            {
+                "id": "row-header",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-header",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "block-header",
+                                "type": "heading",
+                                "properties": {
+                                    "text": "EVENT_REGISTRATION",
+                                    "level": "h2"
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            },
+                            {
+                                "id": "block-desc",
+                                "type": "text",
+                                "properties": {
+                                    "text": "Initialize your participation in the neural network ecosystem."
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-name",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-name",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "field-name",
+                                "type": "input",
+                                "properties": {
+                                    "label": "PARTICIPANT_NAME",
+                                    "placeholder": "ENTER_FULL_NAME...",
+                                    "required": true
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-email",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-email",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "field-email",
+                                "type": "input",
+                                "properties": {
+                                    "label": "NEURAL_LINK (EMAIL)",
+                                    "placeholder": "NAME@DOMAIN.COM...",
+                                    "required": true
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            },
+            {
+                "id": "row-submit",
+                "type": "section",
+                "columns": [
+                    {
+                        "id": "col-submit",
+                        "width": "100%",
+                        "blocks": [
+                            {
+                                "id": "btn-submit",
+                                "type": "button",
+                                "properties": {
+                                    "text": "EXECUTE_RSVP"
+                                },
+                                "styles": {
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "settings": {}
+            }
+        ],
+        "settings": {
+            "theme": "tenant-admin",
+            "submitButtonText": "EXECUTE_RSVP",
+            "width": "600px"
+        }
+    }
+}

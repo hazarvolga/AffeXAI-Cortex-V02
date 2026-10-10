@@ -1,0 +1,44 @@
+# Compiled TypeScript files (source files only)
+*.js
+*.d.ts
+*.js.map
+*.d.ts.map
+
+# Keep JavaScript config files
+!*.config.js
+!jest.config.js
+
+# Keep migration files (need to be committed)
+!src/database/migrations/**/*.js
+!src/database/migrations/**/*.d.ts
+
+# Keep seed files (need to be committed)
+!src/database/seeds/**/*.js
+!src/database/seeds/**/*.d.ts
+
+# Dist directory
+dist/
+
+# Compiled email templates (generated from .tsx files)
+src/templates/
+
+# Node modules
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

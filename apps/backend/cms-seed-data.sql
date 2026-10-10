@@ -1,0 +1,3 @@
+-- CMS Seed Data Placeholder
+-- This file is copied by Dockerfile but optional for deployment execution.
+-- Populate with actual SQL INSERT statements if seed data is required.

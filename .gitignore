@@ -1,0 +1,213 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+yarn.lock
+package-lock.json
+
+# Testing
+coverage/
+.coverage
+.nyc_output/
+*.lcov
+
+# Production builds
+dist/
+build/
+out/
+.next/
+
+# Environment variables
+.env
+.env*.local
+.env.production
+.env.development
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Docker volumes
+docker/volumes/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backend specific
+apps/backend/uploads/
+apps/backend/quarantine/
+apps/backend/temp/
+apps/backend/.env
+apps/backend/dist/
+
+# Frontend specific
+apps/frontend/.next/
+apps/frontend/out/
+apps/frontend/.env.local
+apps/frontend/.turbo/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Cache
+.cache/
+.turbo/
+.eslintcache
+
+# Backup files
+*.bak
+*.backup
+*-backup-*.tar.gz
+*-backup-*.zip
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.vercel
+
+# Development Scripts
+*.log
+.backend.pid
+.frontend.pid
+
+# Archive folder (old documentation)
+.archive/
+
+# Claude documentation archive
+claudedocs/
+
+# Temporary dev logs
+/tmp/affexai-*.log
+apps/backend/logs
+apps/backend/test/__scratch-*.spec.ts
+apps/backend/apps/
+apps/backend/api-test-results.json
+apps/backend/migration_log.txt
+scripts/screenshots/
+
+# Oracle Server Keys & Sensitive Data
+Oracle Sunucuları/
+AffeXAI-Oracle-Servers/
+*.key
+*.pem
+quarantine/
+tsconfig.tsbuildinfo
+
+# AI & Agent Artifacts
+.agent/
+.serena/
+.refact/
+.playwright-mcp/
+
+# Security & Credentials
+*.pfx
+*.p12
+*.jks
+*.keystore
+*-credentials.json
+*-service-account.json
+secrets.json
+config.production.json
+
+# Database dumps & backups
+*.sql
+*.dump
+*.tar.gz.gpg
+*-dump-*.sql
+*-backup-*.sql
+# Whitelist files needed for build
+!apps/backend/cms-seed-data.sql
+!apps/backend/mark-migrations-executed.sql
+
+# Playwright screenshots & videos
+.playwright-mcp/
+test-results/
+playwright-report/
+playwright/.auth/
+
+# Local development files
+.local/
+*.local.sh
+deploy.local.sh
+
+# Docker persistent data (excluded from git, included in backups)
+docker/data/
+
+# Extracted content from WordPress (temporary)
+extracted_pages/
+extracted_templates/
+
+
+# Strict exclusions for compiled files in source directories
+apps/backend/src/**/*.js
+apps/backend/src/**/*.d.ts
+apps/backend/src/**/*.js.map
+apps/backend/src/**/*.d.ts.map
+!src/**/*.spec.js
+!src/**/*.test.js
+!src/**/*.config.js
+
+# Database backups
+backups/
+
+# Production Ready Exclusions
+.env.production.local
+.env.test.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts
+.next-boost/
+.next/
+out/
+build/
+dist/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Local system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Analysis Directories
+old_affex/
+temp_analysis/

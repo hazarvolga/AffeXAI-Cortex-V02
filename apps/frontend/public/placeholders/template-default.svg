@@ -1,0 +1,17 @@
+<svg width="400" height="600" viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="600" fill="#F3F4F6"/>
+  <!-- Header -->
+  <rect x="40" y="40" width="320" height="40" rx="4" fill="#E5E7EB"/>
+  <!-- Image Block -->
+  <rect x="40" y="100" width="320" height="200" rx="4" fill="#D1D5DB"/>
+  <path d="M180 180L200 200L220 180" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Text Lines -->
+  <rect x="40" y="320" width="240" height="16" rx="2" fill="#E5E7EB"/>
+  <rect x="40" y="348" width="320" height="12" rx="2" fill="#E5E7EB"/>
+  <rect x="40" y="372" width="300" height="12" rx="2" fill="#E5E7EB"/>
+  <rect x="40" y="396" width="280" height="12" rx="2" fill="#E5E7EB"/>
+  <!-- Button -->
+  <rect x="40" y="440" width="120" height="36" rx="4" fill="#60A5FA"/>
+  <!-- Footer -->
+  <rect x="40" y="520" width="320" height="40" rx="4" fill="#E5E7EB"/>
+</svg>

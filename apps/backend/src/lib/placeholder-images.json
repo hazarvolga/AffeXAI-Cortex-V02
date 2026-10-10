@@ -1,0 +1,125 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-background",
+      "description": "Abstract architectural background for hero section",
+      "imageUrl": "https://images.unsplash.com/photo-1554333398-2935245842c8?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "abstract architecture"
+    },
+    {
+      "id": "why-aluplan",
+      "description": "Image for 'Why Aluplan' section showing collaboration",
+      "imageUrl": "https://images.unsplash.com/photo-1549692520-204740157989?q=80&w=600&auto=format&fit=crop",
+      "imageHint": "engineers collaborating"
+    },
+    {
+      "id": "solution-1",
+      "description": "Image for architectural design solution",
+      "imageUrl": "https://images.unsplash.com/photo-1487958449943-2429e8be8625?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "modern building"
+    },
+    {
+      "id": "solution-2",
+      "description": "Image for structural engineering solution",
+      "imageUrl": "https://images.unsplash.com/photo-1594411985223-535b839a9701?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "building structure"
+    },
+    {
+      "id": "solution-3",
+      "description": "Image for transportation solution",
+      "imageUrl": "https://images.unsplash.com/photo-1570122249022-d1e00d81a293?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "highway interchange"
+    },
+    {
+      "id": "solution-4",
+      "description": "Image for bridge design solution",
+      "imageUrl": "https://images.unsplash.com/photo-1494522855154-009b2d86c47c?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "modern bridge"
+    },
+    {
+      "id": "solution-5",
+      "description": "Image for project management solution",
+      "imageUrl": "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "blueprint meeting"
+    },
+    {
+      "id": "solution-6",
+      "description": "Image for BIM coordination solution",
+      "imageUrl": "https://images.unsplash.com/photo-1633442118043-57b686a51aa3?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "3d model"
+    },
+    {
+      "id": "solution-7",
+      "description": "Image for precast solution",
+      "imageUrl": "https://images.unsplash.com/photo-1558334469-8a5099ac9921?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "concrete factory"
+    },
+    {
+      "id": "solution-8",
+      "description": "Image for plugins solution",
+      "imageUrl": "https://images.unsplash.com/photo-1550063873-ab792950096b?q=80&w=400&auto=format&fit=crop",
+      "imageHint": "code abstract"
+    },
+    {
+      "id": "casestudy-1",
+      "description": "Image for a case study about a bridge",
+      "imageUrl": "https://images.unsplash.com/photo-1526549813204-a8c6888e7b34?q=80&w=800&auto=format&fit=crop",
+      "imageHint": "suspension bridge"
+    },
+    {
+      "id": "casestudy-2",
+      "description": "Image for a case study about a building",
+      "imageUrl": "https://images.unsplash.com/photo-1600950346333-875d2de85633?q=80&w=800&auto=format&fit=crop",
+      "imageHint": "skyscraper facade"
+    },
+    {
+      "id": "casestudy-3",
+      "description": "Image for a case study about precast construction",
+      "imageUrl": "https://images.unsplash.com/photo-1618224321689-53dd7a3a863f?q=80&w=800&auto=format&fit=crop",
+      "imageHint": "precast concrete"
+    },
+    {
+      "id": "hero-solutions",
+      "description": "Hero image for Solutions tab",
+      "imageUrl": "https://images.unsplash.com/photo-1600577916048-823c9148b16c?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "architectural blueprint"
+    },
+    {
+      "id": "hero-products",
+      "description": "Hero image for Products tab",
+      "imageUrl": "https://images.unsplash.com/photo-1633442118043-57b686a51aa3?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "3d software"
+    },
+    {
+      "id": "hero-success",
+      "description": "Hero image for Customer Success Stories tab",
+      "imageUrl": "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "construction site"
+    },
+    {
+        "id": "hero-bim",
+        "description": "Hero image for BIM collaboration",
+        "imageUrl": "https://images.unsplash.com/photo-1658140139638-34f3d1797c21?q=80&w=1920&auto=format&fit=crop",
+        "imageHint": "digital twin"
+    },
+    {
+        "id": "hero-precast",
+        "description": "Hero image for Precast solutions",
+        "imageUrl": "https://images.unsplash.com/photo-1629281720179-a41443588267?q=80&w=1920&auto=format&fit=crop",
+        "imageHint": "concrete production"
+    },
+    {
+        "id": "hero-civil",
+        "description": "Hero image for Civil Engineering products",
+        "imageUrl": "https://images.unsplash.com/photo-1543633461-c304a0815104?q=80&w=1920&auto=format&fit=crop",
+        "imageHint": "infrastructure project"
+    },
+    {
+        "id": "hero-bridge-success",
+        "description": "Hero image for a bridge success story",
+        "imageUrl": "https://images.unsplash.com/photo-1429041966141-44d228a42775?q=80&w=1920&auto=format&fit=crop",
+        "imageHint": "bridge sunset"
+    }
+  ]
+}

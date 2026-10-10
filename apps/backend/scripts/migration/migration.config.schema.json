@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WordPress to CMS Migration Configuration",
+  "description": "Configuration file for WordPress to CMS migration tool",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "object",
+      "description": "Source WordPress content configuration",
+      "properties": {
+        "directory": {
+          "type": "string",
+          "description": "Path to extracted WordPress pages directory",
+          "default": "../../extracted_pages"
+        },
+        "uploadsDirectory": {
+          "type": "string",
+          "description": "Path to WordPress uploads directory",
+          "default": "../../extracted_pages/uploads"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Old WordPress domain (for URL transformation)",
+          "default": "aluplan.com.tr"
+        }
+      },
+      "required": ["directory", "uploadsDirectory", "domain"]
+    },
+    "target": {
+      "type": "object",
+      "description": "Target CMS configuration",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "New CMS domain",
+          "default": "aluplan.tr"
+        },
+        "apiBaseUrl": {
+          "type": "string",
+          "description": "CMS API base URL",
+          "default": "http://localhost:9006/api"
+        }
+      },
+      "required": ["domain", "apiBaseUrl"]
+    },
+    "templates": {
+      "type": "object",
+      "description": "Template mapping configuration",
+      "properties": {
+        "mappingFile": {
+          "type": "string",
+          "description": "Path to PAGE_MAPPING_REPORT.md file",
+          "default": "../../extracted_pages/PAGE_MAPPING_REPORT.md"
+        },
+        "defaultTemplate": {
+          "type": "string",
+          "description": "Default template ID for pages without mapping",
+          "default": "default-page"
+        }
+      },
+      "required": ["mappingFile", "defaultTemplate"]
+    },
+    "processing": {
+      "type": "object",
+      "description": "Processing configuration",
+      "properties": {
+        "batchSize": {
+          "type": "integer",
+          "description": "Number of pages to process in each batch",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10
+        },
+        "concurrentUploads": {
+          "type": "integer",
+          "description": "Number of concurrent media uploads",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5
+        },
+        "retryAttempts": {
+          "type": "integer",
+          "description": "Number of retry attempts for failed operations",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 3
+        },
+        "retryDelay": {
+          "type": "integer",
+          "description": "Delay between retry attempts (milliseconds)",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 1000
+        }
+      },
+      "required": ["batchSize", "concurrentUploads", "retryAttempts", "retryDelay"]
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Log level",
+          "enum": ["verbose", "normal", "quiet"],
+          "default": "normal"
+        },
+        "outputDir": {
+          "type": "string",
+          "description": "Directory for log files",
+          "default": "./logs"
+        }
+      },
+      "required": ["level", "outputDir"]
+    }
+  },
+  "required": ["source", "target", "templates", "processing", "logging"]
+}

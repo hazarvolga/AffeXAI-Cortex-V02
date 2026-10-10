@@ -1,0 +1,26 @@
+import { TicketEmailService } from './ticket-email.service';
+import { randomUUID } from 'node:crypto';
+describe('ticket email tenant and truthful delivery contract',()=>{
+ const customer={id:randomUUID(),tenantId:'tenant-a',email:'customer@example.test',firstName:'Customer',lastName:'Fixture'};
+ const agent={roleEntity:{name:'support_agent',tenantId:'tenant-a',isActive:true},id:randomUUID(),tenantId:'tenant-a',email:'agent@example.test',firstName:'Agent',lastName:'Fixture'};
+ const ticket={id:randomUUID(),tenantId:'tenant-a',userId:customer.id,user:customer,assignedTo:agent,subject:'Fixture subject',description:'Fixture',displayNumber:'SUP-FIXTURE',createdAt:new Date(),priority:'medium'};
+ const message={id:randomUUID(),tenantId:'tenant-a',ticketId:ticket.id,author:agent,content:'Fixture message',isInternal:false};
+ const mail={sendMail:jest.fn().mockResolvedValue({success:true})};
+ const settings={getSiteSettings:jest.fn().mockResolvedValue({siteName:'Fixture'}),getDomain:jest.fn().mockResolvedValue('example.test')};
+ const ticketRepo={findOne:jest.fn().mockResolvedValue(ticket)};
+ const userRepo={findOne:jest.fn(async({where})=>[customer,agent].find(user=>user.id===where.id&&user.tenantId===where.tenantId))};
+ const messageRepo={findOne:jest.fn().mockResolvedValue(message)};
+ const service=new TicketEmailService(mail as never,settings as never,ticketRepo as never,messageRepo as never,userRepo as never);
+ const operations={created:()=>service.sendTicketCreatedEmail(ticket as never,customer as never),assigned:()=>service.sendTicketAssignedEmail(ticket as never,agent as never,agent as never),message:()=>service.sendNewMessageEmail(ticket as never,message as never,customer as never,false),resolved:()=>service.sendTicketResolvedEmail(ticket as never,customer as never,agent as never),breach:()=>service.sendSLABreachAlert(ticket as never,'resolution'),approaching:()=>service.sendSLAApproachingAlert(ticket as never,1),escalated:()=>service.sendTicketEscalatedEmail(ticket as never,agent as never,2,'Fixture')};
+ beforeEach(()=>{jest.clearAllMocks();mail.sendMail.mockResolvedValue({success:true});});
+ it.each(Object.keys(operations))('%s passes explicit tenant provider scope',async name=>{await operations[name]();expect(mail.sendMail).toHaveBeenCalledWith(expect.any(Object),'tenant-a');});
+ it.each(Object.keys(operations))('%s rejects provider false instead of fake delivery',async name=>{mail.sendMail.mockResolvedValueOnce({success:false});await expect(operations[name]()).rejects.toMatchObject({status:503});});
+ it.each(Object.keys(operations))('%s sanitizes provider exception',async name=>{mail.sendMail.mockRejectedValueOnce(new Error('provider-secret-sentinel'));await expect(operations[name]()).rejects.toMatchObject({status:503,message:'Ticket email delivery unavailable'});});
+ it('never sends customer mail to another tenant identity',async()=>{await expect(service.sendTicketCreatedEmail(ticket as never,{...customer,tenantId:'tenant-b'} as never)).rejects.toThrow();expect(mail.sendMail).not.toHaveBeenCalled();});
+ it('validates all manager recipients before partial delivery',async()=>{await expect(service.sendTicketCreatedEmail(ticket as never,customer as never,agent as never,[{...agent,tenantId:'tenant-b'}] as never)).rejects.toThrow();expect(mail.sendMail).not.toHaveBeenCalled();});
+ it('internal note cannot be delivered to ticket customer',async()=>{messageRepo.findOne.mockResolvedValueOnce({...message,isInternal:true});await expect(service.sendNewMessageEmail(ticket as never,{...message,isInternal:true} as never,customer as never,false)).rejects.toThrow();expect(mail.sendMail).not.toHaveBeenCalled();});
+ it('foreign message cannot select recipient using another ticket',async()=>{messageRepo.findOne.mockResolvedValueOnce(null);await expect(service.sendNewMessageEmail(ticket as never,{...message,ticketId:randomUUID()} as never,customer as never,false)).rejects.toThrow();expect(mail.sendMail).not.toHaveBeenCalled();});
+ it('SLA breach never falls back to global mailbox',async()=>{ticketRepo.findOne.mockResolvedValueOnce({...ticket,assignedTo:null});await expect(service.sendSLABreachAlert({...ticket,assignedTo:null} as never,'resolution')).rejects.toMatchObject({status:503});expect(mail.sendMail).not.toHaveBeenCalled();});
+ it('ignores spoofed caller mailbox and uses current stored recipient',async()=>{await service.sendTicketCreatedEmail(ticket as never,{...customer,email:'forged@example.test'} as never);expect(mail.sendMail).toHaveBeenCalledWith(expect.objectContaining({to:expect.objectContaining({email:customer.email})}),'tenant-a');});
+ it('rechecks stored internal-message flag instead of trusting supplied false',async()=>{messageRepo.findOne.mockResolvedValueOnce({...message,isInternal:true});await expect(service.sendNewMessageEmail(ticket as never,{...message,isInternal:false} as never,customer as never,false)).rejects.toThrow();expect(mail.sendMail).not.toHaveBeenCalled();});
+});

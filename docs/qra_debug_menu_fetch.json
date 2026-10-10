@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-02-12T19:26:56.014Z",
+  "circuit_id": "MENU_FETCH",
+  "node": "useEffect",
+  "service": "cmsMenuService.getMenus",
+  "context": "AUTOMATED_RES_FAIL"
+}

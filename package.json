@@ -1,0 +1,64 @@
+{
+  "name": "affexai-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hazarvolga/AffeXAI-Cortex.git"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "./dev.sh",
+    "stop": "./scripts/cleanup.sh",
+    "cleanup": "./scripts/cleanup.sh",
+    "dev": "./dev.sh",
+    "dev:parallel": "concurrently \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
+    "dev:backend": "pnpm --filter affexai-backend dev",
+    "dev:backend:watch": "pnpm --filter affexai-backend start:dev",
+    "dev:frontend": "pnpm --filter nextn dev",
+    "build": "pnpm run build:shared && pnpm run build:backend && pnpm run build:frontend",
+    "build:shared": "pnpm --filter @affexai/shared-types build",
+    "build:backend": "pnpm --filter affexai-backend build",
+    "build:frontend": "pnpm --filter nextn build",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
+    "ssl:generate": "tsx scripts/generate-ssl-certificates.ts",
+    "ssl:simple": "tsx scripts/generate-ssl-simplified.ts",
+    "ssl:manual": "tsx scripts/manual-ssl-guide.ts",
+    "prepare": "husky || true",
+    "typecheck:backend:build": "pnpm --filter affexai-backend typecheck:build"
+  },
+  "lint-staged": {
+    "apps/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "packages/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.json": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/pg": "^8.16.0",
+    "bcryptjs": "^3.0.3",
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "pg": "^8.18.0",
+    "playwright": "^1.56.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "pnpm": "11.17.0"
+  },
+  "packageManager": "pnpm@11.17.0"
+}

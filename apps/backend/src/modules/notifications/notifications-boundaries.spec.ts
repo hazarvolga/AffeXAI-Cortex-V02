@@ -1,0 +1,27 @@
+import { NotificationsService } from './notifications.service';
+import { TenantService } from '../../core/tenant/tenant.service';
+import { Repository, IsNull } from 'typeorm';
+import { Notification } from './entities/notification.entity';
+import { User } from '../users/entities/user.entity';
+const userId='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
+describe('persistent notification boundaries',()=>{
+ const tenant=new TenantService();let service:NotificationsService;let notifications:any;let users:any;
+ const row={id,userId,tenantId:'tenant-a',message:'original',isRead:false};
+ const data={userId,message:'Hello',type:'info'};
+ const scoped=<T>(fn:()=>T)=>tenant.runWithTenant({tenantId:'tenant-a',source:'authenticated'},fn);
+ beforeEach(()=>{notifications={find:jest.fn().mockResolvedValue([]),findOne:jest.fn().mockResolvedValue(row),update:jest.fn().mockResolvedValue({affected:1}),create:jest.fn(value=>value),save:jest.fn(async value=>value)};users={findOne:jest.fn().mockResolvedValue({id:userId,isActive:true,tenantId:'tenant-a'})};service=new NotificationsService(notifications,tenant,users);});
+ it('rejects public hints before access',async()=>{await expect(tenant.runWithTenant({tenantId:'tenant-a',source:'public'},()=>service.createNotification(data))).rejects.toThrow();expect(users.findOne).not.toHaveBeenCalled();});
+ it('fails closed without tenant',async()=>{await expect(service.createNotification(data)).rejects.toThrow();expect(users.findOne).not.toHaveBeenCalled();});
+ it('requires current active undeleted tenant recipient',async()=>{await scoped(()=>service.createNotification(data));expect(users.findOne).toHaveBeenCalledWith({where:{id:userId,tenantId:'tenant-a',isActive:true,deletedAt:IsNull()}});});
+ it('rejects unavailable recipient',async()=>{users.findOne.mockResolvedValue(null);await expect(scoped(()=>service.createNotification(data))).rejects.toThrow('Recipient not found');expect(notifications.save).not.toHaveBeenCalled();});
+ it.each(['invalid','',undefined])('rejects invalid recipient %s',async(value)=>{await expect(scoped(()=>service.createNotification({...data,userId:value as string}))).rejects.toThrow();expect(users.findOne).not.toHaveBeenCalled();});
+ it.each([null,[],{text:'x'.repeat(17000)}])('rejects invalid or oversized metadata',async(metadata)=>{await expect(scoped(()=>service.createNotification({...data,metadata}))).rejects.toThrow();expect(notifications.save).not.toHaveBeenCalled();});
+ it('rejects cyclic metadata safely',async()=>{const metadata:Record<string,unknown>={};metadata.self=metadata;await expect(scoped(()=>service.createNotification({...data,metadata}))).rejects.toMatchObject({status:400});});
+ it('does not persist unknown caller fields',async()=>{await scoped(()=>service.createNotification({...data,id,tenantId:'foreign',isRead:true} as typeof data));expect(notifications.create).toHaveBeenCalledWith({...data,tenantId:'tenant-a',metadata:undefined});});
+ it('bounds array list with stable ordering',async()=>{await scoped(()=>service.findAll(userId));expect(notifications.find).toHaveBeenCalledWith({where:{userId,tenantId:'tenant-a'},order:{createdAt:'DESC',id:'DESC'},take:100,skip:0});});
+ it('supports bounded pagination without envelope changes',async()=>{await scoped(()=>service.findAll(userId,20,40));expect(notifications.find).toHaveBeenCalledWith(expect.objectContaining({take:20,skip:40}));});
+ it.each([[0,0],[201,0],[1,-1],[1,1.5],[1,10001]])('rejects invalid pagination %s %s',async(limit,offset)=>{await expect(scoped(()=>service.findAll(userId,limit,offset))).rejects.toThrow();expect(notifications.find).not.toHaveBeenCalled();});
+ it('updates only isRead under identity predicates and reloads',async()=>{await scoped(()=>service.markAsRead(id,userId));expect(notifications.update).toHaveBeenCalledWith({id,userId,tenantId:'tenant-a'},{isRead:true});expect(notifications.save).not.toHaveBeenCalled();});
+ it('does not recreate a concurrently removed notification',async()=>{notifications.update.mockResolvedValue({affected:0});await expect(scoped(()=>service.markAsRead(id,userId))).rejects.toThrow('Notification not found');expect(notifications.save).not.toHaveBeenCalled();});
+ it('rejects malformed notification id before DB access',async()=>{await expect(scoped(()=>service.findOne('not-uuid',userId))).rejects.toMatchObject({status:400});expect(notifications.findOne).not.toHaveBeenCalled();});
+});

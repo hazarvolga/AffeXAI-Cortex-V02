@@ -1,0 +1,40 @@
+const assert=require('node:assert/strict');
+const {randomUUID}=require('node:crypto');
+const {DataSource}=require('typeorm');
+const {TenantEntityAlignment1791396000000}=require('./g3-alignment/migration.js');
+if(process.env.G3_ALIGNMENT_ISOLATED!=='1')throw new Error('Isolated migration marker required');
+const db=new DataSource({type:'postgres',host:'postgres-test',port:5432,username:'g0_test',password:'g0_ephemeral_local_only',database:'affexai_g0_ephemeral',entities:[],migrations:[TenantEntityAlignment1791396000000],synchronize:false});
+(async()=>{await db.initialize();const runner=db.createQueryRunner();const schema=`alignment_${randomUUID().replaceAll('-','')}`;
+try{
+ await runner.connect();await runner.startTransaction();await runner.query(`CREATE SCHEMA "${schema}"`);await runner.query(`SET LOCAL search_path TO "${schema}", public`);
+ await runner.query('CREATE TABLE email_campaigns(id uuid PRIMARY KEY, tenant_id varchar)');await runner.query('CREATE TABLE subscribers(id uuid PRIMARY KEY,tenant_id varchar)');
+ await runner.query('CREATE TABLE email_logs(id uuid PRIMARY KEY,campaign_id uuid,created_at timestamp NOT NULL,updated_at timestamp NOT NULL)');
+ await runner.query('CREATE TABLE email_campaign_variants(id uuid PRIMARY KEY,campaign_id uuid,"createdAt" timestamp NOT NULL,"updatedAt" timestamp NOT NULL)');
+ await runner.query('CREATE TABLE email_open_history(id uuid PRIMARY KEY,"campaignId" uuid,"subscriberId" uuid,"createdAt" timestamp NOT NULL)');
+ for(const table of ['ticket_assignment_rules','ticket_escalation_rules'])await runner.query(`CREATE TABLE ${table}(id uuid PRIMARY KEY,"createdAt" timestamp NOT NULL,"updatedAt" timestamp NOT NULL)`);
+ const campaign=randomUUID(),orphan=randomUUID(),subscriber=randomUUID(),foreign=randomUUID();const rows=Array.from({length:8},()=>randomUUID());const original='2020-01-02 03:04:05';
+ await runner.query('INSERT INTO email_campaigns VALUES($1,$2),($3,NULL)',[campaign,'tenant-a',orphan]);await runner.query('INSERT INTO subscribers VALUES($1,$2),($3,$4)',[subscriber,'tenant-a',foreign,'tenant-b']);
+ await runner.query('INSERT INTO email_logs VALUES($1,$2,$3,$3),($4,$5,$3,$3)',[rows[0],campaign,original,rows[1],orphan]);
+ await runner.query('INSERT INTO email_campaign_variants VALUES($1,$2,$3,$3)',[rows[2],campaign,original]);
+ await runner.query('INSERT INTO email_open_history VALUES($1,$2,$3,$4),($5,$2,$6,$4)',[rows[3],campaign,subscriber,original,rows[4],foreign]);
+ await runner.query('INSERT INTO ticket_assignment_rules VALUES($1,$2,$2)',[rows[5],original]);await runner.query('INSERT INTO ticket_escalation_rules VALUES($1,$2,$2)',[rows[6],original]);
+ const migration=new TenantEntityAlignment1791396000000();await migration.up(runner);
+ assert.equal((await runner.query('SELECT tenant_id FROM email_logs WHERE id=$1',[rows[0]]))[0].tenant_id,'tenant-a');
+ assert.equal((await runner.query('SELECT tenant_id FROM email_logs WHERE id=$1',[rows[1]]))[0].tenant_id,null);
+ assert.equal((await runner.query('SELECT tenant_id FROM email_campaign_variants'))[0].tenant_id,'tenant-a');
+ assert.equal((await runner.query('SELECT tenant_id FROM email_open_history WHERE id=$1',[rows[3]]))[0].tenant_id,'tenant-a');
+ assert.equal((await runner.query('SELECT tenant_id FROM email_open_history WHERE id=$1',[rows[4]]))[0].tenant_id,null);
+ for(const table of ['ticket_assignment_rules','ticket_escalation_rules']){const [row]=await runner.query(`SELECT tenant_id,created_at=timestamp '${original}' AS preserved,updated_at=created_at AS same FROM ${table}`);assert.equal(row.tenant_id,null);assert.equal(row.preserved,true);assert.equal(row.same,true);}
+ assert.equal((await runner.query('SELECT bool_and(updated_at=created_at) AS same FROM email_open_history'))[0].same,true);
+ await assert.rejects(migration.down(runner),/prevent alignment rollback/);
+ for(const table of ['email_logs','email_campaign_variants','email_open_history'])await runner.query(`UPDATE ${table} SET tenant_id=NULL`);
+ await runner.query('UPDATE email_open_history SET updated_at=created_at+interval \'1 second\'');await assert.rejects(migration.down(runner),/Modified history/);
+ await runner.query('UPDATE email_open_history SET updated_at=created_at');await migration.down(runner);
+ assert.equal((await runner.query('SELECT count(*)::int AS count FROM ticket_assignment_rules'))[0].count,1);
+ assert.equal((await runner.query('SELECT "createdAt"=timestamp \'2020-01-02 03:04:05\' AS preserved FROM ticket_assignment_rules'))[0].preserved,true);
+ await runner.rollbackTransaction();
+ const applied=await db.runMigrations({transaction:'all'});assert.ok(applied.length===0||applied.length===1);assert.equal((await db.runMigrations({transaction:'all'})).length,0);
+ const history=await db.query('SELECT name FROM migrations ORDER BY id');assert.ok(history.some(row=>row.name==='TenantEntityAlignment1791396000000'));
+ console.log('PASS: authoritative campaign backfill; conflicting subscriber quarantined; rules NULL; timestamps preserved; unsafe downgrade refused; safe quarantine-only downgrade retains rows; canonical migration12 applied; repeat0');
+}finally{if(runner.isTransactionActive)await runner.rollbackTransaction();await runner.release();await db.destroy();}
+})().catch(error=>{console.error(error.message);process.exitCode=1;});

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executive Sertifika</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 297mm;
+      height: 210mm;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      font-family: 'Times New Roman', serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .certificate {
+      width: 287mm;
+      height: 200mm;
+      background: #ffffff;
+      border: 12px solid #000000;
+      padding: 40px 60px;
+      position: relative;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.5);
+    }
+    
+    .certificate::before {
+      content: '';
+      position: absolute;
+      top: 25px;
+      left: 25px;
+      right: 25px;
+      bottom: 25px;
+      border: 3px solid #c9b037;
+      pointer-events: none;
+    }
+    
+    .certificate::after {
+      content: '';
+      position: absolute;
+      top: 30px;
+      left: 30px;
+      right: 30px;
+      bottom: 30px;
+      border: 1px solid #000000;
+      pointer-events: none;
+    }
+    
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 8px;
+      padding-top: 15px;
+      padding-bottom: 8px;
+    }
+    
+    .title {
+      font-size: 48px;
+      color: #000000;
+      font-weight: bold;
+      margin: 5px 0 5px 0;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      font-family: 'Georgia', serif;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #c9b037;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid #c9b037;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 600;
+    }
+    
+    .main-content {
+      text-align: center;
+      margin: 12px auto;
+    }
+    
+    .presented-to {
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .recipient {
+      font-size: 38px;
+      font-weight: bold;
+      color: #000000;
+      margin: 15px 0;
+      border-bottom: 4px solid #c9b037;
+      display: inline-block;
+      padding-bottom: 8px;
+    }
+    
+    .training-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin: 18px 0;
+      font-style: italic;
+    }
+    
+    .description {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.8;
+      text-align: center;
+      margin: 15px auto;
+      padding: 0 60px;
+      max-width: 750px;
+    }
+    
+    /* Logo section below description */
+    .logo-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 40px;
+      margin: 15px auto 20px auto;
+      max-width: 600px;
+      padding: 15px 0;
+    }
+    
+    .company-logo, .custom-logo {
+      width: 140px;
+      height: auto;
+      max-height: 80px;
+      object-fit: contain;
+    }
+    
+    /* Bottom left section */
+    .bottom-left {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      text-align: left;
+      font-size: 9px;
+      color: #555;
+      line-height: 1.4;
+      max-width: 250px;
+      z-index: 10;
+    }
+    
+    .certificate-info {
+      margin-bottom: 12px;
+      border-left: 3px solid #c9b037;
+      padding-left: 10px;
+    }
+    
+    .info-row {
+      display: flex;
+      margin-bottom: 5px;
+    }
+    
+    .info-label {
+      font-weight: bold;
+      min-width: 90px;
+      color: #000000;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    
+    .info-value {
+      color: #444;
+    }
+    
+    .company-info {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="certificate">
+    <div class="content">
+      <div class="header">
+        <div class="title">Sertifika</div>
+        <div class="subtitle">Profesyonel Başarı Belgesi</div>
+      </div>
+      
+      <div class="main-content">
+        <div class="presented-to">Bu sertifika</div>
+        <div class="recipient">{{recipientName}}</div>
+        <div class="training-title">{{trainingTitle}}</div>
+        <div class="presented-to">eğitimini üstün başarıyla tamamladığını belgeler</div>
+        
+        {{#if description}}
+        <div class="description">{{description}}</div>
+        {{/if}}
+      </div>
+      
+      <!-- Logos below description -->
+      <div class="logo-section">
+        {{#if companyLogoUrl}}
+        <img src="{{companyLogoUrl}}" alt="Firma Logosu" class="company-logo" />
+        {{/if}}
+        {{#if customLogoUrl}}
+        <img src="{{customLogoUrl}}" alt="Özel Logo" class="custom-logo" />
+        {{/if}}
+      </div>
+      
+      <!-- Bottom left: Certificate info + Company info -->
+      <div class="bottom-left">
+        <div class="certificate-info">
+          <div class="info-row">
+            <span class="info-label">Sertifika No:</span>
+            <span class="info-value">{{certificateNumber}}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Tarih:</span>
+            <span class="info-value">{{issuedAt}}</span>
+          </div>
+        </div>
+        
+        <div class="company-info">
+          {{companyName}}<br/>
+          {{companyAddress}}
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

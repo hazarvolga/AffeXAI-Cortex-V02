@@ -1,0 +1,578 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  /* Theme: Public Frontend */
+  .theme-public {
+    --background: 0 0% 98%;
+    --foreground: 220 13% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 9%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 220 13% 9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 210 20% 87%;
+    --input: 210 20% 87%;
+    --ring: 39 100% 54%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark .theme-public {
+    --background: 225 6% 9%;
+    --foreground: 216 14% 90%;
+    --card: 225 6% 9%;
+    --card-foreground: 216 14% 90%;
+    --popover: 225 6% 9%;
+    --popover-foreground: 216 14% 90%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 228 5% 13%;
+    --secondary-foreground: 216 14% 90%;
+    --muted: 228 6% 10%;
+    --muted-foreground: 216 10% 55%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 144 61% 20%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 228 5% 13%;
+    --input: 228 5% 13%;
+    --ring: 39 100% 54%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  /* Theme: Admin Panel */
+  .theme-admin {
+    --background: 0 0% 98%;
+    --foreground: 220 13% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 9%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 220 13% 9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 210 20% 87%;
+    --input: 210 20% 87%;
+    --ring: 39 100% 54%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark .theme-admin {
+    --background: 225 6% 9%;
+    --foreground: 216 14% 90%;
+    --card: 225 6% 9%;
+    --card-foreground: 216 14% 90%;
+    --popover: 225 6% 9%;
+    --popover-foreground: 216 14% 90%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 228 5% 13%;
+    --secondary-foreground: 216 14% 90%;
+    --muted: 228 6% 10%;
+    --muted-foreground: 216 10% 55%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 144 61% 20%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 228 5% 13%;
+    --input: 228 5% 13%;
+    --ring: 39 100% 54%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  /* Theme: Portal */
+  .theme-portal {
+    --background: 0 0% 98%;
+    --foreground: 220 13% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 9%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 220 13% 9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 210 20% 87%;
+    --input: 210 20% 87%;
+    --ring: 39 100% 54%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark .theme-portal {
+    --background: 225 6% 9%;
+    --foreground: 216 14% 90%;
+    --card: 225 6% 9%;
+    --card-foreground: 216 14% 90%;
+    --popover: 225 6% 9%;
+    --popover-foreground: 216 14% 90%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 228 5% 13%;
+    --secondary-foreground: 216 14% 90%;
+    --muted: 228 6% 10%;
+    --muted-foreground: 216 10% 55%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 144 61% 20%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --border: 228 5% 13%;
+    --input: 228 5% 13%;
+    --ring: 39 100% 54%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  /* Default root variables (fallback) */
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 220 13% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 9%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 220 13% 9%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 20% 87%;
+    --input: 210 20% 87%;
+    --ring: 39 100% 54%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 225 6% 9%;
+    --foreground: 216 14% 90%;
+    --card: 225 6% 9%;
+    --card-foreground: 216 14% 90%;
+    --popover: 225 6% 9%;
+    --popover-foreground: 216 14% 90%;
+    --primary: 39 100% 54%;
+    --primary-foreground: 220 13% 9%;
+    --secondary: 228 5% 13%;
+    --secondary-foreground: 216 14% 90%;
+    --muted: 228 6% 10%;
+    --muted-foreground: 216 10% 55%;
+    --accent: 39 100% 54%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 228 5% 13%;
+    --input: 228 5% 13%;
+    --ring: 39 100% 54%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Chrome interaction fix: prevent unexpected overlays from blocking clicks */
+    isolation: isolate;
+  }
+}
+
+/* Global Interaction Override */
+.pointer-events-auto-important {
+    pointer-events: auto !important;
+}
+
+/* Hide scrollbar but keep functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+  }
+}
+
+/* Tiptap Editor Styles */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.ProseMirror h1 {
+  font-size: 1.5rem;
+}
+
+.ProseMirror h2 {
+  font-size: 1.25rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.1rem;
+}
+
+.ProseMirror code {
+  background-color: hsl(var(--muted));
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.ProseMirror pre {
+  background-color: hsl(var(--muted));
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--primary));
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+}
+
+/* Hybrid Admin Login Styles */
+@layer components {
+
+  /* Hairline Input (Minimal Border Style) - Stitch Original */
+  .hairline-input {
+    border: none;
+    border-bottom: 1px solid #393528;
+    background: #ffffff;
+    border-radius: 0;
+    transition: border-color 0.2s ease;
+    padding: 1rem 0;
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: #000000;
+  }
+
+  .hairline-input::placeholder {
+    color: #393528;
+  }
+
+  .hairline-input:focus {
+    border-bottom: 1px solid #f2b90d;
+    box-shadow: none;
+    outline: none;
+  }
+
+  /* Hairline Input - Green Variant for Public Login */
+  .hairline-input-green {
+    border: none;
+    border-bottom: 1px solid #2d3a2d;
+    background: #ffffff;
+    border-radius: 0;
+    transition: border-color 0.2s ease;
+    padding: 1rem 0;
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: #000000;
+  }
+
+  .hairline-input-green::placeholder {
+    color: #2d3a2d;
+  }
+
+  .hairline-input-green:focus {
+    border-bottom: 1px solid #10b981;
+    box-shadow: none;
+    outline: none;
+  }
+
+  /* Tight Kerning for Headlines */
+  .kerning-tight {
+    letter-spacing: -0.05em;
+  }
+
+  /* Stitch Original Hairline Text */
+  .hairline-text {
+    font-weight: 100;
+    letter-spacing: -0.05em;
+  }
+
+  /* Amber Pulse Effect - Stitch Original */
+  .amber-pulse {
+    box-shadow: 0 0 15px rgba(249, 188, 6, 0.15);
+  }
+
+  /* Telemetry Text Style */
+  .telemetry-text {
+    font-family: 'Inter', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* HomePage v02 Styles */
+  .marginalia {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* 3D Container Setup */
+  .sculpture-container {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+    mask-image: radial-gradient(circle, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(circle, black 40%, transparent 80%);
+  }
+
+  /* 3D Rotation Animation */
+  @keyframes rotate-3d {
+    0% {
+      transform: rotate3d(1, 1, 1, 0deg);
+    }
+
+    100% {
+      transform: rotate3d(1, 1, 1, 360deg);
+    }
+  }
+
+  @keyframes rotate-3d-reverse {
+    0% {
+      transform: rotate3d(1, -1, 0, 0deg);
+    }
+
+    100% {
+      transform: rotate3d(1, -1, 0, 360deg);
+    }
+  }
+
+  /* Organic Path Flow */
+  @keyframes organic-flow {
+    0% {
+      stroke-dashoffset: 0;
+      opacity: 0.3;
+    }
+
+    50% {
+      opacity: 0.8;
+    }
+
+    100% {
+      stroke-dashoffset: 100;
+      opacity: 0.3;
+    }
+  }
+
+  /* Filament Base Styles */
+  .filament {
+    stroke-width: 0.3;
+    opacity: 0.5;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 10 20;
+    /* Dashed line for flow effect */
+    animation: organic-flow 20s linear infinite;
+  }
+
+  /* Specialized Orbit Classes (Applied via JS/React) */
+  .orbit-1 {
+    animation: rotate-3d 60s linear infinite;
+  }
+
+  .orbit-2 {
+    animation: rotate-3d-reverse 80s linear infinite;
+  }
+
+  .orbit-3 {
+    animation: rotate-3d 90s linear infinite reverse;
+  }
+
+  .sculpture-container {
+    mask-image: radial-gradient(circle, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(circle, black 40%, transparent 80%);
+  }
+
+  /* Features Page Styles */
+  .kerning-wide {
+    letter-spacing: 0.2em;
+  }
+
+  .bg-matte {
+    background-color: #0a0a0a;
+  }
+
+  .border-amber-ceremonial {
+    border-left: 1px solid #f9bc06;
+  }
+
+  /* BCC Specific Styles */
+  .bcc-glass {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-cyan-500/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)];
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(12, minmax(60px, auto));
+    gap: 1.5rem;
+  }
+
+  .hazy-future {
+    mask-image: linear-gradient(to right, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 50%, transparent 100%);
+  }
+
+  @keyframes scan {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(240px); }
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(19, 200, 236, 0.2);
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(19, 200, 236, 0.4);
+  }
+}

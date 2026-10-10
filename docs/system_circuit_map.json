@@ -1,0 +1,273 @@
+{
+    "project": "AffeXAI",
+    "version": "1.1.0-dev",
+    "system": "AffeXAI dev",
+    "last_audit": "2026-02-12T22:45:00Z",
+    "modules": {
+        "social": {
+            "path": "apps/frontend/src/app/[tenant]/admin/social",
+            "circuits": [
+                {
+                    "id": "SOCIAL_COMPOSE",
+                    "node": "Compose Signal",
+                    "service": "socialMediaService.createPost",
+                    "status": "REPAIRED"
+                },
+                {
+                    "id": "SOCIAL_DELETE",
+                    "node": "Trash2 Icon",
+                    "service": "socialMediaService.deletePost",
+                    "status": "REPAIRED"
+                },
+                {
+                    "id": "SOCIAL_ANALYTICS",
+                    "node": "useEffect",
+                    "service": "socialMediaService.getStats",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "backup": {
+            "path": "apps/frontend/src/app/[tenant]/admin/settings/backup",
+            "circuits": [
+                {
+                    "id": "BACKUP_TRIGGER",
+                    "node": ":: EXECUTE_PULSE",
+                    "service": "backupService.createBackup",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "BACKUP_CLOUD_TEST",
+                    "node": ":: TEST_SIGNAL",
+                    "service": "backupService.testCloudConnection",
+                    "status": "REPAIRED"
+                },
+                {
+                    "id": "BACKUP_CLOUD_PERSIST",
+                    "node": ":: PERSIST_LINK",
+                    "service": "backupService.updateConfig",
+                    "status": "REPAIRED"
+                }
+            ]
+        },
+        "theme": {
+            "path": "apps/frontend/src/app/[tenant]/admin/settings/theme",
+            "circuits": [
+                {
+                    "id": "THEME_SAVE",
+                    "node": "Save Button",
+                    "service": "ThemeSettingsService.updateThemeSettings",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "MENU_FETCH",
+                    "node": "useEffect",
+                    "service": "cmsMenuService.getMenus",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "site_settings": {
+            "path": "apps/frontend/src/app/[tenant]/admin/settings/site",
+            "circuits": [
+                {
+                    "id": "SITE_SAVE",
+                    "node": "Save Button",
+                    "service": "settingsService.updateSiteSettings",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "STORAGE_SAVE",
+                    "node": "Storage Save",
+                    "service": "settingsService.updateStorageSettings",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "EMAIL_TEST",
+                    "node": "Send Test Email",
+                    "service": "handleSendTestEmail",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "ai_settings": {
+            "path": "apps/frontend/src/app/[tenant]/admin/ai-settings",
+            "circuits": [
+                {
+                    "id": "AI_CONFIG_SAVE",
+                    "node": "PERSIST_RESONANCE",
+                    "service": "settingsService.updateAiSettings",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "AI_CONN_TEST",
+                    "node": "Test Connection",
+                    "service": "settingsService.testAiConnection",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "crm": {
+            "path": "apps/frontend/src/app/[tenant]/admin/crm",
+            "circuits": [
+                {
+                    "id": "CRM_FETCH",
+                    "node": "useEffect",
+                    "service": "crmService.getAll",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "CRM_CREATE",
+                    "node": "Create Card",
+                    "service": "crmService.create",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "events": {
+            "path": "apps/frontend/src/app/[tenant]/admin/events",
+            "circuits": [
+                {
+                    "id": "EVENT_PARTICIPANT_ADD",
+                    "node": "CONFIRM_DEPLOYMENT",
+                    "service": "eventsService.addParticipant",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "EVENT_STATUS_UPDATE",
+                    "node": "Update Status",
+                    "service": "eventsService.updateParticipantStatus",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "EVENT_CERT_GEN",
+                    "node": "Execute Bulk Generation",
+                    "service": "eventsService.generateCertificates",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "cms_components": {
+            "path": "apps/frontend/src/app/[tenant]/admin/cms/reusable-components",
+            "circuits": [
+                {
+                    "id": "CMS_COMP_CREATE",
+                    "node": "Create Button",
+                    "service": "ReusableComponentsService.create",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "CMS_COMP_DELETE",
+                    "node": "Delete Action",
+                    "service": "ReusableComponentsService.delete",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "CMS_COMP_FAV",
+                    "node": "Toggle Favorite",
+                    "service": "ReusableComponentsService.addToFavorites",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "cms_favorites": {
+            "path": "apps/frontend/src/app/[tenant]/admin/cms/favorites",
+            "circuits": [
+                {
+                    "id": "CMS_FAV_FETCH",
+                    "node": "useEffect",
+                    "service": "ReusableComponentsService.getFavorites",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "CMS_FAV_REMOVE",
+                    "node": "Remove Icon",
+                    "service": "ReusableComponentsService.removeFromFavorites",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "support_tickets": {
+            "path": "apps/frontend/src/app/[tenant]/admin/support/[ticketId]",
+            "circuits": [
+                {
+                    "id": "TICKET_MSG_ADD",
+                    "node": "Add Message",
+                    "service": "ticketsService.addMessage",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "TICKET_STATUS",
+                    "node": "Status Change",
+                    "service": "ticketsService.updateTicketStatus",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "TICKET_ASSIGN",
+                    "node": "Assign Agent",
+                    "service": "ticketsService.assignTicket",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "support_faq_learning": {
+            "path": "apps/frontend/src/app/[tenant]/admin/support/faq-learning",
+            "circuits": [
+                {
+                    "id": "FAQ_LEARNING_STATS",
+                    "node": "Dashboard Stats",
+                    "service": "FaqLearningService.getDashboardStats",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "FAQ_PIPELINE_START",
+                    "node": "Start Pipeline",
+                    "service": "FaqLearningService.startPipeline",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "FAQ_PIPELINE_STOP",
+                    "node": "Stop Pipeline",
+                    "service": "FaqLearningService.stopPipeline",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "support_ai_faq": {
+            "path": "apps/frontend/src/app/[tenant]/admin/support/ai-faq",
+            "circuits": [
+                {
+                    "id": "AI_FAQ_GEN",
+                    "node": "Generate FAQs",
+                    "service": "aiFaqService.generate",
+                    "status": "STABLE"
+                },
+                {
+                    "id": "AI_FAQ_APPROVE",
+                    "node": "Approve Action",
+                    "service": "aiFaqService.approve",
+                    "status": "STABLE"
+                }
+            ]
+        },
+        "macros": {
+            "path": "apps/frontend/src/app/[tenant]/admin/support/macros",
+            "circuits": [
+                {
+                    "id": "MACRO_CREATE",
+                    "node": "Create Form",
+                    "service": "macroService.create",
+                    "status": "STABLE"
+                }
+            ]
+        }
+    },
+    "deep_dive_hooks": {
+        "on_failure": "trigger_system_debug",
+        "parameters": [
+            "traceId",
+            "errorCode",
+            "payload"
+        ]
+    }
+}

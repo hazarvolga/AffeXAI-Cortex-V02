@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { emailMarketingBackendApiUrl } from '../backend-url';
+
+const BACKEND_URL = emailMarketingBackendApiUrl();
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+
+export async function POST(request: NextRequest) {
+  try {
+    const authHeaders = BACKEND_API_KEY
+      ? { 'x-api-key': BACKEND_API_KEY }
+      : undefined;
+
+    const body = await request.json();
+
+    const response = await fetch(`${BACKEND_URL}/email-marketing/ab-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeaders || {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return NextResponse.json(
+        { error: error.message || 'Failed to create A/B test' },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error creating A/B test:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

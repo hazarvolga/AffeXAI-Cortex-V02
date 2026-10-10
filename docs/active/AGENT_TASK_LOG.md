@@ -1,0 +1,59 @@
+# Auth Architecture Restructuring & cleanup
+
+- [x] **Analysis & Planning**
+    - [x] Analyze `docs/multi-tenant.MD` <!-- id: 0 -->
+    - [x] Create `docs/PLAN_AUTH_RESTRUCTURE.md` <!-- id: 1 -->
+    - [x] Conduct Deep Research & GAP Analysis (`docs/PROJECT_GAP_REPORT.md`) <!-- id: 1a -->
+    - [x] Create Master Plan `docs/PLAN_ARCHITECTURAL_EVOLUTION.md` <!-- id: 1b -->
+- [ ] **Phase 1: Structural Core Migration**
+    - [ ] Create `src/core` and subdirectories (`auth`, `database`, `tenant`, etc) <!-- id: 1c -->
+    - [ ] Move files from `src/` root to `src/core/` <!-- id: 1d -->
+    - [ ] Update imports across backend <!-- id: 1e -->
+- [ ] **Database & Roles Remediation**
+    - [ ] Create `seed-roles-restructure.ts` to clean and re-seed roles correctly <!-- id: 2 -->
+    - [ ] Execute role restructuring seed <!-- id: 3 -->
+    - [ ] Verify `roles` table content <!-- id: 4 -->
+- [/] **Phase 6: System Audit & Consolidation**
+    - [x] Resolve Dual Auth conflict (Verified centralized in core/auth)
+    - [ ] Audit `OrganizationsModule` for `TenantService` integration
+    - [x] Refactor Media module for automated tenant scoping
+    - [x] Refactor Events module for automated tenant scoping
+    - [x] Refactor Tickets module for automated tenant scoping
+        - [x] Integrate TenantService into TicketsService
+        - [x] Restore missing getStats method and constructor
+        - [x] Resolve all lint errors and fix malformed syntax in TicketsService
+        - [x] Update TicketsController to remove manual tenant extraction
+    - [x] Verify tenant scoping for all refactored modules (Verified via `verify-tenant-isolation.ts`)
+    - [ ] Run full test suite to ensure no regressions
+    - [x] Audit `RolesModule` for `TenantService` integration (Verified integrated)
+    - [x] Run final cross-tenant security verification (Passed `test-tenant-guard.ts`)
+    - [ ] **Automated Tenant Scoping Standardization (Backlog)**
+        - [ ] `EmailMarketingModule`
+        - [ ] `CmsModule`
+        - [ ] `CrmModule`
+        - [ ] `ChatModule`
+        - [ ] `AnalyticsModule`
+        - [ ] `PlatformIntegrationModule`
+        - [ ] `KnowledgeSourcesModule`
+        - [ ] `BrandModule`
+        - [ ] `SocialMediaModule`
+- [x] **Phase 5: User Account Repair**
+    - [x] Restore `superuser@affexai.com` with correct `SuperAdmin` role and `tenantId: null`
+    - [x] Verify SuperAdmin bypass in `TenantGuard` (Verified via logic & provisioning)
+- [x] **Phase 3: Tenant Isolation Verification**
+    - [x] Fix `UsersService` to use `TenantService`
+    - [x] Fix entity `ColumnTypeUndefinedError` across 8+ modules
+    - [x] Verify Isolation with `scripts/verify-tenant-isolation.ts`
+- [x] **Phase 4: Auth & Tenant Guard Integration**
+    - [x] Refine `JwtStrategy` to include `tenantId` in `request.user`
+    - [x] Update `TenantMiddleware` to support JWT context
+    - [x] Implement `TenantGuard` for cross-tenant security
+    - [x] Verify security with `scripts/test-tenant-guard.ts`
+- [x] **Milestone: Commit Progress**
+    - [x] Integrate `TenantService` in `UsersModule`
+    - [x] Update `UsersService` methods with tenant context
+    - [x] Verify user isolation with `verify-tenant-isolation.ts` (Fixed 30+ entities across 8 modules) <!-- id: 11 -->
+- [x] **Session Consolidation & Handoff**
+    - [x] Create `restore_point.md` with tomorrow's starting point
+    - [x] Commit all changes to repository with comprehensive message
+    - [x] Finalize audit results in `walkthrough.md`

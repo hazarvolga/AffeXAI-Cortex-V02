@@ -1,0 +1,190 @@
+/* Global CSS/Tailwind Utilities for CMS Effects */
+
+/* Smooth transitions and hover effects */
+.cms-transition {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.cms-hover-scale {
+  @apply hover:scale-105 cms-transition;
+}
+
+.cms-hover-glow {
+  @apply hover:shadow-lg cms-transition;
+}
+
+.cms-hover-lift {
+  @apply hover:-translate-y-1 cms-transition;
+}
+
+/* Interactive states */
+.cms-focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50;
+}
+
+.cms-active-scale {
+  @apply active:scale-95 cms-transition;
+}
+
+/* Animation utilities */
+.cms-animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.cms-animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.cms-animate-pulse-subtle {
+  animation: pulseSubtle 2s infinite;
+}
+
+/* Keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseSubtle {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Layout utilities */
+.cms-container-responsive {
+  @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.cms-grid-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+.cms-flex-center {
+  @apply flex items-center justify-center;
+}
+
+/* Text effects */
+.cms-text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+}
+
+.cms-text-shadow {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cms-text-glow {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+/* Background effects */
+.cms-bg-gradient-primary {
+  @apply bg-gradient-to-r from-blue-500 to-indigo-600;
+}
+
+.cms-bg-gradient-secondary {
+  @apply bg-gradient-to-r from-gray-500 to-gray-700;
+}
+
+.cms-bg-pattern-dots {
+  background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Border effects */
+.cms-border-glow {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.cms-border-gradient {
+  border: 2px solid;
+  border-image: linear-gradient(45deg, #3b82f6, #8b5cf6) 1;
+}
+
+/* Component-specific utilities */
+.cms-card-hover {
+  @apply cms-hover-scale cms-hover-glow rounded-xl overflow-hidden;
+}
+
+.cms-button-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90 cms-transition cms-focus-ring cms-active-scale;
+}
+
+.cms-button-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 cms-transition cms-focus-ring cms-active-scale;
+}
+
+.cms-input-field {
+  @apply border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground cms-focus-ring;
+}
+
+/* Responsive utilities */
+.cms-responsive-padding {
+  @apply py-4 px-4 sm:py-6 sm:px-6 lg:py-8 lg:px-8;
+}
+
+.cms-responsive-margin {
+  @apply my-4 sm:my-6 lg:my-8;
+}
+
+/* Accessibility utilities */
+.cms-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .cms-transition,
+  .cms-hover-scale,
+  .cms-hover-glow,
+  .cms-hover-lift,
+  .cms-active-scale {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .cms-animate-fade-in,
+  .cms-animate-slide-up,
+  .cms-animate-pulse-subtle {
+    animation: none !important;
+  }
+}
+
+/* Dark mode utilities */
+.dark .cms-bg-pattern-dots {
+  background-image: radial-gradient(circle, #475569 1px, transparent 1px);
+}
+
+/* Focus visible utilities */
+.cms-focus-visible {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-opacity-50;
+}

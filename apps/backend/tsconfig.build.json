@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "src/app",
+    "src/components",
+    "src/styles",
+    "src/emails",
+    "src/hooks",
+    "src/lib",
+    "src/ai",
+    "src/modules/email-marketing/templates/_archive_legacy_tsx_templates",
+    "**/*.test.ts",
+    "**/__tests__",
+    "src/setupTests.ts"
+  ]
+}

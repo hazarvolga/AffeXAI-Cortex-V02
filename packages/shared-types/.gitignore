@@ -1,0 +1,6 @@
+# Shared Types Package
+
+node_modules/
+dist/
+*.log
+.DS_Store

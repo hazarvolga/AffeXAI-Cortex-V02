@@ -1,0 +1,19 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm v11: build script onayı (ERR_PNPM_IGNORED_BUILDS çözümü).
+# Değeri true yapan paketlerin install script'leri çalıştırılır.
+allowBuilds:
+  '@firebase/util': true
+  '@scarf/scarf': true
+  '@swc/core': true
+  'core-js': true
+  'cpu-features': true
+  'esbuild': true
+  'msgpackr-extract': true
+  'protobufjs': true
+  'puppeteer': true
+  'sharp': true
+  'ssh2': true
+  'unrs-resolver': true

@@ -1,0 +1,207 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+  HUSKY: '0'
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      # file: dependencies must snapshot the compiled shared package.
+      - name: Install shared build dependencies
+        run: pnpm --filter @affexai/shared-types install --frozen-lockfile
+      - name: Build shared types
+        run: pnpm build:shared
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Lint without modifying source
+        run: pnpm --filter affexai-backend exec eslint "{src,apps,libs,test}/**/*.ts"
+      - name: Full TypeScript check
+        run: pnpm --filter affexai-backend typecheck
+      - name: Tests and measured coverage
+        id: coverage
+        run: pnpm --filter affexai-backend test:cov --runInBand
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-only-test-secret-not-for-any-deployed-environment
+      - name: Upload measured coverage
+        if: ${{ always() && steps.coverage.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: apps/backend/coverage/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Build
+        run: pnpm build:backend
+        env:
+          NODE_ENV: production
+
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      # file: dependencies must snapshot the compiled shared package.
+      - name: Install shared build dependencies
+        run: pnpm --filter @affexai/shared-types install --frozen-lockfile
+      - name: Build shared types
+        run: pnpm build:shared
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm --filter nextn exec eslint .
+      - name: TypeScript check
+        run: pnpm --filter nextn typecheck
+      - name: Targeted frontend transport, email and editor contracts (not E2E)
+        env:
+          TSX_TSCONFIG_PATH: ../frontend/tsconfig.json
+        run: >-
+          pnpm --filter affexai-backend exec tsx --test
+          ../frontend/src/components/admin/email-marketing/bulk-contracts.test.ts
+          ../frontend/src/emails/email-render-contracts.test.ts
+          ../frontend/src/components/__tests__/editor-log-regressions.test.mjs
+      - name: Build
+        run: pnpm build:frontend
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:9006
+          NEXT_PUBLIC_SOCKET_URL: http://127.0.0.1:9006
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:9003
+
+  migrations:
+    name: Migration Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: affexai_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres -d affexai_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: '5432'
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: affexai_ci
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      # file: dependencies must snapshot the compiled shared package.
+      - name: Install shared build dependencies
+        run: pnpm --filter @affexai/shared-types install --frozen-lockfile
+      - name: Build shared types
+        run: pnpm build:shared
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Run canonical migrations on empty CI database
+        run: pnpm --filter affexai-backend exec typeorm-ts-node-commonjs -d ./src/core/database/data-source.ts migration:run
+      - name: Verify migration discovery and repeat-run idempotence
+        working-directory: apps/backend
+        run: |
+          pnpm exec ts-node <<'TS'
+          import assert from 'node:assert/strict';
+          import dataSource from './src/core/database/data-source';
+          async function verify() {
+            try {
+              await dataSource.initialize();
+              const expected = [
+                'InitialSchema1771006556552', 'AddBccSignals1771008872029',
+                'AddFormsTable1771009842032', 'CreateCommerceTables1771449820476',
+                'AddMetadataToUsageRecord1771449820477',
+                'SubscriberTenantEmailUnique1791374400000',
+              ];
+              for (const name of expected) {
+                assert.ok(dataSource.migrations.some(m => m.constructor.name === name), `Missing migration: ${name}`);
+              }
+              const runner = dataSource.createQueryRunner();
+              try {
+                for (const table of ['users', 'bcc_signals', 'forms', 'form_submissions', 'products', 'prices', 'subscriptions', 'usage_records']) {
+                  assert.ok(await runner.hasTable(table), `Missing table: ${table}`);
+                }
+                assert.ok(await runner.hasColumn('usage_records', 'metadata'), 'Missing usage metadata');
+              } finally {
+                await runner.release();
+              }
+              assert.equal(await dataSource.showMigrations(), false, 'Pending migrations remain');
+              assert.equal((await dataSource.runMigrations({ transaction: 'all' })).length, 0, 'Second run applied migrations');
+            } finally {
+              if (dataSource.isInitialized) await dataSource.destroy();
+            }
+          }
+          verify().catch(error => { console.error(error); process.exitCode = 1; });
+          TS
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Dedicated scanner redacts findings and returns nonzero on detected secrets.
+      # Pinned CLI avoids action licensing requirements and never uploads findings.
+      - name: Scan tracked history for secrets
+        run: >-
+          docker run --rm --network none
+          -v "$GITHUB_WORKSPACE:/source:ro"
+          ghcr.io/gitleaks/gitleaks:v8.24.2
+          git /source --redact=100 --no-banner --exit-code=1
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install locked workspace without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit production dependencies (fail closed)
+        run: pnpm audit --prod --audit-level moderate

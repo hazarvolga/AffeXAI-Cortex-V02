@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "summary": {
+    "totalPages": 0,
+    "totalComponents": 0,
+    "totalMediaEntities": 0,
+    "errorCount": 0,
+    "warningCount": 0,
+    "validPages": 0,
+    "validComponents": 0,
+    "validMediaEntities": 0
+  }
+}

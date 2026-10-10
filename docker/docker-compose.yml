@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: affexai-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: affexai_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      # IMPORTANT: Database persisted to local directory for backup
+      # This directory will be included in automated backups
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - affexai-network
+    restart: unless-stopped  # Auto-restart on failure
+
+  redis:
+    image: redis:7-alpine
+    container_name: affexai-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      # IMPORTANT: Redis data persisted to local directory for backup
+      # This directory will be included in automated backups
+      - ./data/redis:/data
+    command: redis-server --appendonly yes  # Enable persistence
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - affexai-network
+    restart: unless-stopped  # Auto-restart on failure
+
+  minio:
+    image: minio/minio:latest
+    container_name: affexai-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9007:9000"  # API port
+      - "9008:9001"  # Console port (web UI)
+    volumes:
+      # IMPORTANT: Data persisted to local directory for backup
+      # This directory will be included in automated backups
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - affexai-network
+    restart: unless-stopped  # Auto-restart on failure
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  affexai-network:
+    driver: bridge

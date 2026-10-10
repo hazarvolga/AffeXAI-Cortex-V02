@@ -1,0 +1,149 @@
+{
+  "title": "Allplan Ürün Ailesi",
+  "slug": "products/allplan",
+  "description": "Tasarım, mühendislik ve inşaat için her ihtiyaca yönerik kapsamlı BIM çözümleri.",
+  "status": "published",
+  "layoutOptions": {
+    "showHeader": true,
+    "showFooter": true
+  },
+  "components": [
+    {
+      "type": "block",
+      "props": {
+        "blockId": "hero-with-background-image",
+        "title": "Allplan Ürün Ailesi",
+        "subtitle": "Tasarım, mühendislik ve inşaat için her ihtiyaca yönerik kapsamlı BIM çözümleri.",
+        "backgroundImage": "https://images.unsplash.com/photo-1487958449943-2429e8be8625?q=80&w=1600&auto=format&fit=crop",
+        "imageHint": "modern building architecture"
+      },
+      "orderIndex": 0
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "content-section-with-title",
+        "title": "Projeniz İçin Doğru Allplan Seçin",
+        "content": "Allplan, temel 2B çizimden en karmaşık BIM projelerine kadar her ölçekteki ihtiyaca cevap veren esnek bir ürün yelpazesi sunar.",
+        "alignment": "center",
+        "maxWidth": "3xl"
+      },
+      "orderIndex": 1
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "📐",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Basic",
+        "content": "Temel 2B çizim ve 3B modelleme ihtiyaçlarınız için güçlü ve ekonomik bir başlangıç.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/basic",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 2
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "✏️",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Concept",
+        "content": "Kavramsal tasarım, hızlı görselleştirme ve sunum için ideal araçlar sunar.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/concept",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 3
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "🏗️",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Professional",
+        "content": "Mimarlar ve mühendisler için tüm profesyonel araçları içeren kapsamlı BIM çözümü.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/professional",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 4
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "🏆",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Ultimate",
+        "content": "Tüm Allplan özelliklerini ve modüllerini içeren, en üst düzey projeler için nihai paket.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/ultimate",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 5
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "🛣️",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Civil",
+        "content": "İnşaat mühendisliği ve altyapı projeleri için özel olarak tasarlanmış çözümler sunar.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/civil",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 6
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "special-feature-card-single",
+        "icon": "🏭",
+        "iconType": "emoji",
+        "iconBackground": true,
+        "title": "Allplan Precast",
+        "content": "Prefabrik elemanların tasarımı, detaylandırılması ve üretimi için otomasyon sağlar.",
+        "enableButton": true,
+        "buttonText": "Detayları İncele",
+        "buttonVariant": "default",
+        "buttonHref": "/products/allplan/precast",
+        "enableHoverEffect": true
+      },
+      "orderIndex": 7
+    },
+    {
+      "type": "block",
+      "props": {
+        "blockId": "content-with-call-to-action",
+        "title": "Hangi Paketin Size Uygun Olduğundan Emin Değil Misiniz?",
+        "content": "Paketleri karşılaştırarak özelliklerini detaylıca inceleyin veya uzman ekibimizden projenize özel öneriler alın.",
+        "primaryButtonText": "Satış Temsilcisine Ulaşın",
+        "primaryButtonHref": "/contact",
+        "secondaryButtonText": "Paketleri Karşılaştır",
+        "backgroundColor": "secondary"
+      },
+      "orderIndex": 8
+    }
+  ]
+}

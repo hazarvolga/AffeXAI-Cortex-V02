@@ -1,0 +1,214 @@
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
+import { DataSource } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as sharp from 'sharp';
+import { Component } from '../modules/cms/entities/component.entity';
+import { ComponentType } from '@affexai/shared-types';
+
+// Component-based image size recommendations
+const IMAGE_SIZE_RECOMMENDATIONS = {
+  hero: { width: 1920, height: 1080, quality: 85 },
+  card: { width: 600, height: 400, quality: 80 },
+  thumbnail: { width: 300, height: 200, quality: 75 },
+  icon: { width: 100, height: 100, quality: 90 },
+  gallery: { width: 1200, height: 800, quality: 85 },
+  background: { width: 1920, height: 1080, quality: 80 },
+  default: { width: 800, height: 600, quality: 80 },
+};
+
+interface ImageOptimizationResult {
+  originalPath: string;
+  optimizedPath: string;
+  originalSize: number;
+  optimizedSize: number;
+  savings: number;
+  componentType: string;
+}
+
+async function optimizeMigratedImages() {
+  console.log('🖼️  Starting Image Optimization...\n');
+
+  const app = await NestFactory.createApplicationContext(AppModule);
+  const dataSource = app.get(DataSource);
+
+  try {
+    const componentRepository = dataSource.getRepository(Component);
+
+    // Get all image components
+    const imageComponents = await componentRepository.find({
+      where: { type: ComponentType.IMAGE },
+    });
+
+    console.log(`📊 Found ${imageComponents.length} image components to optimize\n`);
+
+    const results: ImageOptimizationResult[] = [];
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+
+    // MinIO uploads directory
+    const uploadsDir = path.join(__dirname, '../../extracted_pages/uploads');
+    
+    if (!fs.existsSync(uploadsDir)) {
+      console.error('❌ Uploads directory not found:', uploadsDir);
+      process.exit(1);
+    }
+
+    for (const component of imageComponents) {
+      try {
+        const imageSrc = component.props?.src;
+        
+        if (!imageSrc || typeof imageSrc !== 'string') {
+          skipCount++;
+          continue;
+        }
+
+        // Extract filename from MinIO path
+        const filename = imageSrc.split('/').pop();
+        if (!filename) {
+          skipCount++;
+          continue;
+        }
+
+        const originalPath = path.join(uploadsDir, filename);
+        
+        if (!fs.existsSync(originalPath)) {
+          console.log(`⏭️  Skipping ${filename} (file not found)`);
+          skipCount++;
+          continue;
+        }
+
+        // Determine optimal size based on component context
+        const sizeConfig = determineOptimalSize(component);
+        
+        // Get original file size
+        const originalStats = fs.statSync(originalPath);
+        const originalSize = originalStats.size;
+
+        // Skip if already optimized (< 200KB)
+        if (originalSize < 200 * 1024) {
+          console.log(`⏭️  Skipping ${filename} (already optimized: ${(originalSize / 1024).toFixed(2)}KB)`);
+          skipCount++;
+          continue;
+        }
+
+        // Create optimized version
+        const optimizedFilename = `optimized_${filename}`;
+        const optimizedPath = path.join(uploadsDir, optimizedFilename);
+
+        await sharp(originalPath)
+          .resize(sizeConfig.width, sizeConfig.height, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: sizeConfig.quality, progressive: true })
+          .png({ quality: sizeConfig.quality, compressionLevel: 9 })
+          .webp({ quality: sizeConfig.quality })
+          .toFile(optimizedPath);
+
+        const optimizedStats = fs.statSync(optimizedPath);
+        const optimizedSize = optimizedStats.size;
+        const savings = ((originalSize - optimizedSize) / originalSize) * 100;
+
+        results.push({
+          originalPath: filename,
+          optimizedPath: optimizedFilename,
+          originalSize,
+          optimizedSize,
+          savings,
+          componentType: component.blockType || 'default',
+        });
+
+        // Update component with optimized image path
+        component.props.src = imageSrc.replace(filename, optimizedFilename);
+        await componentRepository.save(component);
+
+        console.log(`✅ Optimized: ${filename} → ${(savings.toFixed(2))}% smaller`);
+        successCount++;
+
+      } catch (error) {
+        console.error(`❌ Error optimizing image:`, error.message);
+        errorCount++;
+      }
+    }
+
+    // Generate optimization report
+    const totalOriginalSize = results.reduce((sum, r) => sum + r.originalSize, 0);
+    const totalOptimizedSize = results.reduce((sum, r) => sum + r.optimizedSize, 0);
+    const totalSavings = ((totalOriginalSize - totalOptimizedSize) / totalOriginalSize) * 100;
+
+    console.log(`\n📊 Optimization Results:`);
+    console.log(`   ✅ Optimized: ${successCount}`);
+    console.log(`   ⏭️  Skipped: ${skipCount}`);
+    console.log(`   ❌ Errors: ${errorCount}`);
+    console.log(`\n💾 Storage Savings:`);
+    console.log(`   Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`   Optimized: ${(totalOptimizedSize / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`   Saved: ${totalSavings.toFixed(2)}%`);
+
+    // Save detailed report
+    const reportPath = path.join(__dirname, '../../extracted_pages/IMAGE_OPTIMIZATION_REPORT.json');
+    fs.writeFileSync(reportPath, JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      totalImages: imageComponents.length,
+      optimized: successCount,
+      skipped: skipCount,
+      errors: errorCount,
+      totalOriginalSize,
+      totalOptimizedSize,
+      totalSavings,
+      details: results,
+    }, null, 2));
+
+    console.log(`\n📄 Detailed report saved: IMAGE_OPTIMIZATION_REPORT.json`);
+
+  } catch (error) {
+    console.error('\n❌ Optimization failed:', error.message);
+    console.error(error.stack);
+    process.exit(1);
+  } finally {
+    await app.close();
+  }
+}
+
+function determineOptimalSize(component: Component): { width: number; height: number; quality: number } {
+  const blockType = component.blockType?.toLowerCase();
+  const props = component.props || {};
+
+  // Check if component has specific size hints
+  if (props.width && props.height) {
+    const width = parseInt(props.width);
+    const height = parseInt(props.height);
+    if (!isNaN(width) && !isNaN(height)) {
+      return { width, height, quality: 80 };
+    }
+  }
+
+  // Determine by block type
+  if (blockType) {
+    if (blockType.includes('hero') || blockType.includes('banner')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.hero;
+    }
+    if (blockType.includes('card')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.card;
+    }
+    if (blockType.includes('thumbnail')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.thumbnail;
+    }
+    if (blockType.includes('icon')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.icon;
+    }
+    if (blockType.includes('gallery')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.gallery;
+    }
+    if (blockType.includes('background')) {
+      return IMAGE_SIZE_RECOMMENDATIONS.background;
+    }
+  }
+
+  return IMAGE_SIZE_RECOMMENDATIONS.default;
+}
+
+optimizeMigratedImages();

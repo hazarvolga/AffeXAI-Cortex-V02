@@ -1,0 +1,26 @@
+{
+  "$schema": "./migration.config.schema.json",
+  "source": {
+    "directory": "../../extracted_pages",
+    "uploadsDirectory": "../../extracted_pages/uploads",
+    "domain": "aluplan.com.tr"
+  },
+  "target": {
+    "domain": "aluplan.tr",
+    "apiBaseUrl": "http://localhost:9006/api"
+  },
+  "templates": {
+    "mappingFile": "../../extracted_pages/PAGE_MAPPING_REPORT.md",
+    "defaultTemplate": "default-page"
+  },
+  "processing": {
+    "batchSize": 10,
+    "concurrentUploads": 5,
+    "retryAttempts": 3,
+    "retryDelay": 1000
+  },
+  "logging": {
+    "level": "normal",
+    "outputDir": "./logs"
+  }
+}
