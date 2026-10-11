@@ -1,8 +1,8 @@
 # AffeXAI Cortex — Geliştirme Handoff
 
-**Son güncelleme:** 10 Ekim 2026, Europe/Istanbul
+**Son güncelleme:** 11 Ekim 2026, Europe/Istanbul
 
-**Durum:** V02 staging deployment hazırlığı sürüyor; production promotion henüz NO-GO
+**Durum:** V02 commit `1419332` Coolify üzerinde çalışıyor; `affexai.tr` canlı, fakat 33 modülün tam ürün kabulü henüz tamamlanmadı
 
 **Proje kökü:** `/Users/hazarvolgaekiz/dev/lab/AffeXAI-Cortex-main`
 
@@ -133,7 +133,7 @@ Bu değişiklikler birçok tamamlanma dilimini ve henüz checkpoint'e alınmamı
 
 ## Devam komutu
 
-Kullanıcı “devam et” dediğinde izin veya rutin tercih sorusu sormadan yukarıdaki ilk adımlardan başlanır. Üretime push/deploy bu handoff kapsamına dahil değildir.
+Kullanıcı “devam et” dediğinde izin veya rutin tercih sorusu sormadan yukarıdaki ilk adımlardan başlanır. Bu paragraf 8 Ekim'deki yerel pause kapsamını kaydeder; 11 Ekim'de kullanıcı V02 push, Coolify deployment ve public domain bağlantısını ayrıca açıkça istedi.
 
 ## V02 temiz depo aktarımı — 2026-10-10
 
@@ -172,8 +172,27 @@ Zorunlu sırlar `DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `JWT_REFRES
 
 Takip borcu: `JWT_REFRESH_SECRET` dağıtım sözleşmesinde ayrı tutulsa da mevcut `AuthService` refresh tokenlarını halen ana `JWT_SECRET` üzerinden imzalayıp doğruluyor. Ayrı refresh anahtarına geçiş mevcut oturumları sonlandıracağı için bağımsız bir auth migration işi olarak ele alınmalıdır.
 
-Deployment kararı staging-first'tür. Güncel V02 GitHub CI run'ında migration job'u yeşildir; backend/frontend lint ve fail-closed production dependency audit kırmızıdır. Gitleaks tracked tree için 0 bulgu vermiştir, fakat production auditinde 0 kritik / 22 yüksek transitif bulgu kalmıştır. Bu nedenle staging kurulumu ve runtime kabul çalışabilir; public production domain promotion, CI/security kapıları yeşile dönmeden ve staging kabul/restore testi kayda alınmadan yapılmaz.
+Deployment kararı staging-first'tür. Güncel V02 GitHub CI run'ında migration job'u yeşildir; backend/frontend lint ve fail-closed production dependency audit kırmızıdır. Gitleaks tracked tree için 0 bulgu vermiştir, fakat production auditinde 0 kritik / 22 yüksek transitif bulgu kalmıştır. Bu planlama kapısı 10 Ekim hazırlık durumunu kaydeder. Kullanıcı 11 Ekim'de public domain bağlantısını açıkça istedi; domainin bağlanması tam ürün release kabulü anlamına gelmez ve açık CI/security/restore kapılarını kapatmaz.
 
 Staging kabulü en az şunları kapsar: backend ve frontend `/api/health`, Qdrant `/readyz`, Cortex `/ready`, migration exit `0` ve tekrar çalıştırma idempotency'si; login, tenant izolasyonu, RBAC redleri, CRM, Forms idempotency/outbox ve Automation approval/dispatch; WebSocket origin allowlist; restart sonrası PostgreSQL/Redis/Qdrant/uploads kalıcılığı. Yalnız konteynerlerin healthy görünmesi release kanıtı değildir.
 
 Her promotion öncesi PostgreSQL logical dump, beş kalıcı volume snapshot'ı, deploy edilen Git SHA/image/env revizyonu ve migration sonucu kaydedilir. Rollback önce bilinen iyi SHA/image'a yapılır; migration geri uyumsuzsa yazma trafiği durdurulur ve doğrulanmış deploy öncesi veritabanı/Qdrant/volume snapshot'ları matching uygulama SHA'sı ile geri yüklenir.
+
+## Canlı domain ve outbox düzeltmesi — 2026-10-11
+
+Kullanıcının açık talebiyle Coolify uygulaması `affexai.tr`, `www.affexai.tr` ve `api.affexai.tr` alan adlarına bağlandı; staging hostları geri dönüş yolu olarak korundu. Canlı URL sözleşmesi `APP_URL=https://api.affexai.tr`, `FRONTEND_URL=https://affexai.tr`, `NEXT_PUBLIC_API_URL=https://api.affexai.tr/api` ve iki public web originini içeren CORS allowlist biçimindedir.
+
+İlk canlı gözlemde Cortex ve Automation outbox worker'ları `interval out of range` üretiyordu. Kök neden, TypeORM PostgreSQL sürücüsünün üst seviye `UPDATE ... RETURNING` için `[rows, rowCount]` döndürmesine rağmen worker'ların sonucu doğrudan satır listesi olarak işlemesiydi. Her iki claim sorgusu atomik `claimed AS (UPDATE ... RETURNING ...) SELECT * FROM claimed` biçimine geçirildi; `FOR UPDATE SKIP LOCKED`, tenant alanı ve lease-token fencing korundu.
+
+Checkpoint ve canlı kanıt:
+
+- Commit `1419332` (`fix: restore postgres outbox dispatch`) `origin/main` üzerine push edildi.
+- İki worker için 13/13 odak testi, ilgili 15/15 regresyon testi ve backend typecheck geçti.
+- İzole gerçek PostgreSQL harness'i 25 migration, tekrar 0, ayrık eşzamanlı claim, süresi dolan lease, stale ACK ve kayıp ACK retry senaryolarıyla geçti.
+- Kod incelemesinde CRITICAL/HIGH bulgu yok; güvenlik incelemesinde CRITICAL/HIGH/MEDIUM bulgu yok.
+- Coolify deployment `nd5l8ccgnmqotnq5f0foghlw` başarıyla tamamlandı; migration exit 0, backend/frontend healthy.
+- Canlı backend loglarında `interval out of range` ve `outbox polling failed` eşleşmesi yok. `cortex_outbox` ve `automation_dispatch_outbox` satır sayıları deployment sonrası `0|0`.
+- `https://affexai.tr/`, `https://www.affexai.tr/` ve `https://api.affexai.tr/api/health` HTTP 200 / TLS doğrulaması 0; `https://affexai.tr` originli API preflight HTTP 204 ve doğru `access-control-allow-origin` döndürüyor.
+- Gerçek tarayıcıda `https://affexai.tr/login` AffeXAI Cortex portalı olarak render edildi.
+
+Bu sonuç canlı temel stack'in yeni imajla çalıştığını ve boş kuyrukta polling hatası üretmediğini kanıtlar. Düzeltilen worker sözleşmesi izole gerçek PostgreSQL harness'inde kanıtlandı; canlı claim→deliver/ACK/retry akışı henüz tetiklenmedi. Forms/Automation tam son kullanıcı akışı, backup/restore tatbikatı, açık CI/lint/dependency borcu ve kalan modül kabul satırları tamamlanmadan ürünün bütünü yayın kabulü almış sayılmaz.
