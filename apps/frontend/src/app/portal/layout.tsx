@@ -86,7 +86,6 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     onUserUpdate: handleUserUpdate,
     onRoleChange: handleRoleChange,
     onError: handleSyncError,
-    pollInterval: 5000,
   });
 
   useEffect(() => {

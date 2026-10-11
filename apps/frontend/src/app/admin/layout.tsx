@@ -168,7 +168,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     onUserUpdate: handleUserUpdate,
     onRoleChange: handleRoleChange,
     onError: handleSyncError,
-    pollInterval: 10 * 1000, // 10 seconds for testing (change to 3 * 60 * 1000 for production)
   });
 
   // Set admin context and dark mode as default
