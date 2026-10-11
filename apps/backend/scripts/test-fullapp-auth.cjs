@@ -8,7 +8,7 @@ const bcrypt = appRequire('bcryptjs');
 if (process.env.G1_FULLAPP_ISOLATED !== '1') throw new Error('Isolated application test opt-in required');
 const db = new Client({ host: 'postgres-test', port: 5432, user: 'g0_test', password: 'g0_ephemeral_local_only', database: 'affexai_g0_ephemeral' });
 const base = 'http://affexai-g1-app-smoke:9006/api';
-const users = [], roles = [];
+const users = [], roles = [], organizations = [];
 const password = `Test-${randomBytes(24).toString('hex')}`;
 async function api(path, status, { method = 'GET', token, tenant, body } = {}) {
   const response = await fetch(base + path, { method, headers: {
@@ -21,10 +21,13 @@ async function api(path, status, { method = 'GET', token, tenant, body } = {}) {
   try { const parsed = JSON.parse(text); return parsed.data ?? parsed; } catch { return text; }
 }
 async function account(tenant, name, email, id = randomUUID()) {
+  const organizationId = randomUUID();
   const roleId = randomUUID();
+  await db.query('INSERT INTO organizations(id,name,slug,"isActive") VALUES($1,$2,$3,true)', [organizationId, `${name} acceptance`, tenant]);
+  organizations.push(organizationId);
   await db.query('INSERT INTO roles(id,tenant_id,name,"displayName",permissions) VALUES($1,$2,$3,$3,$4)', [roleId, tenant, name, JSON.stringify(['users.view'])]);
   roles.push(roleId);
-  await db.query('INSERT INTO users(id,tenant_id,email,password,"firstName","lastName","roleId","emailVerified") VALUES($1,$2,$3,$4,$5,$6,$7,true)', [id, tenant, email, await bcrypt.hash(password, 10), 'Acceptance', 'Fixture', roleId]);
+  await db.query('INSERT INTO users(id,tenant_id,email,password,"firstName","lastName","roleId","organizationId","emailVerified") VALUES($1,$2,$3,$4,$5,$6,$7,$8,true)', [id, tenant, email, await bcrypt.hash(password, 10), 'Acceptance', 'Fixture', roleId, organizationId]);
   users.push(id);
   await db.query('INSERT INTO user_roles(tenant_id,"userId","roleId","isPrimary") VALUES($1,$2,$3,true)', [tenant, id, roleId]);
   return { id, tenant, email, roleId };
@@ -68,6 +71,7 @@ async function main() {
   } finally {
     if (users.length) { await db.query('DELETE FROM user_roles WHERE "userId" = ANY($1::uuid[])', [users]); await db.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [users]); }
     if (roles.length) await db.query('DELETE FROM roles WHERE id = ANY($1::uuid[])', [roles]);
+    if (organizations.length) await db.query('DELETE FROM organizations WHERE id = ANY($1::uuid[])', [organizations]);
     await db.end();
   }
 }

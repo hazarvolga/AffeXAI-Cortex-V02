@@ -2,7 +2,7 @@
 
 **Son güncelleme:** 11 Ekim 2026, Europe/Istanbul
 
-**Durum:** V02 commit `1419332` Coolify üzerinde çalışıyor; `affexai.tr` canlı, fakat 33 modülün tam ürün kabulü henüz tamamlanmadı
+**Durum:** V02 commit `1419332` Coolify üzerinde çalışıyor; `affexai.tr` canlı. Forms → CRM → Automation backend dikey dilimi yerelde kabul edildi; 33 modülün tam ürün kabulü henüz tamamlanmadı
 
 **Proje kökü:** `/Users/hazarvolgaekiz/dev/lab/AffeXAI-Cortex-main`
 
@@ -75,7 +75,7 @@ Kaynak kod düzeyinde tamamlanan başlıklar:
 - Docker/Coolify proxy hop, özel backend portu ve ortam bazlı host değişkenleri.
 - Frontend backend URL normalizasyonu; `/api/api/*` oluşması engellendi.
 
-Bu dilim henüz nihai kabul edilmiş değildir. Güncel kaynak kodla Docker build, migration ve runtime kabul testleri tamamlanmalıdır.
+Bu backend dikey dilimi güncel kaynak kodla Docker build, migration ve runtime testlerinde kabul edildi. Forms görsel editörünün gerçek tarayıcı kabulü, spam/abuse politikası, webhook sandbox teslimi ve diğer automation hedefleri tamamlanmadan iki modülün bütün kabulü kapatılmaz.
 
 ## Son yeşil doğrulamalar
 
@@ -87,24 +87,21 @@ Bu dilim henüz nihai kabul edilmiş değildir. Güncel kaynak kodla Docker buil
 - Forms/Automation güvenlik incelemesi: **GO**.
 - CRM tenant login-shell düzeltmesi kod incelemesi: **GO**.
 - `git diff --check` ilgili dosyalarda geçti.
+- Forms → CRM → PII-free event/outbox → Automation approval → tek tenant kampanyası gerçek Nest/PostgreSQL akışı geçti.
+- Kesilmiş worker'dan kalan süresi dolmuş `processing` dispatch lease'i restart sonrası yeniden claim edildi; attempts `1 → 2`, tek approval ve delivered sonuç doğrulandı.
+- Güncel Forms/Automation runtime paketi: **6 suite, 66/66 test**, backend typecheck/build ve full auth smoke geçti.
+- Son bağımsız kod ve güvenlik yeniden incelemeleri: **APPROVE**, açık CRITICAL/HIGH/MEDIUM yok.
 
 ## Çalışma zamanı durumu
 
 - Frontend geliştirme sunucusu: `localhost:9003` üzerinde açık.
 - Backend süreç: `127.0.0.1:9006` üzerinde açık.
-- Docker konteyneri `affexai-g1-app-smoke` sağlıklı görünüyor ancak `affexai-cortex-backend:g3-crm-final` adlı eski imajı kullanıyor.
-- Eski konteynerin sağlıklı olması güncel Forms/Automation kaynak kodunun runtime kabulü anlamına gelmez.
+- İzole PostgreSQL/Redis ve `affexai-g1-app-smoke` güncel `affexai-cortex-backend:g0-local` imajıyla çalışıyor.
+- Migration CLI 25 uygulanmış migration ve 0 pending migration raporladı.
 
 ## Kritik çalışma ağacı uyarısı
 
-Ara verildiği anda çalışma ağacında:
-
-```text
-tracked changes: 485
-untracked files: 325
-```
-
-Bu değişiklikler birçok tamamlanma dilimini ve henüz checkpoint'e alınmamış işi içerir.
+Forms/Automation checkpoint dosyalarının yanında, bu dilime ait olmayan üç ticket e-posta şablonu değişikliği bulunuyor. Bunlar korunmalı ve Forms/Automation commit'ine alınmamalıdır.
 
 **Devam ederken `git reset --hard`, geniş kapsamlı checkout, toplu stash, clean veya dosya silme çalıştırma.**
 
@@ -114,14 +111,12 @@ Bu değişiklikler birçok tamamlanma dilimini ve henüz checkpoint'e alınmamı
 
 1. Bu dosyayı ve `docs/active/AffeXAI-Cortex_Modul_Kabul_Matrisi.md` dosyasını oku.
 2. `git status --short` ve son commit'leri kontrol et; mevcut değişiklikleri koru.
-3. Forms/Automation diliminin dosya sınırını tekrar çıkar ve bağımlı migration/catalog durumunu doğrula.
-4. Güncel kaynak koddan yeni backend ve frontend Docker imajları oluştur.
-5. İzole Postgres üzerinde migration discovery ve migration uygulamasını doğrula.
-6. Forms public submission -> idempotency -> CRM/outbox zincirini runtime test et.
-7. Automation approval -> dispatch -> webhook/email event zincirini runtime test et.
-8. Tenant izolasyonu, yetki reddi, retry ve crash/restart senaryolarını doğrula.
-9. Tüm kontroller yeşilse yalnız ilgili dosyalarla yerel Forms/Automation checkpoint commit'i oluştur.
-10. Kabul matrisini güncelle ve sıradaki eksik modüle geç.
+3. Forms görsel editörünü ve public formu gerçek masaüstü/mobil tarayıcıda draft→edit→publish→submit→unpublish akışıyla doğrula.
+4. Public form spam/abuse politikasını kalıcı ve tenant kontrollü biçimde tamamla; rate-limit restart/çoklu replica davranışını kanıtla.
+5. Automation webhook aksiyonunu kontrollü HTTPS sandbox hedefiyle, retry/idempotency ve iptal UX'iyle doğrula.
+6. Desteklenen automation hedefleri ürün sözleşmesine göre genişletilecekse CMS/segment/notification aksiyonlarını gerçek hedef DB/provider sonucu olmadan etkinleştirme.
+7. Bu açıklar kapandıktan sonra Forms ve platform-integration satırlarının tam modül kapanışını yeniden değerlendir.
+8. Bağımlılık sırasındaki sonraki modüle geç.
 
 ## Bilinen operasyon notları
 
