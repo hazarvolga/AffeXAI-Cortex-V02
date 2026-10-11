@@ -1,11 +1,12 @@
-import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
-import AppDataSource from '../data-source';
+import * as bcrypt from "bcryptjs";
+import AppDataSource from "../data-source";
 
 function requiredSeedPassword(name: string): string {
   const value = process.env[name];
   if (!value || value.length < 12) {
-    throw new Error(`${name} must be set to a password of at least 12 characters`);
+    throw new Error(
+      `${name} must be set to a password of at least 12 characters`,
+    );
   }
   return value;
 }
@@ -13,28 +14,30 @@ function requiredSeedPassword(name: string): string {
 async function seedData() {
   try {
     // ⚠️ SECURITY: Only run in development environment
-    if (process.env.NODE_ENV === 'production') {
-      console.log('❌ Cannot run seed in production environment');
-      console.log('💡 Please use the admin panel to create users in production');
+    if (process.env.NODE_ENV === "production") {
+      console.log("❌ Cannot run seed in production environment");
+      console.log(
+        "💡 Please use the admin panel to create users in production",
+      );
       process.exit(1);
     }
 
     const seedPasswords = {
-      admin: requiredSeedPassword('SEED_ADMIN_PASSWORD'),
-      editor: requiredSeedPassword('SEED_EDITOR_PASSWORD'),
-      customer: requiredSeedPassword('SEED_CUSTOMER_PASSWORD'),
-      support: requiredSeedPassword('SEED_SUPPORT_PASSWORD'),
-      viewer: requiredSeedPassword('SEED_VIEWER_PASSWORD'),
+      admin: requiredSeedPassword("SEED_ADMIN_PASSWORD"),
+      editor: requiredSeedPassword("SEED_EDITOR_PASSWORD"),
+      customer: requiredSeedPassword("SEED_CUSTOMER_PASSWORD"),
+      support: requiredSeedPassword("SEED_SUPPORT_PASSWORD"),
+      viewer: requiredSeedPassword("SEED_VIEWER_PASSWORD"),
     };
 
     await AppDataSource.initialize();
-    console.log('✅ Database connected');
+    console.log("✅ Database connected");
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
 
     // 1. Seed/Update standard roles
-    console.log('📋 Ensuring standard roles exist...');
+    console.log("📋 Ensuring standard roles exist...");
 
     await queryRunner.query(`
       INSERT INTO roles (id, name, "displayName", description, permissions, is_active, is_custom, created_at, updated_at)
@@ -45,7 +48,7 @@ async function seedData() {
           'admin',
           'Admin',
           'Tüm sistem üzerinde tam yetkiye sahip.',
-          '["users.view","users.create","users.update","users.delete","roles.view","roles.manage","events.view","events.create","events.update","events.delete","events.participants","certificates.view","certificates.create","certificates.update","certificates.revoke","support.view","support.respond","support.assign","marketing.manage","marketing.campaigns","cms.pages.view","cms.pages.create","cms.pages.update","cms.pages.delete","cms.menus.manage","system.settings","system.logs"]'::jsonb,
+          '["users.view","users.create","users.update","users.delete","roles.view","roles.manage","events.view","events.create","events.update","events.delete","events.manage_attendees","certificates.view","certificates.create","certificates.update","certificates.revoke","support.view","support.respond","support.assign","marketing.manage","marketing.campaigns","cms.pages.view","cms.pages.create","cms.pages.update","cms.pages.delete","cms.menus.manage","system.settings","system.logs"]'::jsonb,
           true,
           false,
           NOW(),
@@ -57,7 +60,7 @@ async function seedData() {
           'editor',
           'Editor',
           'İçerik (CMS), etkinlik ve sertifika yönetimi yapabilir.',
-          '["events.view","events.create","events.update","events.delete","events.participants","certificates.view","certificates.create","certificates.update","certificates.revoke","cms.pages.view","cms.pages.create","cms.pages.update","cms.pages.delete","cms.menus.manage"]'::jsonb,
+          '["events.view","events.create","events.update","events.delete","events.manage_attendees","certificates.view","certificates.create","certificates.update","certificates.revoke","cms.pages.view","cms.pages.create","cms.pages.update","cms.pages.delete","cms.menus.manage"]'::jsonb,
           true,
           false,
           NOW(),
@@ -117,7 +120,7 @@ async function seedData() {
           'subscriber',
           'Subscriber',
           'Abone rolü - bülten ve pazarlama içeriklerine erişim.',
-          '["newsletter.view","marketing.receive"]'::jsonb,
+          '["events.view","newsletter.view","marketing.receive"]'::jsonb,
           true,
           false,
           NOW(),
@@ -165,7 +168,7 @@ async function seedData() {
           'event_manager',
           'Event Manager',
           'Etkinlikleri, webinar süreçlerini ve katılımcıları yönetir.',
-          '["events.view","events.create","events.update","events.delete","events.participants"]'::jsonb,
+          '["events.view","events.create","events.update","events.delete","events.manage_attendees"]'::jsonb,
           true,
           false,
           NOW(),
@@ -191,19 +194,20 @@ async function seedData() {
           is_active = EXCLUDED.is_active,
           is_custom = EXCLUDED.is_custom;
     `);
-    console.log('✅ Standard roles seeded/updated successfully');
+    console.log("✅ Standard roles seeded/updated successfully");
 
     // 2. Check and seed admin user
-    console.log('👤 Checking admin user...');
-    const adminExists = await queryRunner.query(
-      "SELECT * FROM users WHERE email = 'admin@aluplan.com'"
-    );
+    console.log("👤 Checking admin user...");
+    const adminExists = (await queryRunner.query(
+      "SELECT * FROM users WHERE email = 'admin@aluplan.com'",
+    )) as unknown[];
 
     if (adminExists.length === 0) {
-      console.log('🔧 Creating admin user...');
+      console.log("🔧 Creating admin user...");
       const hashedPassword = await bcrypt.hash(seedPasswords.admin, 10);
 
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
         INSERT INTO users (
           id, 
           email, 
@@ -229,57 +233,60 @@ async function seedData() {
           NOW(),
           NOW()
         )
-      `, [hashedPassword]);
+      `,
+        [hashedPassword],
+      );
 
-      console.log('✅ Admin user created successfully');
-      console.log('   Email: admin@aluplan.com');
+      console.log("✅ Admin user created successfully");
+      console.log("   Email: admin@aluplan.com");
     } else {
-      console.log('✅ Admin user already exists');
+      console.log("✅ Admin user already exists");
     }
 
     // 3. Check and seed test users
-    console.log('👥 Checking test users...');
+    console.log("👥 Checking test users...");
 
     const testUsers = [
       {
-        email: 'editor@aluplan.com',
+        email: "editor@aluplan.com",
         password: seedPasswords.editor,
-        firstName: 'Editor',
-        lastName: 'User',
-        roleId: 'a1b2c3d4-e5f6-4789-abcd-000000000002', // editor
+        firstName: "Editor",
+        lastName: "User",
+        roleId: "a1b2c3d4-e5f6-4789-abcd-000000000002", // editor
       },
       {
-        email: 'customer@aluplan.com',
+        email: "customer@aluplan.com",
         password: seedPasswords.customer,
-        firstName: 'Customer',
-        lastName: 'User',
-        roleId: 'a1b2c3d4-e5f6-4789-abcd-000000000003', // customer
+        firstName: "Customer",
+        lastName: "User",
+        roleId: "a1b2c3d4-e5f6-4789-abcd-000000000003", // customer
       },
       {
-        email: 'support@aluplan.com',
+        email: "support@aluplan.com",
         password: seedPasswords.support,
-        firstName: 'Support',
-        lastName: 'User',
-        roleId: 'a1b2c3d4-e5f6-4789-abcd-000000000004', // support
+        firstName: "Support",
+        lastName: "User",
+        roleId: "a1b2c3d4-e5f6-4789-abcd-000000000004", // support
       },
       {
-        email: 'viewer@aluplan.com',
+        email: "viewer@aluplan.com",
         password: seedPasswords.viewer,
-        firstName: 'Viewer',
-        lastName: 'User',
-        roleId: 'a1b2c3d4-e5f6-4789-abcd-000000000005', // viewer
+        firstName: "Viewer",
+        lastName: "User",
+        roleId: "a1b2c3d4-e5f6-4789-abcd-000000000005", // viewer
       },
     ];
 
     for (const user of testUsers) {
-      const exists = await queryRunner.query(
-        'SELECT * FROM users WHERE email = $1',
-        [user.email]
-      );
+      const exists = (await queryRunner.query(
+        "SELECT * FROM users WHERE email = $1",
+        [user.email],
+      )) as unknown[];
 
       if (exists.length === 0) {
         const hashedPassword = await bcrypt.hash(user.password, 10);
-        await queryRunner.query(`
+        await queryRunner.query(
+          `
           INSERT INTO users (
             id, 
             email, 
@@ -305,7 +312,15 @@ async function seedData() {
             NOW(),
             NOW()
           )
-        `, [user.email, hashedPassword, user.firstName, user.lastName, user.roleId]);
+        `,
+          [
+            user.email,
+            hashedPassword,
+            user.firstName,
+            user.lastName,
+            user.roleId,
+          ],
+        );
         console.log(`   ✅ Created ${user.email}`);
       } else {
         console.log(`   ℹ️  ${user.email} already exists`);
@@ -315,13 +330,14 @@ async function seedData() {
     await queryRunner.release();
     await AppDataSource.destroy();
 
-    console.log('\n🎉 Seeding completed successfully!\n');
-    console.log('Seed passwords were read from environment variables and were not logged.\n');
-
+    console.log("\n🎉 Seeding completed successfully!\n");
+    console.log(
+      "Seed passwords were read from environment variables and were not logged.\n",
+    );
   } catch (error) {
-    console.error('❌ Error seeding data:', error);
+    console.error("❌ Error seeding data:", error);
     process.exit(1);
   }
 }
 
-seedData();
+void seedData();

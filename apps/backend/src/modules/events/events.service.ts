@@ -1,18 +1,26 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CreateEventDto } from './dto/create-event.dto';
-import { UpdateEventDto } from './dto/update-event.dto';
-import { Event } from './entities/event.entity';
-import { EventRegistration } from './entities/event-registration.entity';
-import { CacheService } from '../../core/shared/services/cache.service';
-import { MailService } from '../mail/mail.service';
-import { MailChannel, MailPriority } from '../mail/interfaces/mail-service.interface';
-import { EventBusService } from '../platform-integration/services/event-bus.service';
-import { TenantService } from '../../core/tenant/tenant.service';
-import { StrategyService } from '../strategy/services/strategy.service';
-import { CommerceService } from '../commerce/services/commerce.service';
-
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { MoreThanOrEqual, Repository } from "typeorm";
+import { CreateEventDto } from "./dto/create-event.dto";
+import { UpdateEventDto } from "./dto/update-event.dto";
+import { Event } from "./entities/event.entity";
+import { EventRegistration } from "./entities/event-registration.entity";
+import { CacheService } from "../../core/shared/services/cache.service";
+import { MailService } from "../mail/mail.service";
+import {
+  MailChannel,
+  MailPriority,
+} from "../mail/interfaces/mail-service.interface";
+import { EventBusService } from "../platform-integration/services/event-bus.service";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { StrategyService } from "../strategy/services/strategy.service";
+import { CommerceService } from "../commerce/services/commerce.service";
+import type { UpcomingEventSummaryDto } from "@affexai/shared-types";
 
 @Injectable()
 export class EventsService {
@@ -29,29 +37,45 @@ export class EventsService {
     private tenantService: TenantService,
     private readonly strategyService: StrategyService,
     private readonly commerceService: CommerceService,
-  ) { }
+  ) {}
 
   private getActiveTenantId(tenantId?: string): string {
-    return tenantId || this.tenantService.getTenantId() || 'default';
+    return tenantId || this.tenantService.getTenantId() || "default";
   }
 
-  async create(createEventDto: CreateEventDto, tenantId?: string): Promise<Event> {
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : "Unknown error";
+  }
+
+  async create(
+    createEventDto: CreateEventDto,
+    tenantId?: string,
+  ): Promise<Event> {
     const activeTenantId = this.getActiveTenantId(tenantId);
 
     // 0. Governance Check (Neural Grid)
     const limitCheck = await this.commerceService.checkLimit(activeTenantId);
     if (!limitCheck.allowed) {
-      this.logger.warn(`Event Creation Blocked: Rate limit exceeded for tenant ${activeTenantId}`);
-      throw new BadRequestException('Plan Limit Exceeded. Please upgrade to create more events.');
+      this.logger.warn(
+        `Event Creation Blocked: Rate limit exceeded for tenant ${activeTenantId}`,
+      );
+      throw new BadRequestException(
+        "Plan Limit Exceeded. Please upgrade to create more events.",
+      );
     }
 
-    const event = this.eventsRepository.create({ ...createEventDto, tenantId: activeTenantId });
+    const event = this.eventsRepository.create({
+      ...createEventDto,
+      tenantId: activeTenantId,
+    });
     event.slug = this.generateSlug(createEventDto.title);
 
     // Ensure uniqueness (basic check)
     let count = 1;
-    let baseSlug = event.slug;
-    while (await this.eventsRepository.findOne({ where: { slug: event.slug } })) {
+    const baseSlug = event.slug;
+    while (
+      await this.eventsRepository.findOne({ where: { slug: event.slug } })
+    ) {
       event.slug = `${baseSlug}-${count}`;
       count++;
     }
@@ -59,12 +83,16 @@ export class EventsService {
     const savedEvent = await this.eventsRepository.save(event);
 
     // 1. Neural Signal (RAG Feed)
-    this.strategyService.emitSignal(activeTenantId, 'EVENT_CREATED', {
-      eventId: savedEvent.id,
-      title: savedEvent.title,
-      date: savedEvent.startDate,
-      location: savedEvent.location
-    }).catch(e => this.logger.warn(`Failed to emit signal: ${e.message}`));
+    this.strategyService
+      .emitSignal(activeTenantId, "EVENT_CREATED", {
+        eventId: savedEvent.id,
+        title: savedEvent.title,
+        date: savedEvent.startDate,
+        location: savedEvent.location,
+      })
+      .catch((error: unknown) =>
+        this.logger.warn(`Failed to emit signal: ${this.errorMessage(error)}`),
+      );
 
     // Clear cache for findAll of this tenant
     await this.cacheService.del(`events:${activeTenantId}:all`);
@@ -89,43 +117,99 @@ export class EventsService {
     return title
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   async findAll(tenantId?: string): Promise<Event[]> {
     const activeTenantId = this.getActiveTenantId(tenantId);
-    const cached = await this.cacheService.get<Event[]>(`events:${activeTenantId}:all`);
+    const cached = await this.cacheService.get<Event[]>(
+      `events:${activeTenantId}:all`,
+    );
     if (cached) {
       return cached;
     }
 
-    const events = await this.eventsRepository.find({ where: { tenantId: activeTenantId } });
+    const events = await this.eventsRepository.find({
+      where: { tenantId: activeTenantId },
+    });
     await this.cacheService.set(`events:${activeTenantId}:all`, events, 30); // 30 seconds TTL
     return events;
   }
 
+  async findUpcoming(
+    limit = 3,
+    tenantId?: string,
+  ): Promise<UpcomingEventSummaryDto[]> {
+    const activeTenantId = this.getActiveTenantId(tenantId);
+    const safeLimit = Math.min(Math.max(Math.trunc(limit) || 3, 1), 20);
+
+    const events = await this.eventsRepository.find({
+      where: {
+        tenantId: activeTenantId,
+        status: "published",
+        startDate: MoreThanOrEqual(new Date()),
+      },
+      order: { startDate: "ASC" },
+      take: safeLimit,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        location: true,
+        capacity: true,
+        price: true,
+      },
+    });
+
+    return events.map((event) => ({
+      id: event.id,
+      slug: event.slug,
+      title: event.title,
+      description: event.description,
+      startDate: event.startDate.toISOString(),
+      endDate: event.endDate.toISOString(),
+      location: event.location,
+      capacity: event.capacity,
+      price: Number(event.price),
+    }));
+  }
+
   async findOne(idOrSlug: string, tenantId?: string): Promise<Event> {
     const activeTenantId = this.getActiveTenantId(tenantId);
-    const cached = await this.cacheService.get<Event>(`events:${activeTenantId}:${idOrSlug}`);
+    const cached = await this.cacheService.get<Event>(
+      `events:${activeTenantId}:${idOrSlug}`,
+    );
     if (cached) {
       return cached;
     }
 
     // Check if UUID
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        idOrSlug,
+      );
 
     const event = await this.eventsRepository.findOne({
-      where: isUuid ? { id: idOrSlug, tenantId: activeTenantId } : { slug: idOrSlug, tenantId: activeTenantId },
-      relations: ['registrations']
+      where: isUuid
+        ? { id: idOrSlug, tenantId: activeTenantId }
+        : { slug: idOrSlug, tenantId: activeTenantId },
+      relations: ["registrations"],
     });
 
     if (!event) {
       throw new NotFoundException(`Event with identifer ${idOrSlug} not found`);
     }
 
-    await this.cacheService.set(`events:${activeTenantId}:${idOrSlug}`, event, 60); // 60 seconds TTL
+    await this.cacheService.set(
+      `events:${activeTenantId}:${idOrSlug}`,
+      event,
+      60,
+    ); // 60 seconds TTL
     return event;
   }
 
@@ -142,7 +226,9 @@ export class EventsService {
     const now = new Date();
 
     // Count upcoming events (events that haven't started yet)
-    const upcomingEvents = allEvents.filter(event => new Date(event.startDate) > now).length;
+    const upcomingEvents = allEvents.filter(
+      (event) => new Date(event.startDate) > now,
+    ).length;
 
     // For ticket sales, we'll simulate based on event capacity (assuming 75% average attendance)
     const totalTicketSales = allEvents.reduce((total, event) => {
@@ -156,7 +242,7 @@ export class EventsService {
     const monthlyRevenue = allEvents.reduce((total, event) => {
       const attendance = Math.floor(event.capacity * 0.75);
       const price = Number(event.price) || 0; // Handle case where price might be null
-      return total + (attendance * price);
+      return total + attendance * price;
     }, 0);
 
     // Calculate revenue change (simplified - using 10% as a mock value)
@@ -167,17 +253,20 @@ export class EventsService {
       totalTicketSales,
       totalParticipants,
       monthlyRevenue,
-      revenueChange
+      revenueChange,
     };
   }
 
   /**
    * Send bulk reminders to all confirmed participants
    */
-  async sendBulkReminder(eventId: string, tenantId?: string): Promise<{ sentCount: number }> {
+  async sendBulkReminder(
+    eventId: string,
+    tenantId?: string,
+  ): Promise<{ sentCount: number }> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     const registrations = await this.getRegistrations(eventId, activeTenantId);
-    const confirmed = registrations.filter(r => r.status === 'confirmed');
+    const confirmed = registrations.filter((r) => r.status === "confirmed");
 
     const event = await this.findOne(eventId, activeTenantId);
 
@@ -186,36 +275,58 @@ export class EventsService {
       try {
         await this.sendEventReminder(event, reg.guestEmail, reg.guestName);
         sentCount++;
-      } catch (err) {
-        this.logger.error(`Failed to send bulk reminder to ${reg.guestEmail}: ${err.message}`);
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to send bulk reminder to ${reg.guestEmail}: ${this.errorMessage(error)}`,
+        );
       }
     }
 
     return { sentCount };
   }
 
-  async update(id: string, updateEventDto: UpdateEventDto, tenantId?: string): Promise<Event> {
+  async update(
+    id: string,
+    updateEventDto: UpdateEventDto,
+    tenantId?: string,
+  ): Promise<Event> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     // First check if event exists
-    const existingEvent = await this.eventsRepository.findOne({ where: { id, tenantId: activeTenantId } });
+    const existingEvent = await this.eventsRepository.findOne({
+      where: { id, tenantId: activeTenantId },
+    });
     if (!existingEvent) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
 
+    let nextSlug: string | undefined;
+
     // Regenerate slug if title changes
     if (updateEventDto.title && updateEventDto.title !== existingEvent.title) {
-      updateEventDto['slug'] = this.generateSlug(updateEventDto.title);
+      let candidateSlug = this.generateSlug(updateEventDto.title);
 
       // Ensure uniqueness (basic check)
       let count = 1;
-      let baseSlug = updateEventDto['slug'];
-      while (await this.eventsRepository.findOne({ where: { slug: updateEventDto['slug'], tenantId: activeTenantId } })) {
-        updateEventDto['slug'] = `${baseSlug}-${count}`;
+      const baseSlug = candidateSlug;
+      while (
+        await this.eventsRepository.findOne({
+          where: { slug: candidateSlug, tenantId: activeTenantId },
+        })
+      ) {
+        candidateSlug = `${baseSlug}-${count}`;
         count++;
       }
+      nextSlug = candidateSlug;
     }
 
-    await this.eventsRepository.update({ id, tenantId: activeTenantId }, updateEventDto);
+    const eventPatch = nextSlug
+      ? { ...updateEventDto, slug: nextSlug }
+      : { ...updateEventDto };
+
+    await this.eventsRepository.update(
+      { id, tenantId: activeTenantId },
+      eventPatch,
+    );
     const event = await this.findOne(id, activeTenantId);
 
     // Clear cache for this event and all events
@@ -223,7 +334,7 @@ export class EventsService {
     await this.cacheService.del(`events:${activeTenantId}:all`);
 
     // Publish platform event for significant updates
-    if (updateEventDto.status === 'published') {
+    if (updateEventDto.status === "published") {
       await this.eventBusService.publishEventPublished(
         event.id,
         {
@@ -243,7 +354,9 @@ export class EventsService {
   async remove(id: string, tenantId?: string): Promise<void> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     // First check if event exists
-    const existingEvent = await this.eventsRepository.findOne({ where: { id, tenantId: activeTenantId } });
+    const existingEvent = await this.eventsRepository.findOne({
+      where: { id, tenantId: activeTenantId },
+    });
     if (!existingEvent) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
@@ -258,35 +371,46 @@ export class EventsService {
   /**
    * Get all registrations for an event
    */
-  async getRegistrations(eventId: string, tenantId?: string): Promise<EventRegistration[]> {
+  async getRegistrations(
+    eventId: string,
+    tenantId?: string,
+  ): Promise<EventRegistration[]> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     const event = await this.findOne(eventId, activeTenantId); // Ensure event exists and belongs to tenant
     return this.registrationsRepository.find({
       where: { event: { id: event.id } },
-      relations: ['event'],
-      order: { createdAt: 'DESC' }
+      relations: ["event"],
+      order: { createdAt: "DESC" },
     });
   }
 
   /**
    * Update registration status (Scoped by tenant via event)
    */
-  async updateRegistrationStatus(registrationId: string, status: string, tenantId?: string): Promise<EventRegistration> {
+  async updateRegistrationStatus(
+    registrationId: string,
+    status: string,
+    tenantId?: string,
+  ): Promise<EventRegistration> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     // We need to verify that the registration belongs to an event owned by the tenant
     const registration = await this.registrationsRepository.findOne({
       where: { id: registrationId },
-      relations: ['event']
+      relations: ["event"],
     });
 
     if (!registration) {
-      throw new NotFoundException(`Registration with ID ${registrationId} not found`);
+      throw new NotFoundException(
+        `Registration with ID ${registrationId} not found`,
+      );
     }
 
     // Manual tenant check since registration doesn't have tenantId directly (it's via event)
     // Assuming Event entity has tenantId (inherited from BaseEntity)
     if (registration.event.tenantId !== activeTenantId) {
-      throw new NotFoundException(`Registration with ID ${registrationId} not found`); // Obfuscate isolation error
+      throw new NotFoundException(
+        `Registration with ID ${registrationId} not found`,
+      ); // Obfuscate isolation error
     }
 
     registration.status = status;
@@ -296,36 +420,40 @@ export class EventsService {
   /**
    * Register for an event
    */
-  async register(idOrSlug: string, data: { name: string; email: string }, tenantId?: string): Promise<{ success: boolean; message: string }> {
+  async register(
+    idOrSlug: string,
+    data: { name: string; email: string },
+    tenantId?: string,
+  ): Promise<{ success: boolean; message: string }> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     const event = await this.findOne(idOrSlug, activeTenantId);
 
     // Check capacity
     const registrationCount = await this.registrationsRepository.count({
-      where: { event: { id: event.id } }
+      where: { event: { id: event.id } },
     });
 
     if (event.capacity && registrationCount >= event.capacity) {
-      throw new BadRequestException('Event is at full capacity');
+      throw new BadRequestException("Event is at full capacity");
     }
 
     // Check if already registered
     const existing = await this.registrationsRepository.findOne({
       where: {
         event: { id: event.id },
-        guestEmail: data.email
-      }
+        guestEmail: data.email,
+      },
     });
 
     if (existing) {
-      return { success: true, message: 'Already registered for this event' };
+      return { success: true, message: "Already registered for this event" };
     }
 
     const registration = this.registrationsRepository.create({
       event,
       guestName: data.name,
       guestEmail: data.email,
-      status: 'confirmed',
+      status: "confirmed",
       amountPaid: 0,
     });
 
@@ -334,12 +462,14 @@ export class EventsService {
     // Trigger automated email
     try {
       await this.sendEventInvitation(event, data.email, data.name);
-    } catch (error) {
-      this.logger.error(`Failed to send registration email to ${data.email}: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send registration email to ${data.email}: ${this.errorMessage(error)}`,
+      );
       // Don't fail the registration if email fails
     }
 
-    return { success: true, message: 'Successfully registered for the event' };
+    return { success: true, message: "Successfully registered for the event" };
   }
 
   /**
@@ -352,12 +482,12 @@ export class EventsService {
     additionalInfo?: Record<string, any>,
   ): Promise<void> {
     try {
-      const eventDate = new Date(event.startDate).toLocaleDateString('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+      const eventDate = new Date(event.startDate).toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
 
       const htmlContent = `
@@ -396,13 +526,13 @@ export class EventsService {
                   <div class="detail-row">
                     <span class="label">Kapasite:</span> ${event.capacity} kişi
                   </div>
-                  ${event.price > 0 ? `<div class="detail-row"><span class="label">Fiyat:</span> ${event.price} TL</div>` : ''}
+                  ${event.price > 0 ? `<div class="detail-row"><span class="label">Fiyat:</span> ${event.price} TL</div>` : ""}
                   <div class="detail-row">
                     <p>${event.description}</p>
                   </div>
                 </div>
 
-                ${event.grantsCertificate ? '<p><strong>✨ Bu etkinlik sonunda sertifika alacaksınız!</strong></p>' : ''}
+                ${event.grantsCertificate ? "<p><strong>✨ Bu etkinlik sonunda sertifika alacaksınız!</strong></p>" : ""}
                 
                 <p>Katılımınızı bekliyoruz!</p>
               </div>
@@ -429,9 +559,13 @@ export class EventsService {
         },
       });
 
-      this.logger.log(`Event invitation sent to ${participantEmail} for event: ${event.title}`);
-    } catch (error) {
-      this.logger.error(`Failed to send event invitation: ${error.message}`);
+      this.logger.log(
+        `Event invitation sent to ${participantEmail} for event: ${event.title}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send event invitation: ${this.errorMessage(error)}`,
+      );
       throw error;
     }
   }
@@ -445,12 +579,12 @@ export class EventsService {
     participantName: string,
   ): Promise<void> {
     try {
-      const eventDate = new Date(event.startDate).toLocaleDateString('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+      const eventDate = new Date(event.startDate).toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
 
       const htmlContent = `
@@ -509,13 +643,17 @@ export class EventsService {
           eventId: event.id,
           eventTitle: event.title,
           participantName,
-          reminderType: '24h',
+          reminderType: "24h",
         },
       });
 
-      this.logger.log(`Event reminder sent to ${participantEmail} for event: ${event.title}`);
-    } catch (error) {
-      this.logger.error(`Failed to send event reminder: ${error.message}`);
+      this.logger.log(
+        `Event reminder sent to ${participantEmail} for event: ${event.title}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send event reminder: ${this.errorMessage(error)}`,
+      );
       throw error;
     }
   }
@@ -557,7 +695,7 @@ export class EventsService {
                 
                 <div class="event-details">
                   <h2>${event.title}</h2>
-                  ${cancellationReason ? `<p><strong>İptal Nedeni:</strong> ${cancellationReason}</p>` : ''}
+                  ${cancellationReason ? `<p><strong>İptal Nedeni:</strong> ${cancellationReason}</p>` : ""}
                 </div>
 
                 <p>Bu durumdan dolayı özür dileriz. Gelecek etkinliklerimizden haberdar olmak için takipte kalın.</p>
@@ -581,13 +719,17 @@ export class EventsService {
           eventId: event.id,
           eventTitle: event.title,
           participantName,
-          cancellationReason: cancellationReason || 'Belirtilmedi',
+          cancellationReason: cancellationReason || "Belirtilmedi",
         },
       });
 
-      this.logger.log(`Event cancellation sent to ${participantEmail} for event: ${event.title}`);
-    } catch (error) {
-      this.logger.error(`Failed to send event cancellation: ${error.message}`);
+      this.logger.log(
+        `Event cancellation sent to ${participantEmail} for event: ${event.title}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send event cancellation: ${this.errorMessage(error)}`,
+      );
       throw error;
     }
   }
@@ -602,15 +744,17 @@ export class EventsService {
     changes: string[],
   ): Promise<void> {
     try {
-      const eventDate = new Date(event.startDate).toLocaleDateString('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+      const eventDate = new Date(event.startDate).toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
 
-      const changesHtml = changes.map(change => `<li>${change}</li>`).join('');
+      const changesHtml = changes
+        .map((change) => `<li>${change}</li>`)
+        .join("");
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -672,9 +816,13 @@ export class EventsService {
         },
       });
 
-      this.logger.log(`Event update sent to ${participantEmail} for event: ${event.title}`);
-    } catch (error) {
-      this.logger.error(`Failed to send event update: ${error.message}`);
+      this.logger.log(
+        `Event update sent to ${participantEmail} for event: ${event.title}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to send event update: ${this.errorMessage(error)}`,
+      );
       throw error;
     }
   }

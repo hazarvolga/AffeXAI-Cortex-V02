@@ -191,3 +191,24 @@ Checkpoint ve canlı kanıt:
 - Gerçek tarayıcıda `https://affexai.tr/login` AffeXAI Cortex portalı olarak render edildi.
 
 Bu sonuç canlı temel stack'in yeni imajla çalıştığını ve boş kuyrukta polling hatası üretmediğini kanıtlar. Düzeltilen worker sözleşmesi izole gerçek PostgreSQL harness'inde kanıtlandı; canlı claim→deliver/ACK/retry akışı henüz tetiklenmedi. Forms/Automation tam son kullanıcı akışı, backup/restore tatbikatı, açık CI/lint/dependency borcu ve kalan modül kabul satırları tamamlanmadan ürünün bütünü yayın kabulü almış sayılmaz.
+
+## Cortex Editorial portal pilotu — 2026-10-11
+
+Frontend tasarım kararı tek sözleşmeye bağlandı: Radix/shadcn erişilebilir davranış katmanı olarak korunur; ürün kimliği Cortex Editorial token, pattern ve shell katmanından gelir. `BccEditorialWrapper` tasarım yönünün güçlü kanıtıdır, ancak portal için birebir yoğunluk şablonu değildir. Kanonik kararlar kök `DESIGN.md` ve `UX-CONTRACT.md` dosyalarındadır.
+
+İlk pilot `/portal/dashboard` ve ortak portal shell üzerinde uygulandı:
+
+- rol tabanlı desktop/mobile navigasyon tek immutable policy modelinden üretiliyor;
+- debug `Caching Test`, eski kartlar ve Allplan/XYZ Company kopyaları yeni kabukta görünmüyor;
+- skip link, landmark, `aria-current`, görünür focus, drawer ve responsive sidebar sağlandı;
+- dashboard gerçek auth/tenant/rol, activity ve event API verisini kullanıyor; loading, empty ve error durumları kalıcı;
+- portal light/dark semantik tokenları, `--cortex-*` component adapterları, görünür scrollbar, reduced-motion ve forced-colors davranışı tanımlandı;
+- runtime `DesignTokensProvider` selector çakışması portal scope özgüllüğüyle sınırlandı; provider içindeki portal/public alias birleşimi sonraki migration borcudur.
+
+Portalın etkinlik yüzeyi backend yetki sözleşmesiyle eşitlendi. Published upcoming yanıtı iç yapılandırma/tenant/audit alanlarını taşımayan sınırlı özet projeksiyonu döndürür. `events.participants` legacy izni idempotent migration ile `events.manage_attendees` adına dönüştürülür; portal etkinlik bağlantısını gören standart customer/student/subscriber/viewer/admin/organization_owner rolleri `events.view` alır. Seed ve rol katalogları aynı kanonik adlara geçirildi. Kullanıcı senkronizasyonu doğrulanmış `/users/me` sonucunu aynı sekmede doğrudan AuthContext'e aktarır; diğer sekmeler yalnız invalidation sinyaliyle yeniden okur.
+
+Doğrulama: portal saf fonksiyon testleri 12/12; event guard, public projection ve migration testleri 23/23; frontend/backend typecheck; hedefli ESLint; `designmd lint` 0 error; production Docker build 205 route ve gerçek Chromium customer oturumunda desktop/mobile kabul geçti. Mobil drawer açıldı, yatay overflow olmadığı ve başlık/rol bazlı aksiyonların doğru render edildiği doğrulandı. Bu pilot proje genelinin UI göçünü tamamlamaz; sıradaki UI dilimleri kalan portal rotaları, tenant admin CRUD yüzeyleri, platform admin ve özel CMS/builder workbench olarak ilerlemelidir.
+
+Production auth hardening borcu açıktır: access/refresh tokenlarının JavaScript tarafından okunabilen localStorage katmanından HttpOnly/Secure/SameSite cookie oturumuna taşınması ve ölçülmüş CSP politikasının devreye alınması ayrı migration gerektirir. Pilot diffinde açık CRITICAL/HIGH güvenlik blockerı yoktur; bu borç kapanmadan auth yüzeyi tam production kabulü almaz.
+
+İzole kabul harness'i için `docker-compose.test.yml` frontend/backend servislerine host erişimli `g0-edge` ağı eklendi ve tenant selector HTML pattern'i modern Chromium `v` regex kurallarıyla uyumlu hale getirildi. Bunlar canlı ortam değişikliği değildir.

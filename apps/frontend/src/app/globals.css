@@ -141,71 +141,132 @@
   }
 
   /* Theme: Portal */
-  .theme-portal {
-    --background: 0 0% 98%;
-    --foreground: 220 13% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 13% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 9%;
-    --primary: 39 100% 54%;
-    --primary-foreground: 220 13% 9%;
-    --secondary: 210 20% 94%;
-    --secondary-foreground: 220 13% 9%;
-    --muted: 0 0% 94%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 39 100% 54%;
-    --accent-foreground: 220 13% 9%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 142 76% 36%;
+  .theme-portal.theme-portal.theme-portal {
+    color-scheme: light;
+
+    /* Cortex Editorial: semantic source tokens */
+    --editorial-canvas: 42 24% 96%;
+    --editorial-surface: 42 20% 99%;
+    --editorial-surface-raised: 40 18% 100%;
+    --editorial-ink: 220 15% 12%;
+    --editorial-ink-muted: 220 8% 40%;
+    --editorial-rule: 40 12% 80%;
+    --editorial-rule-strong: 40 10% 53%;
+    --editorial-signal: 39 100% 48%;
+    --editorial-signal-ink: 31 100% 27%;
+    --editorial-signal-foreground: 220 15% 10%;
+    --editorial-danger-text: 2 72% 38%;
+    --editorial-focus: 39 100% 38%;
+    --editorial-selection: 39 100% 82%;
+    --editorial-scrollbar-track: 40 12% 91%;
+    --editorial-scrollbar-thumb: 40 8% 48%;
+    --editorial-scrollbar-thumb-hover: 40 8% 38%;
+    --editorial-scrollbar-thumb-active: 39 70% 35%;
+
+    /* Component-role adapters: always expose complete CSS colors. */
+    --cortex-canvas: hsl(var(--editorial-canvas));
+    --cortex-canvas-translucent: hsl(var(--editorial-canvas) / 0.94);
+    --cortex-surface: hsl(var(--editorial-surface));
+    --cortex-surface-raised: hsl(var(--editorial-surface-raised));
+    --cortex-surface-quiet: hsl(var(--editorial-rule) / 0.32);
+    --cortex-line: hsl(var(--editorial-rule));
+    --cortex-line-strong: hsl(var(--editorial-rule-strong));
+    --cortex-text: hsl(var(--editorial-ink));
+    --cortex-text-muted: hsl(var(--editorial-ink-muted));
+    --cortex-text-faint: hsl(var(--editorial-ink-muted) / 0.92);
+    --cortex-accent: hsl(var(--editorial-signal));
+    --cortex-accent-ink: hsl(var(--editorial-signal-ink));
+    --cortex-accent-soft: hsl(var(--editorial-signal) / 0.14);
+    --cortex-danger-text: hsl(var(--editorial-danger-text));
+    --cortex-focus: hsl(var(--editorial-focus));
+    --cortex-success: hsl(var(--success));
+    --cortex-header-height: 4.5rem;
+
+    /* shadcn/Tailwind compatibility aliases */
+    --background: var(--editorial-canvas);
+    --foreground: var(--editorial-ink);
+    --card: var(--editorial-surface);
+    --card-foreground: var(--editorial-ink);
+    --popover: var(--editorial-surface-raised);
+    --popover-foreground: var(--editorial-ink);
+    --primary: var(--editorial-signal);
+    --primary-foreground: var(--editorial-signal-foreground);
+    --secondary: 40 14% 90%;
+    --secondary-foreground: var(--editorial-ink);
+    --muted: 40 12% 91%;
+    --muted-foreground: var(--editorial-ink-muted);
+    --accent: 40 16% 88%;
+    --accent-foreground: var(--editorial-ink);
+    --destructive: 2 68% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 55% 34%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 26 83% 14%;
-    --info: 199 89% 48%;
+    --warning: 36 92% 45%;
+    --warning-foreground: 30 90% 12%;
+    --info: 205 68% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 210 20% 87%;
-    --input: 210 20% 87%;
-    --ring: 39 100% 54%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --border: var(--editorial-rule);
+    --input: var(--editorial-rule-strong);
+    --ring: var(--editorial-focus);
+    --radius: 0.375rem;
+    --chart-1: 39 92% 46%;
+    --chart-2: 205 56% 42%;
+    --chart-3: 145 43% 37%;
+    --chart-4: 16 61% 48%;
+    --chart-5: 276 34% 48%;
   }
 
-  .dark .theme-portal {
-    --background: 225 6% 9%;
-    --foreground: 216 14% 90%;
-    --card: 225 6% 9%;
-    --card-foreground: 216 14% 90%;
-    --popover: 225 6% 9%;
-    --popover-foreground: 216 14% 90%;
-    --primary: 39 100% 54%;
-    --primary-foreground: 220 13% 9%;
-    --secondary: 228 5% 13%;
-    --secondary-foreground: 216 14% 90%;
-    --muted: 228 6% 10%;
-    --muted-foreground: 216 10% 55%;
-    --accent: 39 100% 54%;
-    --accent-foreground: 220 13% 9%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 142 71% 45%;
-    --success-foreground: 144 61% 20%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 26 83% 14%;
-    --info: 199 89% 48%;
+  .dark .theme-portal.theme-portal.theme-portal {
+    color-scheme: dark;
+
+    --editorial-canvas: 225 8% 8%;
+    --editorial-surface: 225 7% 11%;
+    --editorial-surface-raised: 225 7% 14%;
+    --editorial-ink: 42 15% 91%;
+    --editorial-ink-muted: 42 7% 64%;
+    --editorial-rule: 40 6% 24%;
+    --editorial-rule-strong: 40 7% 40%;
+    --editorial-signal: 39 100% 54%;
+    --editorial-signal-ink: 42 100% 70%;
+    --editorial-signal-foreground: 220 15% 9%;
+    --editorial-danger-text: 2 90% 76%;
+    --editorial-focus: 42 100% 66%;
+    --editorial-selection: 39 62% 28%;
+    --editorial-scrollbar-track: 225 7% 12%;
+    --editorial-scrollbar-thumb: 40 7% 44%;
+    --editorial-scrollbar-thumb-hover: 40 9% 56%;
+    --editorial-scrollbar-thumb-active: 39 80% 58%;
+
+    --background: var(--editorial-canvas);
+    --foreground: var(--editorial-ink);
+    --card: var(--editorial-surface);
+    --card-foreground: var(--editorial-ink);
+    --popover: var(--editorial-surface-raised);
+    --popover-foreground: var(--editorial-ink);
+    --primary: var(--editorial-signal);
+    --primary-foreground: var(--editorial-signal-foreground);
+    --secondary: 225 7% 16%;
+    --secondary-foreground: var(--editorial-ink);
+    --muted: 225 7% 13%;
+    --muted-foreground: var(--editorial-ink-muted);
+    --accent: 225 7% 18%;
+    --accent-foreground: var(--editorial-ink);
+    --destructive: 2 62% 43%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 49% 44%;
+    --success-foreground: 145 68% 10%;
+    --warning: 39 92% 55%;
+    --warning-foreground: 30 90% 12%;
+    --info: 205 76% 42%;
     --info-foreground: 0 0% 100%;
-    --border: 228 5% 13%;
-    --input: 228 5% 13%;
-    --ring: 39 100% 54%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: var(--editorial-rule);
+    --input: var(--editorial-rule-strong);
+    --ring: var(--editorial-focus);
+    --chart-1: 39 92% 55%;
+    --chart-2: 205 70% 58%;
+    --chart-3: 145 49% 50%;
+    --chart-4: 16 72% 60%;
+    --chart-5: 276 48% 65%;
   }
 
   /* Default root variables (fallback) */
@@ -294,6 +355,92 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
     /* Chrome, Safari and Opera */
+  }
+}
+
+/* Cortex Editorial application behavior ---------------------------------- */
+.theme-portal,
+.theme-portal * {
+  scrollbar-color: hsl(var(--editorial-scrollbar-thumb)) hsl(var(--editorial-scrollbar-track));
+  scrollbar-width: thin;
+}
+
+.theme-portal::-webkit-scrollbar,
+.theme-portal *::-webkit-scrollbar {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+.theme-portal::-webkit-scrollbar-track,
+.theme-portal *::-webkit-scrollbar-track {
+  background: hsl(var(--editorial-scrollbar-track));
+}
+
+.theme-portal::-webkit-scrollbar-thumb,
+.theme-portal *::-webkit-scrollbar-thumb {
+  min-height: 2.75rem;
+  border: 0.1875rem solid hsl(var(--editorial-scrollbar-track));
+  border-radius: 999px;
+  background: hsl(var(--editorial-scrollbar-thumb));
+}
+
+.theme-portal::-webkit-scrollbar-thumb:hover,
+.theme-portal *::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--editorial-scrollbar-thumb-hover));
+}
+
+.theme-portal::-webkit-scrollbar-thumb:active,
+.theme-portal *::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--editorial-scrollbar-thumb-active));
+}
+
+/* Legacy utility cannot hide a product scrollbar inside the portal shell. */
+.theme-portal .scrollbar-hide {
+  -ms-overflow-style: auto;
+  scrollbar-width: thin;
+}
+
+.theme-portal .scrollbar-hide::-webkit-scrollbar {
+  display: block;
+}
+
+@layer base {
+  .theme-portal :where(:focus-visible) {
+    outline: 2px solid hsl(var(--editorial-focus));
+    outline-offset: 3px;
+  }
+}
+
+.theme-portal ::selection {
+  color: hsl(var(--editorial-ink));
+  background: hsl(var(--editorial-selection));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-portal {
+    scroll-behavior: auto !important;
+  }
+
+  .theme-portal *,
+  .theme-portal *::before,
+  .theme-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .theme-portal,
+  .theme-portal * {
+    scrollbar-color: ButtonText Canvas;
+  }
+
+  .theme-portal :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 3px;
   }
 }
 

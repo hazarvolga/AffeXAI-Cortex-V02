@@ -1,6 +1,6 @@
 /**
  * Event & Certificate Types
- * 
+ *
  * Shared types for event management and certificate system
  */
 
@@ -9,19 +9,19 @@
 // ============================================================================
 
 export enum EventStatus {
-  DRAFT = 'draft',
-  PUBLISHED = 'published',
-  CANCELLED = 'cancelled',
-  COMPLETED = 'completed',
+  DRAFT = "draft",
+  PUBLISHED = "published",
+  CANCELLED = "cancelled",
+  COMPLETED = "completed",
 }
 
 export enum EventCategory {
-  WEBINAR = 'Webinar',
-  WORKSHOP = 'Workshop',
-  CONFERENCE = 'Conference',
-  TRAINING = 'Training',
-  MEETUP = 'Meetup',
-  OTHER = 'Other',
+  WEBINAR = "Webinar",
+  WORKSHOP = "Workshop",
+  CONFERENCE = "Conference",
+  TRAINING = "Training",
+  MEETUP = "Meetup",
+  OTHER = "Other",
 }
 
 // ============================================================================
@@ -163,6 +163,19 @@ export interface UpdateEventDto {
   metadata?: EventMetadata;
 }
 
+/** Published, tenant-scoped event fields exposed to portal calendar widgets. */
+export interface UpcomingEventSummaryDto {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  capacity: number;
+  price: number;
+}
+
 // ============================================================================
 // Frontend-Specific Types (for UI components)
 // ============================================================================
@@ -194,8 +207,8 @@ export interface EventQueryParams {
   startDate?: string;
   endDate?: string;
   grantsCertificate?: boolean;
-  sortBy?: 'startDate' | 'createdAt' | 'title';
-  sortOrder?: 'ASC' | 'DESC'; // Match common.types SortOrder enum values
+  sortBy?: "startDate" | "createdAt" | "title";
+  sortOrder?: "ASC" | "DESC"; // Match common.types SortOrder enum values
 }
 
 // ============================================================================

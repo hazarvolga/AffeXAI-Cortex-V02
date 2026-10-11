@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { usersService } from '@/lib/api';
-import { User } from '@affexai/shared-types';
+import { useEffect, useRef, useState, useCallback } from "react";
+import { usersService } from "@/lib/api";
+import { User } from "@affexai/shared-types";
 
 /**
  * useUserSync Hook
@@ -25,6 +25,7 @@ import { User } from '@affexai/shared-types';
 
 export interface UseUserSyncOptions {
   enabled?: boolean;
+  onUserUpdate?: (newUser: User) => void;
   onRoleChange?: (newUser: User, oldUser: User) => void;
   onError?: (error: Error) => void;
   pollInterval?: number;
@@ -38,11 +39,14 @@ export interface UseUserSyncReturn {
 }
 
 const DEFAULT_POLL_INTERVAL = 3 * 60 * 1000; // 3 minutes
-const BROADCAST_CHANNEL_NAME = 'user-sync-channel';
+const BROADCAST_CHANNEL_NAME = "user-sync-channel";
 
-export function useUserSync(options: UseUserSyncOptions = {}): UseUserSyncReturn {
+export function useUserSync(
+  options: UseUserSyncOptions = {},
+): UseUserSyncReturn {
   const {
     enabled = true,
+    onUserUpdate,
     onRoleChange,
     onError,
     pollInterval = DEFAULT_POLL_INTERVAL,
@@ -56,25 +60,33 @@ export function useUserSync(options: UseUserSyncOptions = {}): UseUserSyncReturn
   const previousUserRef = useRef<User | null>(null);
   const isSyncingRef = useRef(false);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  const callbacksRef = useRef({ onUserUpdate, onRoleChange, onError });
+
+  useEffect(() => {
+    callbacksRef.current = { onUserUpdate, onRoleChange, onError };
+  }, [onUserUpdate, onRoleChange, onError]);
 
   /**
    * Check if roles have changed
    */
-  const hasRolesChanged = useCallback((oldUser: User | null, newUser: User): boolean => {
-    if (!oldUser || !oldUser.roles || !newUser.roles) {
-      return false;
-    }
+  const hasRolesChanged = useCallback(
+    (oldUser: User | null, newUser: User): boolean => {
+      if (!oldUser || !oldUser.roles || !newUser.roles) {
+        return false;
+      }
 
-    // Compare role IDs
-    const oldRoleIds = oldUser.roles.map(r => r.id).sort();
-    const newRoleIds = newUser.roles.map(r => r.id).sort();
+      // Compare role IDs
+      const oldRoleIds = oldUser.roles.map((r) => r.id).sort();
+      const newRoleIds = newUser.roles.map((r) => r.id).sort();
 
-    if (oldRoleIds.length !== newRoleIds.length) {
-      return true;
-    }
+      if (oldRoleIds.length !== newRoleIds.length) {
+        return true;
+      }
 
-    return oldRoleIds.some((id, index) => id !== newRoleIds[index]);
-  }, []);
+      return oldRoleIds.some((id, index) => id !== newRoleIds[index]);
+    },
+    [],
+  );
 
   /**
    * Sync user data from backend
@@ -82,7 +94,6 @@ export function useUserSync(options: UseUserSyncOptions = {}): UseUserSyncReturn
   const syncUserData = useCallback(async () => {
     // Prevent concurrent syncs
     if (isSyncingRef.current) {
-      console.log('⏭️  User sync already in progress, skipping');
       return;
     }
 
@@ -91,58 +102,37 @@ export function useUserSync(options: UseUserSyncOptions = {}): UseUserSyncReturn
       setIsPolling(true);
       setError(null);
 
-      console.log('🔄 Syncing user data from backend...');
       const freshUser = await usersService.getCurrentUser();
 
       // Check for role changes
-      if (previousUserRef.current && hasRolesChanged(previousUserRef.current, freshUser)) {
-        console.log('🔄 Role change detected!', {
-          old: previousUserRef.current.roleNames,
-          new: freshUser.roleNames,
-        });
-
-        if (onRoleChange) {
-          onRoleChange(freshUser, previousUserRef.current);
-        }
+      if (
+        previousUserRef.current &&
+        hasRolesChanged(previousUserRef.current, freshUser)
+      ) {
+        callbacksRef.current.onRoleChange?.(freshUser, previousUserRef.current);
 
         // Broadcast role change to other tabs
         if (broadcastChannelRef.current) {
           broadcastChannelRef.current.postMessage({
-            type: 'role-changed',
-            user: freshUser,
+            type: "role-changed",
           });
         }
       }
 
       previousUserRef.current = freshUser;
       setLastSync(new Date());
-
-      console.log('✅ User sync completed', {
-        roles: freshUser.roleNames,
-        timestamp: new Date().toISOString(),
-      });
-
-      // IMPORTANT: Always update AuthContext with fresh user data
-      // This ensures the entire app has the latest user information
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('user-sync-update', { 
-          detail: { user: freshUser } 
-        });
-        window.dispatchEvent(event);
-      }
+      callbacksRef.current.onUserUpdate?.(freshUser);
     } catch (err) {
       const error = err as Error;
-      console.error('❌ User sync failed:', error);
+      console.error("❌ User sync failed:", error);
       setError(error);
 
-      if (onError) {
-        onError(error);
-      }
+      callbacksRef.current.onError?.(error);
     } finally {
       isSyncingRef.current = false;
       setIsPolling(false);
     }
-  }, [hasRolesChanged, onRoleChange, onError]);
+  }, [hasRolesChanged]);
 
   /**
    * Manual sync trigger
@@ -160,59 +150,66 @@ export function useUserSync(options: UseUserSyncOptions = {}): UseUserSyncReturn
     }
 
     // Initialize BroadcastChannel for tab synchronization
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      broadcastChannelRef.current = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      broadcastChannelRef.current = new BroadcastChannel(
+        BROADCAST_CHANNEL_NAME,
+      );
 
-      broadcastChannelRef.current.onmessage = (event) => {
-        if (event.data.type === 'role-changed') {
-          console.log('📢 Received role change from another tab', event.data.user.roleNames);
-          previousUserRef.current = event.data.user;
-
-          if (onRoleChange && previousUserRef.current) {
-            onRoleChange(event.data.user, previousUserRef.current);
-          }
+      broadcastChannelRef.current.onmessage = (
+        event: MessageEvent<unknown>,
+      ) => {
+        if (
+          typeof event.data === "object" &&
+          event.data !== null &&
+          "type" in event.data &&
+          event.data.type === "role-changed"
+        ) {
+          void syncUserData();
         }
       };
     }
 
-    // Initial sync
-    syncUserData();
+    // Initial sync is scheduled to avoid a cascading render inside this effect.
+    const initialSyncTimeout = window.setTimeout(() => {
+      void syncUserData();
+    }, 0);
 
     // Setup polling interval
     intervalRef.current = setInterval(() => {
       // Only sync if tab is visible
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         syncUserData();
       } else {
-        console.log('⏸️  Tab not visible, skipping sync (battery saving)');
+        console.log("⏸️  Tab not visible, skipping sync (battery saving)");
       }
     }, pollInterval);
 
     // Handle visibility change
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👁️  Tab became visible, syncing user data...');
+      if (document.visibilityState === "visible") {
+        console.log("👁️  Tab became visible, syncing user data...");
         syncUserData();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Cleanup
     return () => {
+      window.clearTimeout(initialSyncTimeout);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
 
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
 
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.close();
         broadcastChannelRef.current = null;
       }
     };
-  }, [enabled, pollInterval, syncUserData, onRoleChange]);
+  }, [enabled, pollInterval, syncUserData]);
 
   return {
     isPolling,
