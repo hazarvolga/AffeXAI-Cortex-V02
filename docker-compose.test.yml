@@ -36,7 +36,7 @@ services:
     environment:
       NODE_ENV: production
       BACKEND_URL: http://backend-test:9006
-    networks: [g0-private]
+    networks: [g0-private, g0-edge]
 
   backend-test:
     profiles: [app]
@@ -54,14 +54,14 @@ services:
       PLATFORM_ADMIN_USER_IDS: 7f9b2f7c-5ec4-4a67-8424-f0d20e89a693
       CORTEX_URL: http://cortex-test:8000
       QDRANT_URL: http://qdrant-test:6333
-      FRONTEND_URL: http://127.0.0.1:9003
-      CORS_ORIGINS: http://127.0.0.1:9003,http://localhost:9003
+      FRONTEND_URL: http://127.0.0.1:19003
+      CORS_ORIGINS: http://127.0.0.1:19003,http://localhost:19003
     depends_on:
       postgres-test:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-    networks: [g0-private]
+    networks: [g0-private, g0-edge]
 
   migration-test:
     profiles: [migration]
@@ -111,3 +111,5 @@ services:
 networks:
   g0-private:
     internal: true
+  # Browser-facing acceptance traffic; database and Redis remain private-only.
+  g0-edge:
