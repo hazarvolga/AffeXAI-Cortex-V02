@@ -31,4 +31,8 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'warn'
     },
   },
+  {
+    ...tseslint.configs.disableTypeChecked,
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/__tests__/**/*.ts'],
+  },
 );

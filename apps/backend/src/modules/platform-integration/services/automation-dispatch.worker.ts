@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
-import { DataSource } from 'typeorm';
-import { AutomationRule } from '../entities/automation-rule.entity';
-import { PlatformEvent } from '../entities/platform-event.entity';
-import { AutomationExecutorService } from './automation-executor.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { Interval } from "@nestjs/schedule";
+import { DataSource } from "typeorm";
+import { AutomationRule } from "../entities/automation-rule.entity";
+import { PlatformEvent } from "../entities/platform-event.entity";
+import { AutomationExecutorService } from "./automation-executor.service";
 
 type DispatchRow = {
   event_id: string;
@@ -36,15 +36,19 @@ export class AutomationDispatchWorker {
         WHERE (status = 'pending' AND available_at <= now())
            OR (status = 'processing' AND leased_until < now())
         ORDER BY available_at, created_at LIMIT 10 FOR UPDATE SKIP LOCKED
-      ) UPDATE automation_dispatch_outbox o
+      ), claimed AS (
+        UPDATE automation_dispatch_outbox o
         SET status = 'processing', attempts = attempts + 1,
             lease_token = gen_random_uuid(),
             leased_until = now() + interval '${DISPATCH_LEASE_SECONDS} seconds'
         FROM due WHERE o.event_id = due.event_id AND o.rule_id = due.rule_id
-        RETURNING o.*`);
+        RETURNING o.*
+      ) SELECT * FROM claimed`);
       for (const row of rows) await this.deliver(row);
     } catch {
-      this.logger.error('Automation dispatch polling failed; persisted work remains available');
+      this.logger.error(
+        "Automation dispatch polling failed; persisted work remains available",
+      );
     } finally {
       this.running = false;
     }
@@ -53,7 +57,7 @@ export class AutomationDispatchWorker {
   private async deliver(row: DispatchRow): Promise<void> {
     const heartbeat = setInterval(() => {
       void this.renewLease(row).catch(() => {
-        this.logger.warn('Automation dispatch lease heartbeat failed');
+        this.logger.warn("Automation dispatch lease heartbeat failed");
       });
     }, DISPATCH_HEARTBEAT_MS);
     heartbeat.unref();
@@ -68,23 +72,35 @@ export class AutomationDispatchWorker {
       ]);
 
       if (!event || !rule || !rule.isActive || !rule.shouldTrigger(event)) {
-        await this.ack(row, 'skipped');
+        await this.ack(row, "skipped");
         return;
       }
 
       await this.executor.dispatch(rule, event);
-      await this.ack(row, 'delivered');
+      await this.ack(row, "delivered");
     } catch {
-      const status = row.attempts >= 10 ? 'dead' : 'pending';
+      const status = row.attempts >= 10 ? "dead" : "pending";
       const delay = Math.min(3600, 5 * 2 ** Math.min(row.attempts, 10));
-      await this.db.query(`UPDATE automation_dispatch_outbox
+      await this.db.query(
+        `UPDATE automation_dispatch_outbox
         SET status = $5, available_at = now() + ($6 * interval '1 second'),
             last_error_code = $7, lease_token = NULL, leased_until = NULL
         WHERE event_id = $1 AND rule_id = $2 AND tenant_id = $3
           AND lease_token = $4 AND status = 'processing'`,
-      [row.event_id, row.rule_id, row.tenant_id, row.lease_token, status, delay, 'execution_failed']);
-      if (status === 'dead') {
-        this.logger.error('Automation dispatch exhausted retries; inspect dead dispatches');
+        [
+          row.event_id,
+          row.rule_id,
+          row.tenant_id,
+          row.lease_token,
+          status,
+          delay,
+          "execution_failed",
+        ],
+      );
+      if (status === "dead") {
+        this.logger.error(
+          "Automation dispatch exhausted retries; inspect dead dispatches",
+        );
       }
     } finally {
       clearInterval(heartbeat);
@@ -92,15 +108,21 @@ export class AutomationDispatchWorker {
   }
 
   private async renewLease(row: DispatchRow): Promise<void> {
-    await this.db.query(`UPDATE automation_dispatch_outbox
+    await this.db.query(
+      `UPDATE automation_dispatch_outbox
       SET leased_until = now() + interval '${DISPATCH_LEASE_SECONDS} seconds'
       WHERE event_id = $1 AND rule_id = $2 AND tenant_id = $3
         AND lease_token = $4 AND status = 'processing'`,
-    [row.event_id, row.rule_id, row.tenant_id, row.lease_token]);
+      [row.event_id, row.rule_id, row.tenant_id, row.lease_token],
+    );
   }
 
-  private async ack(row: DispatchRow, status: 'delivered' | 'skipped'): Promise<void> {
-    await this.db.query(`WITH acknowledged AS (
+  private async ack(
+    row: DispatchRow,
+    status: "delivered" | "skipped",
+  ): Promise<void> {
+    await this.db.query(
+      `WITH acknowledged AS (
       UPDATE automation_dispatch_outbox
         SET status = $5, delivered_at = now(), lease_token = NULL,
             leased_until = NULL, last_error_code = NULL
@@ -118,6 +140,7 @@ export class AutomationDispatchWorker {
       WHERE event.id = acknowledged.event_id
         AND event.tenant_id = acknowledged.tenant_id
         AND $5 = 'delivered'`,
-    [row.event_id, row.rule_id, row.tenant_id, row.lease_token, status]);
+      [row.event_id, row.rule_id, row.tenant_id, row.lease_token, status],
+    );
   }
 }

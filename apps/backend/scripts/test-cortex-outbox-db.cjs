@@ -29,7 +29,7 @@ async function row(id) { return (await source.query('SELECT * FROM cortex_outbox
  try {
   await source.runMigrations({ transaction: 'all' });
   const history = await source.query('SELECT name FROM migrations ORDER BY id');
-  assert.equal(history.length, 13); assert.equal(history[6].name, 'CortexOutbox1791378000000');
+  assert.equal(history.length, 25); assert.equal(history[6].name, 'CortexOutbox1791378000000');
   assert.equal((await source.runMigrations({ transaction: 'all' })).length, 0);
   assert.equal((await source.query("SELECT event_id FROM cortex_outbox WHERE status IN ('pending','processing')")).length, 0, 'Another outbox test is active; do not drain its rows');
   const rolledBack = envelope(); fixtureIds.push(rolledBack.eventId);
@@ -55,7 +55,7 @@ async function row(id) { return (await source.query('SELECT * FROM cortex_outbox
   } finally { await contender.rollbackTransaction(); await contender.release(); await downgrade.rollbackTransaction(); await downgrade.release(); }
   for (let i = 0; i < 5; i++) await record();
   const claims = [[], []];
-  const dbFor = index => ({ query: async (sql, parameters) => { const result = await source.query(sql, parameters); if (sql.startsWith('WITH due')) claims[index].push(...result[0].map(value => value.event_id)); return result; } });
+  const dbFor = index => ({ query: async (sql, parameters) => { const result = await source.query(sql, parameters); if (sql.startsWith('WITH due')) claims[index].push(...result.map(value => value.event_id)); return result; } });
   await Promise.all([new CortexOutboxWorker(dbFor(0), http, config).drain(), new CortexOutboxWorker(dbFor(1), http, config).drain()]);
   assert.equal(claims[0].length + claims[1].length, 6);
   assert.equal(new Set(claims.flat()).size, 6);
@@ -65,7 +65,7 @@ async function row(id) { return (await source.query('SELECT * FROM cortex_outbox
   await source.query("UPDATE cortex_outbox SET status='processing',lease_token=$2,leased_until=now()-interval '1 second',attempts=1 WHERE event_id=$1", [leased.eventId, oldToken]);
   const oldRow = await row(leased.eventId);
   const recovered = [];
-  const recoveryDb = { query: async (sql, parameters) => { const result = await source.query(sql, parameters); if (sql.startsWith('WITH due')) recovered.push(...result[0]); return result; } };
+  const recoveryDb = { query: async (sql, parameters) => { const result = await source.query(sql, parameters); if (sql.startsWith('WITH due')) recovered.push(...result); return result; } };
   await new CortexOutboxWorker(recoveryDb, http, config).drain();
   assert.equal(recovered.length, 1); assert.notEqual(recovered[0].lease_token, oldToken); assert.equal((await row(leased.eventId)).attempts, 2);
   // Recreate a newer active lease and prove the stale worker ACK changes zero rows.
@@ -85,7 +85,7 @@ async function row(id) { return (await source.query('SELECT * FROM cortex_outbox
   await new CortexOutboxWorker(source, http, config).drain();
   assert.equal((await row(lost.eventId)).status, 'delivered'); assert.equal((await row(lost.eventId)).attempts, 2); assert.equal(transportCalls - before, 2);
   assert.equal([...points.values()].filter(value => value.eventId === lost.eventId).length, 1);
-  console.log('PASS: migrations=13 repeat=0; atomic rollback; tenant FK; disjoint concurrent claims; expired lease recovery; stale ACK fenced; lost ACK retry same identity; pending rollback refused; no external transport');
+  console.log('PASS: migrations=25 repeat=0; atomic rollback; tenant FK; disjoint concurrent claims; expired lease recovery; stale ACK fenced; lost ACK retry same identity; pending rollback refused; no external transport');
  } finally {
   if (fixtureIds.length) { await source.query('DELETE FROM cortex_outbox WHERE event_id = ANY($1::uuid[])', [fixtureIds]); await source.query('DELETE FROM platform_events WHERE id = ANY($1::uuid[])', [fixtureIds]); }
   await source.destroy();
