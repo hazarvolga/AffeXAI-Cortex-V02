@@ -38,6 +38,11 @@ class Runtime:
         self.reads.append(request)
         return [{'content': 'tenant memory', 'score': .9, 'type': 'test'}]
 
+    def ready(self):
+        if self.failed:
+            raise RuntimeError('private-storage-url-and-key')
+        return True
+
 
 @pytest.fixture
 def boundary():
@@ -142,6 +147,16 @@ def test_health_does_not_claim_model_or_storage_readiness(boundary):
     client, runtime = boundary
     assert client.get('/health').json() == {'status': 'alive', 'service': 'affexai-cortex-memory'}
     assert runtime.reads == runtime.writes == []
+
+
+def test_readiness_requires_model_and_storage_without_leaking_errors(boundary):
+    client, runtime = boundary
+    assert client.get('/ready').json() == {'status': 'ready', 'service': 'affexai-cortex-memory'}
+    runtime.failed = True
+    response = client.get('/ready')
+    assert response.status_code == 503
+    assert response.json() == {'detail': 'memory-unavailable'}
+    assert 'private-storage' not in response.text
 
 
 def test_non_ascii_signature_rejected_without_internal_error():

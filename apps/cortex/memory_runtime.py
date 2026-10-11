@@ -44,6 +44,13 @@ class MemoryRuntime:
             raise RuntimeError('Invalid embedding vector')
         return vector
 
+    def ready(self):
+        """Load the local model and verify the durable memory collection."""
+        self._dependencies()
+        if not self.client.collection_exists('memory'):
+            raise RuntimeError('Memory collection is unavailable')
+        return True
+
     def ingest(self, signal):
         import json
         text = f'{signal.type} from {signal.source}: {json.dumps(signal.data, ensure_ascii=False)}'

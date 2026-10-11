@@ -1,8 +1,8 @@
 # AffeXAI Cortex — Geliştirme Handoff
 
-**Son güncelleme:** 8 Ekim 2026, Europe/Istanbul
+**Son güncelleme:** 10 Ekim 2026, Europe/Istanbul
 
-**Durum:** Kullanıcı isteğiyle ara verildi; kaldığı yerden devam etmeye hazır
+**Durum:** V02 staging deployment hazırlığı sürüyor; production promotion henüz NO-GO
 
 **Proje kökü:** `/Users/hazarvolgaekiz/dev/lab/AffeXAI-Cortex-main`
 
@@ -163,3 +163,17 @@ Push öncesi güvenlik sertleştirmesi:
 - Production bağımlılık denetimi 5 kritik/47 yüksekten 0 kritik/22 yükseğe indirildi. Kalan transitif yüksek bulgular sonraki bağımlılık modernizasyon diliminde ele alınmalıdır.
 - Push edilecek Git ağacında Gitleaks sonucu: 0 bulgu.
 - Production deploy workflow'u yalnız manuel tetiklenir; ilk V02 push'u deployment başlatmaz.
+
+## Coolify staging deployment hazırlığı — 2026-10-10
+
+Yeni sunucuya kurulum için tek kaynak `/docker-compose.production.yml` olarak belirlendi. Stack sırası `postgres` (pgvector/PostgreSQL 16) + `redis` + `qdrant` + `cortex` + tek seferlik `migration` + `backend` + `frontend` biçimindedir. Backend yalnız bağımlılıklar sağlıklı ve migration başarılı olduğunda; frontend yalnız backend sağlıklı olduğunda başlar. Kalıcı veriler `postgres_data`, `redis_data`, `qdrant_data`, `uploads_data` ve `backups_data` volume'larında tutulur.
+
+Zorunlu sırlar `DATABASE_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY`, `BACKUP_ENCRYPTION_KEY`, `CORTEX_SERVICE_SECRET` ve `QDRANT_API_KEY`dir. Gerçek değerler repoya yazılmaz; Coolify secret/env alanında bağımsız değerler olarak saklanır. Qdrant anahtarı sunucuda da zorunlu tutulur; frontend veri ağına bağlanmaz. Public URL değişkenleri staging hostname'leriyle ayarlanır ve `NEXT_PUBLIC_*` değerleri build-time olduğu için hostname değişiminde frontend yeniden build edilir. Tam kurulum, health/readiness, backup ve rollback runbook'u `COOLIFY_DEPLOYMENT.md` içindedir.
+
+Takip borcu: `JWT_REFRESH_SECRET` dağıtım sözleşmesinde ayrı tutulsa da mevcut `AuthService` refresh tokenlarını halen ana `JWT_SECRET` üzerinden imzalayıp doğruluyor. Ayrı refresh anahtarına geçiş mevcut oturumları sonlandıracağı için bağımsız bir auth migration işi olarak ele alınmalıdır.
+
+Deployment kararı staging-first'tür. Güncel V02 GitHub CI run'ında migration job'u yeşildir; backend/frontend lint ve fail-closed production dependency audit kırmızıdır. Gitleaks tracked tree için 0 bulgu vermiştir, fakat production auditinde 0 kritik / 22 yüksek transitif bulgu kalmıştır. Bu nedenle staging kurulumu ve runtime kabul çalışabilir; public production domain promotion, CI/security kapıları yeşile dönmeden ve staging kabul/restore testi kayda alınmadan yapılmaz.
+
+Staging kabulü en az şunları kapsar: backend ve frontend `/api/health`, Qdrant `/readyz`, Cortex `/ready`, migration exit `0` ve tekrar çalıştırma idempotency'si; login, tenant izolasyonu, RBAC redleri, CRM, Forms idempotency/outbox ve Automation approval/dispatch; WebSocket origin allowlist; restart sonrası PostgreSQL/Redis/Qdrant/uploads kalıcılığı. Yalnız konteynerlerin healthy görünmesi release kanıtı değildir.
+
+Her promotion öncesi PostgreSQL logical dump, beş kalıcı volume snapshot'ı, deploy edilen Git SHA/image/env revizyonu ve migration sonucu kaydedilir. Rollback önce bilinen iyi SHA/image'a yapılır; migration geri uyumsuzsa yazma trafiği durdurulur ve doğrulanmış deploy öncesi veritabanı/Qdrant/volume snapshot'ları matching uygulama SHA'sı ile geri yüklenir.

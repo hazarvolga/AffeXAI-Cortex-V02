@@ -94,6 +94,14 @@ def create_app(secret=None, runtime=None, clock=time.time, nonce_limit=10000):
     def health():
         return {'status': 'alive', 'service': 'affexai-cortex-memory'}
 
+    @app.get('/ready')
+    def ready():
+        try:
+            memory.ready()
+            return {'status': 'ready', 'service': 'affexai-cortex-memory'}
+        except Exception:
+            raise HTTPException(status_code=503, detail='memory-unavailable') from None
+
     @app.post('/signals/ingest')
     def ingest(signal: Signal, tenant: str = Depends(authorize)):
         scope_matches(signal, tenant)

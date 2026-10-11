@@ -33,6 +33,13 @@ def test_acknowledged_write_contains_tenant_and_waits():
     assert kwargs['points'][0].payload['tenantId'] == 'tenant-a'
 
 
+def test_readiness_initializes_and_verifies_memory_collection():
+    value = runtime()
+    value.client.collection_exists.return_value = True
+    assert value.ready() is True
+    value.client.collection_exists.assert_called_once_with('memory')
+
+
 @pytest.mark.parametrize('status', [models.UpdateStatus.ACKNOWLEDGED, None])
 def test_unfinished_write_never_reports_persistence(status):
     value = runtime()
