@@ -123,11 +123,11 @@ The steady-state result is `mail.affexai.tr.`. Forward DNS also maps `mail.affex
 
 On 2026-10-12 a first test message from `hazarvolga@affexai.tr` was accepted by Gmail but placed in Spam. Header inspection showed aligned SPF, RSA DKIM, and DMARC passes over TLS 1.3. The sending IP was absent from the checked common public blocklists, and authoritative/public reverse DNS returned `mail.affexai.tr`. Gmail described the message as similar to previously identified spam. The message used a generic test subject and meaningless body text, while the domain and sending IP had no established sending history.
 
-Google Search Console domain ownership for `affexai.tr` was verified through a root TXT record in Cloudflare. The domain was then added to Google Postmaster Tools under the operating Google account. Postmaster access is active; low-volume domains can initially show no data.
+Google Search Console domain ownership for `affexai.tr` and `bimmetraj.com` was verified through separate root TXT records in Cloudflare. Both domains were then added to Google Postmaster Tools under the operating Google account. Postmaster access is active; low-volume domains can initially show no data. BIM Metraj mail uses the shared `mail.affexai.tr` MX host, whose forward and reverse DNS resolve consistently to `169.58.96.15`.
 
 Operational rules:
 
-- Keep the Search Console verification TXT record in Cloudflare.
+- Keep the Search Console verification TXT records for both domains in Cloudflare.
 - Send only expected, meaningful correspondence with a real display name, subject, body, and signature.
 - Allow only real, expected, consented sending volume to grow organically; never manufacture traffic with purchased lists, automated exchanges, or fake engagement.
 - Monitor Postmaster Tools for spam rate, authentication, encryption, and delivery errors once Google has enough traffic to report.
