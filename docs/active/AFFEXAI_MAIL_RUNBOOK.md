@@ -118,3 +118,19 @@ dig +short -x 169.58.96.15
 ```
 
 The steady-state result is `mail.affexai.tr.`. Forward DNS also maps `mail.affexai.tr` back to `169.58.96.15`, satisfying forward-confirmed reverse DNS.
+
+## Gmail deliverability baseline
+
+On 2026-10-12 a first test message from `hazarvolga@affexai.tr` was accepted by Gmail but placed in Spam. Header inspection showed aligned SPF, RSA DKIM, and DMARC passes over TLS 1.3. The sending IP was absent from the checked common public blocklists, and authoritative/public reverse DNS returned `mail.affexai.tr`. Gmail described the message as similar to previously identified spam. The message used a generic test subject and meaningless body text, while the domain and sending IP had no established sending history.
+
+Google Search Console domain ownership for `affexai.tr` was verified through a root TXT record in Cloudflare. The domain was then added to Google Postmaster Tools under the operating Google account. Postmaster access is active; low-volume domains can initially show no data.
+
+Operational rules:
+
+- Keep the Search Console verification TXT record in Cloudflare.
+- Send only expected, meaningful correspondence with a real display name, subject, body, and signature.
+- Allow only real, expected, consented sending volume to grow organically; never manufacture traffic with purchased lists, automated exchanges, or fake engagement.
+- Monitor Postmaster Tools for spam rate, authentication, encryption, and delivery errors once Google has enough traffic to report.
+- Treat recipient replies and voluntary `Not spam` actions as legitimate engagement signals; never ask unrelated recipients to manipulate classification.
+- Capture the SMTP response and delivered headers, then inspect SPF, DKIM, DMARC alignment, TLS, forward-confirmed reverse DNS, blocklists, MIME structure, sender headers, subject, and content together.
+- Do not promise inbox placement. Authentication reduces direct-domain spoofing risk and lets receivers enforce DMARC, but recipient filtering also depends on sender history, content, engagement, and complaint rate.
