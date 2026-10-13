@@ -1,6 +1,6 @@
 # AffeXAI Cortex — Geliştirme Handoff
 
-**Son güncelleme:** 11 Ekim 2026, Europe/Istanbul
+**Son güncelleme:** 13 Ekim 2026, Europe/Istanbul (UI/UX F0 + F1 yerel commit'leri; aşağıdaki "Sonraki oturum: buradan başla" bölümüne bakın)
 
 **Durum:** V02 commit `1419332` Coolify üzerinde çalışıyor; `affexai.tr` canlı. Forms → CRM → Automation backend dikey dilimi yerelde kabul edildi; 33 modülün tam ürün kabulü henüz tamamlanmadı
 
@@ -252,3 +252,59 @@ Doğrulama: frontend/backend typecheck 0; değişen dosyalarda ESLint 0; fronten
 Not: `cn()` içindeki tailwind-merge, `focus-visible:outline` ile `outline-2` birlikte verildiğinde ilkini düşürüyor ve odak çizgisi kayboluyor. Pazarlama odak göstergesi bu yüzden `components/ui/button` gibi ring yardımcılarına geçirildi ve klavye Tab'ıyla görünür olduğu doğrulandı. Bu tuzak axe ile yakalanmıyor.
 
 Açık kalanlar: gerçek hukuk metinleri (D3), backend'in CORS reddini 500 olarak döndürmesi (403 olmalı), axe taramasının CI'a eklenmesi (`axe-core` şu an yalnız geçişli bağımlılık). Değişen `organizations.service.ts` dosyasında backend ESLint'in raporladığı 18 `no-unsafe-*` hatası HEAD'de de birebir aynı; dokunulmayan üyelik metotlarındaki `manager.query` sonuçlarından geliyor ve ayrı bir iş olarak bırakıldı.
+
+## Sonraki oturum: buradan başla — 2026-10-13
+
+Oturum token limiti nedeniyle F1 sonunda durduruldu. Planlanan devam: 13 Ekim 2026, 23:30 (Europe/Istanbul).
+
+**Commit durumu (yerel, push yok):**
+
+```text
+b932eb0 feat(marketing): unify narrative, tokens and early-access flow (F1)
+567c9a1 fix(frontend): stop public-surface damage (F0)
+5addb3d docs: add UI/UX roadmap F0-F4
+```
+
+Çalışma ağacında yalnız bu plana ait olmayan dosyalar açık. Bunlara dokunmayın, commit'e almayın: üç ticket e-posta şablonu, kökteki UI/UX GAP & BUG raporu (`.md`/`.pdf`) ve `docs/evidence/`.
+
+**Sıradaki iş: F2 · Giriş ve onboarding.** Plan dosyası: `docs/active/AffeXAI-Cortex_UIUX_Yol_Haritasi_F0-F4.md`.
+
+1. Fazın başında kullanıcıya D4'ü sorun (self-serve kayıt; varsayılan: kapalı, davet tabanlı, `/signup` → `/erken-erisim`). Oturum hardening'inin (localStorage → HttpOnly cookie) F2'de yapılıp yapılmayacağını da sorun; bu adım mevcut oturumları sonlandırır.
+2. F2 maddeleri:
+   - Tek `LoginForm`: `/login`, `/admin/login`, `/[tenant]/admin/login`.
+   - E-postadan tenant keşfi; varlık bilgisi sızdırmamalı.
+   - Rol bazlı yönlendirme.
+   - `/signup` davet akışı.
+   - Form davranışı UX-CONTRACT'a uygun olmalı.
+3. Doğrulama: iki tenant (A/B) ile Playwright E2E. İzole stack komutları `docker-compose.test.yml` başındaki yorumda.
+
+**Her fazda tekrar eden kurallar ve araçlar:**
+
+- **Kullanıcı tercihi:** her faz sonunda dur, kısa özet ver, sonraki faz için onay bekle. `git add .` yok, `--no-verify` yok, push/deploy yok.
+- **Pre-commit hook:** makinede `npx` yok, root'ta `eslint`/`prettier` yok. Hook atlanmadan şu shim'lerle çalıştırıldı (scratchpad `bin/` klasöründe, oturum değişince yeniden oluşturun):
+  - `npx` → `exec pnpm exec "$@"`
+  - `eslint` → `cd apps/frontend && exec ./node_modules/.bin/eslint "$@"`
+  - `prettier` → `exec apps/backend/node_modules/.bin/prettier "$@"`
+  - Önerilen sıra: stage → `PATH=<shim>:$PATH node_modules/.bin/lint-staged` → doğrulamayı tekrarla → commit.
+  - Backend dosyalarını ayrıca `apps/backend` ESLint config'iyle kontrol edin; shim frontend config'ini kullanıyor.
+- **Prettier:** biçimlendirme ilk geçişte idempotent olmayabilir; commit öncesi `prettier --check` çalıştırın.
+- **Paket yolları:** parantezli veya köşeli yollar (`(marketing)`, `[...slug]`) için `git --literal-pathspecs add --pathspec-from-file=...` kullanın.
+- **Testler:**
+  - Frontend birim testleri: `cd apps/frontend && pnpm exec tsx --test <dosyalar>`.
+  - Backend: `cd apps/backend && pnpm exec jest <spec>`.
+  - Frontend typecheck'ten önce `pnpm build` gerekebilir; taşınan veya silinen rotalar eski `.next/types` dosyalarında hata bırakıyor.
+- **Tarayıcı ve axe:** `pnpm build && pnpm exec next start -p 9003`. axe taraması `axe-core@4.14.0` (pnpm store) ve önbellekteki Chromium (`~/Library/Caches/ms-playwright/chromium_headless_shell-1248`) ile yapıldı. CI'a alınması açık bir iş.
+- **Form E2E:** izole harness'in CORS allowlist'i yalnız `:19003` origin'ini kabul ediyor. Frontend'i `NEXT_PUBLIC_API_URL=http://localhost:19003 BACKEND_URL=http://127.0.0.1:19006` ile build edip `-p 19003`'te sunun.
+- **Tailwind tuzağı:** `cn()` (tailwind-merge) `focus-visible:outline` ile `outline-2`'yi birlikte görünce `outline`'ı düşürüyor. Odak için ring yardımcılarını kullanın.
+
+**Açık borçlar (F0/F1'den):**
+
+- Gerçek hukuk metinleri (D3).
+- Backend CORS reddini 500 döndürüyor (403 olmalı).
+- axe ve klavye testleri CI'da değil.
+- `organizations.service.ts` içinde HEAD'den gelen 18 `no-unsafe-*` lint hatası.
+- CMS blok kataloğunda Allplan verisi (F3.8).
+- `/portal/*-test` ve demo rotaları (F3).
+- Provider debug `console.log` gürültüsü.
+- Giriş ekranlarındaki jargon ve `QUANTUM_RESISTANT` iddiası (F2'de kalkacak).
+- graphify: bu repo için henüz graf üretilmedi (`graphify-out/` yok).
