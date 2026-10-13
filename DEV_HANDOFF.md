@@ -212,3 +212,24 @@ Doğrulama: portal saf fonksiyon testleri 12/12; event guard, public projection 
 Production auth hardening borcu açıktır: access/refresh tokenlarının JavaScript tarafından okunabilen localStorage katmanından HttpOnly/Secure/SameSite cookie oturumuna taşınması ve ölçülmüş CSP politikasının devreye alınması ayrı migration gerektirir. Pilot diffinde açık CRITICAL/HIGH güvenlik blockerı yoktur; bu borç kapanmadan auth yüzeyi tam production kabulü almaz.
 
 İzole kabul harness'i için `docker-compose.test.yml` frontend/backend servislerine host erişimli `g0-edge` ağı eklendi ve tenant selector HTML pattern'i modern Chromium `v` regex kurallarıyla uyumlu hale getirildi. Bunlar canlı ortam değişikliği değildir.
+
+## UI/UX F0 — public yüzey hasarı durduruldu — 2026-10-13
+
+Plan: `docs/active/AffeXAI-Cortex_UIUX_Yol_Haritasi_F0-F4.md` (bug ID'leri kökteki UI/UX GAP & BUG raporundan). Yerel commit; push/deployment yapılmadı.
+
+- **B01/B17:** test, demo, `backup-*` ve `(public-backup)` altındaki eski Aluplan rotaları route olmayan `apps/frontend/src/app/_dev/` altına taşındı. Bu yollar artık `[...slug]` catch-all üzerinden markalı 404 döner. `/privacy` ve `/terms` yerinde kaldı.
+- **B02:** public header ve footer varsayılanları `AffeXAI`. Footer bağlantıları emekliye ayrılan rotalar yerine yaşayan sayfalara gidiyor.
+- **B03/B04:** sertifika, SLA, latency, enclave ve ayrı şema iddiaları kaldırıldı. Modül rozetleri `src/lib/marketing/module-status.ts` üzerinden kabul matrisine bağlı; matris değişince bu dosya aynı changeset'te güncellenmeli.
+- **B05 (D5):** `/pricing` fiyat ve checkout göstermeyen bir erken erişim sayfası oldu. CTA `mailto:` adresine gidiyor (`NEXT_PUBLIC_CONTACT_EMAIL`, varsayılan `info@affexai.tr`). Form F1'de gelecek.
+- **B06:** about, support, contact ve products ortak `CmsBackedPage` kullanıyor. Ziyaretçi Türkçe bekleme/hata durumu görüyor; CMS kısayolu yalnız `cms.edit` yetkili oturuma görünüyor. Sayfalar artık build'e gömülmüyor.
+- **B09:** üç giriş formunda `label htmlFor` bağlantısı var. "System Status" artık buton değil. İngilizce büyük harfli dekoratif metinlerde `lang="en"` kullanılıyor.
+- **B11 (D3):** hukuk sayfaları `noindex, nofollow` ve görünür taslak bandı taşıyor.
+- **B12:** markalı Türkçe `not-found.tsx`, `favicon.ico` ve `icon.svg` eklendi. Her pazarlama rotasının ayrı `<title>`'ı var.
+- **B13:** ortak `MarketingHeader` (Radix Dialog drawer, `lg` altı mobil menü) ve `MarketingFooter` eklendi.
+- **D1:** iki dilli seçildi. Public metinler `src/lib/i18n/public-copy.ts` içinde TR/EN olarak tutuluyor, TR aktif. Dil yönlendirmesi F1'de kararlaştırılacak, çünkü `/en` öneki `[tenant]` segmentiyle çakışıyor.
+
+Doğrulama: frontend typecheck 0; değişen 36 dosyada ESLint 0; production build 0; yeni unit testler (`pnpm exec tsx --test ...`) 8/8; production server :9003 curl taraması plandaki beklenen kodları verdi; Chromium 375/768/1280 px'te 11 rotada yatay taşma yok; mobil menü yalnız klavyeyle çalışıyor.
+
+Pre-commit notu: makinede `npx` yok; root'ta `eslint` ve `prettier` da yok. Hook atlanmadı. Scratchpad'deki shim'lerle çalıştırıldı: `npx` → `pnpm exec`, `eslint` → `apps/frontend` kurulumu ve config'i, `prettier` → `apps/backend/node_modules/.bin/prettier` (3.9.9). Repo daha önce Prettier'dan geçmediği için lint-staged stage'deki 84 dosyayı yeniden biçimlendirdi. Taşınan arşiv dosyalarındaki 18 eski lint hatası (kaçışsız tırnak; `backup-home`'da try/catch içinde JSX) kullanıcı kararıyla düzeltildi. Biçim değişikliği yüzünden 41 taşınan dosya git'te rename yerine sil+ekle olarak görünüyor; geçmiş `git log --follow` ile izlenebilir. Kalıcı çözüm için root'a `eslint`/`prettier` devDependency eklemek ayrı bir iş.
+
+Açık kalanlar sonraki fazlara bırakıldı: pazarlama gövde metni (F1), giriş ekranı dili ve iddiaları (F2), CMS blok kataloğundaki Allplan verisi (F3.8), `/portal/*-test` ve demo rotaları (F3), provider debug logları.

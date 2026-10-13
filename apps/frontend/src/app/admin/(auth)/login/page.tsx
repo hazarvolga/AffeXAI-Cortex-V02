@@ -72,7 +72,10 @@ export default function AdminLoginPage() {
   return (
     <div className="relative min-h-screen w-full flex flex-col bg-[#121212] text-white overflow-x-hidden">
       {/* Header */}
-      <header className="w-full border-b border-solid border-[#393528] px-6 md:px-20 py-6 flex items-center justify-between">
+      <header
+        lang="en"
+        className="w-full border-b border-solid border-[#393528] px-6 md:px-20 py-6 flex items-center justify-between"
+      >
         <div className="flex items-center gap-4">
           <div className="text-[#f2b90d] size-6">
             <svg
@@ -96,9 +99,9 @@ export default function AdminLoginPage() {
             ENCRYPTED NODE 042
           </div>
           <div className="h-4 w-[1px] bg-[#393528]"></div>
-          <button className="flex items-center justify-center rounded px-4 py-2 bg-[#f2b90d] text-[#121212] text-[10px] font-black tracking-widest uppercase">
+          <span className="flex items-center justify-center rounded px-4 py-2 bg-[#f2b90d] text-[#121212] text-[10px] font-black tracking-widest uppercase">
             System Status: Standby
-          </button>
+          </span>
         </div>
       </header>
 
@@ -106,7 +109,7 @@ export default function AdminLoginPage() {
       <main className="flex-1 grid grid-cols-12">
         {/* Left Side - Headline */}
         <div className="col-span-12 lg:col-span-7 flex flex-col justify-start px-6 md:px-20 py-12 md:py-24">
-          <div className="max-w-2xl mb-12 lg:mb-0">
+          <div lang="en" className="max-w-2xl mb-12 lg:mb-0">
             {/* Subtitle */}
             <div className="mb-4 flex items-center gap-2">
               <span className="h-[1px] w-12 bg-[#f2b90d]"></span>
@@ -140,13 +143,19 @@ export default function AdminLoginPage() {
             />
             {/* Email Input */}
             <div className="group">
-              <p className="text-[10px] font-bold tracking-[0.3em] text-[#bab29c] uppercase pb-4 group-focus-within:text-[#f2b90d] transition-colors">
-                [ Identity ]
-              </p>
+              <label
+                htmlFor="admin-login-email"
+                className="block text-[10px] font-bold tracking-[0.3em] text-[#bab29c] uppercase pb-4 group-focus-within:text-[#f2b90d] transition-colors"
+              >
+                E-posta
+              </label>
               <input
+                id="admin-login-email"
+                name="email"
+                autoComplete="email"
                 type="email"
                 className="hairline-input w-full text-2xl font-light placeholder:text-[#393528] py-4"
-                placeholder="Structural ID"
+                placeholder="ad@sirket.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
@@ -156,13 +165,19 @@ export default function AdminLoginPage() {
 
             {/* Password Input */}
             <div className="group">
-              <p className="text-[10px] font-bold tracking-[0.3em] text-[#bab29c] uppercase pb-4 group-focus-within:text-[#f2b90d] transition-colors">
-                [ Credential ]
-              </p>
+              <label
+                htmlFor="admin-login-password"
+                className="block text-[10px] font-bold tracking-[0.3em] text-[#bab29c] uppercase pb-4 group-focus-within:text-[#f2b90d] transition-colors"
+              >
+                Şifre
+              </label>
               <input
+                id="admin-login-password"
+                name="password"
+                autoComplete="current-password"
                 type="password"
                 className="hairline-input w-full text-2xl font-light placeholder:text-[#393528] py-4"
-                placeholder="Encrypted Key"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -196,7 +211,10 @@ export default function AdminLoginPage() {
               </button>
 
               {/* Links */}
-              <div className="mt-8 flex justify-between items-center text-[10px] tracking-[0.2em] text-[#544e3b] font-medium uppercase">
+              <div
+                lang="en"
+                className="mt-8 flex justify-between items-center text-[10px] tracking-[0.2em] text-[#544e3b] font-medium uppercase"
+              >
                 <Link
                   href="/admin/forgot-password"
                   className="hover:text-white transition-colors"
@@ -214,7 +232,10 @@ export default function AdminLoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="px-6 md:px-20 py-10 border-t border-[#393528] grid grid-cols-12 text-[#544e3b]">
+      <footer
+        lang="en"
+        className="px-6 md:px-20 py-10 border-t border-[#393528] grid grid-cols-12 text-[#544e3b]"
+      >
         <div className="col-span-12 lg:col-span-7 flex flex-wrap gap-12 items-end">
           <div className="space-y-1">
             <p className="text-[9px] font-black uppercase tracking-[0.3em]">

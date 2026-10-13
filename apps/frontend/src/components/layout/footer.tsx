@@ -1,55 +1,66 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Globe } from 'lucide-react';
-import { getPlatformIcon } from '@/lib/social-media-data';
-import settingsService, { type SiteSettings } from '@/lib/api/settingsService';
-import { mediaService } from '@/lib/api/mediaService';
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ThemeSettingsService, type ThemeSettings } from '@/services/theme-settings.service';
+import Link from "next/link";
+import { Globe } from "lucide-react";
+import { getPlatformIcon } from "@/lib/social-media-data";
+import settingsService, { type SiteSettings } from "@/lib/api/settingsService";
+import { mediaService } from "@/lib/api/mediaService";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ThemeSettingsService,
+  type ThemeSettings,
+} from "@/services/theme-settings.service";
+import { getPublicCopy } from "@/lib/i18n/public-copy";
+
+/** Shown when the site settings are unavailable; never a sample tenant's brand. */
+const FALLBACK_COMPANY_NAME = "AffeXAI";
 
 export function Footer() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
 
   // Fetch theme settings
-  const { data: themeSettings, isLoading: isLoadingTheme } = useQuery<ThemeSettings>({
-    queryKey: ['theme-settings-active'],
-    queryFn: () => ThemeSettingsService.getActiveTheme(),
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchOnWindowFocus: false,
-  });
+  const { data: themeSettings, isLoading: isLoadingTheme } =
+    useQuery<ThemeSettings>({
+      queryKey: ["theme-settings-active"],
+      queryFn: () => ThemeSettingsService.getActiveTheme(),
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+      refetchOnWindowFocus: false,
+    });
 
   // Extract footer data with defaults
   const footerSections = themeSettings?.footerConfig?.sections || [
     {
-      title: 'Keşfet',
+      title: "Keşfet",
       customLinks: [
-        { name: 'Çözümler', href: '/solutions', order: 1 },
-        { name: 'Ürünler', href: '/products', order: 2 },
-        { name: 'Başarı Hikayeleri', href: '/case-studies', order: 3 },
+        { name: "Modüller", href: "/modules", order: 1 },
+        { name: "Mimari", href: "/architecture", order: 2 },
+        { name: "Erken erişim", href: "/pricing", order: 3 },
       ],
     },
     {
-      title: 'Destek',
+      title: "Destek",
       customLinks: [
-        { name: 'Eğitim & Destek', href: '/education', order: 1 },
-        { name: 'İndirme Merkezi', href: '/downloads', order: 2 },
-        { name: 'İletişim', href: '/contact', order: 3 },
+        { name: "Yardım merkezi", href: "/help", order: 1 },
+        { name: "Destek", href: "/support", order: 2 },
+        { name: "İletişim", href: "/contact", order: 3 },
       ],
     },
     {
-      title: 'Yasal',
+      title: "Yasal",
       customLinks: [
-        { name: 'Gizlilik Politikası', href: '/privacy', order: 1 },
-        { name: 'Kullanım Koşulları', href: '/terms', order: 2 },
+        { name: "Gizlilik Politikası", href: "/privacy", order: 1 },
+        { name: "Kullanım Koşulları", href: "/terms", order: 2 },
       ],
     },
   ];
 
-  const showLanguageSelector = themeSettings?.footerConfig?.showLanguageSelector ?? true;
-  const languageText = themeSettings?.footerConfig?.languageText || 'Türkiye (Türkçe)';
-  const copyrightText = themeSettings?.footerConfig?.copyrightText || 'Tüm hakları saklıdır.';
+  const showLanguageSelector =
+    themeSettings?.footerConfig?.showLanguageSelector ?? true;
+  const languageText =
+    themeSettings?.footerConfig?.languageText || "Türkiye (Türkçe)";
+  const copyrightText =
+    themeSettings?.footerConfig?.copyrightText || "Tüm hakları saklıdır.";
 
   // Fetch site settings (existing logic)
   useEffect(() => {
@@ -60,31 +71,31 @@ export function Footer() {
         // Convert logo UUIDs to full URLs
         const [logoFullUrl, logoDarkFullUrl] = await Promise.all([
           mediaService.getMediaUrl(settings.logoUrl),
-          mediaService.getMediaUrl(settings.logoDarkUrl)
+          mediaService.getMediaUrl(settings.logoDarkUrl),
         ]);
 
         setSiteSettings({
           ...settings,
           logoUrl: logoFullUrl,
-          logoDarkUrl: logoDarkFullUrl
+          logoDarkUrl: logoDarkFullUrl,
         });
       } catch (error) {
-        console.error('Failed to fetch site settings:', error);
+        console.error("Failed to fetch site settings:", error);
         // Fallback to default values
         setSiteSettings({
-          companyName: "XYZ Company",
-          logoUrl: "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo",
-          logoDarkUrl: "https://placehold.co/140x40/171717/f0f0f0?text=Logo",
+          companyName: FALLBACK_COMPANY_NAME,
+          logoUrl: "",
+          logoDarkUrl: "",
           contact: {
             address: "",
             phone: "",
-            email: ""
+            email: "",
           },
           socialMedia: {},
           seo: {
-            defaultTitle: "XYZ Company",
-            defaultDescription: "XYZ Company"
-          }
+            defaultTitle: FALLBACK_COMPANY_NAME,
+            defaultDescription: getPublicCopy().footer.tagline,
+          },
         });
       }
     };
@@ -103,7 +114,10 @@ export function Footer() {
               <div className="h-4 w-64 bg-gray-300 dark:bg-gray-600 rounded animate-pulse"></div>
               <div className="flex space-x-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-6 w-6 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse"></div>
+                  <div
+                    key={i}
+                    className="h-6 w-6 bg-gray-300 dark:bg-gray-600 rounded-full animate-pulse"
+                  ></div>
                 ))}
               </div>
             </div>
@@ -126,22 +140,24 @@ export function Footer() {
               {siteSettings.seo.defaultDescription}
             </p>
             <div className="flex space-x-4">
-              {Object.entries(siteSettings.socialMedia).map(([platform, url]) => {
-                if (!url) return null;
-                const Icon = getPlatformIcon(platform);
-                return (
-                  <a
-                    key={platform}
-                    href={url as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Icon className="h-6 w-6"/>
-                    <span className="sr-only">{platform}</span>
-                  </a>
-                );
-              })}
+              {Object.entries(siteSettings.socialMedia).map(
+                ([platform, url]) => {
+                  if (!url) return null;
+                  const Icon = getPlatformIcon(platform);
+                  return (
+                    <a
+                      key={platform}
+                      href={url as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      <Icon className="h-6 w-6" />
+                      <span className="sr-only">{platform}</span>
+                    </a>
+                  );
+                },
+              )}
             </div>
           </div>
 
@@ -153,8 +169,8 @@ export function Footer() {
                   {section.title}
                 </h3>
                 <ul role="list" className="mt-4 space-y-2">
-                  {section.customLinks
-                    ?.sort((a, b) => a.order - b.order)
+                  {[...(section.customLinks ?? [])]
+                    .sort((a, b) => a.order - b.order)
                     .map((link) => (
                       <li key={link.name}>
                         <Link
@@ -174,12 +190,15 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 border-t border-border pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground order-2 sm:order-1">
-            &copy; {new Date().getFullYear()} {siteSettings.companyName}. {copyrightText}
+            &copy; {new Date().getFullYear()} {siteSettings.companyName}.{" "}
+            {copyrightText}
           </p>
           {showLanguageSelector && (
             <div className="flex items-center space-x-2 order-1 sm:order-2">
               <Globe className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">{languageText}</span>
+              <span className="text-sm text-muted-foreground">
+                {languageText}
+              </span>
             </div>
           )}
         </div>
