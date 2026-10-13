@@ -1,39 +1,54 @@
 /**
  * Copy for the public surface (marketing, legal, CMS fallbacks, 404).
  *
- * Turkish is the active locale. English is kept in lockstep so the bilingual
- * rollout (decision D1) only needs a locale selector, not a copy hunt. Locale
- * routing is decided in F1 because a `/en` prefix collides with `[tenant]`.
+ * Turkish lives at the site root, English under `/en` (decision D1). Both
+ * dictionaries implement the same interface, so a missing translation is a
+ * type error rather than a blank on the page.
  */
+import { en } from "./copy/en";
+import { tr } from "./copy/tr";
 
 export type PublicLocale = "tr" | "en";
+
+export const PUBLIC_LOCALES: readonly PublicLocale[] = ["tr", "en"];
 
 export const DEFAULT_PUBLIC_LOCALE: PublicLocale = "tr";
 
 export type PublicModuleStatus = "early-access" | "in-development" | "roadmap";
 
-export type MarketingPageKey =
-  "home" | "modules" | "architecture" | "features" | "pricing" | "manifesto";
-
 export type CmsPageKey = "about" | "support" | "contact" | "products";
 
-interface PageMeta {
+export type MarketingMetaKey =
+  "home" | "modules" | "howItWorks" | "earlyAccess" | "contact";
+
+export interface PageMeta {
   title: string;
   description: string;
 }
 
+export interface TitledText {
+  title: string;
+  body: string;
+}
+
 export interface PublicCopy {
   brand: string;
+  language: {
+    name: string;
+    switchTo: string;
+    switchLabel: string;
+  };
   nav: {
     label: string;
     modules: string;
-    architecture: string;
-    features: string;
+    howItWorks: string;
     earlyAccess: string;
+    contact: string;
     login: string;
     openMenu: string;
     closeMenu: string;
     menuTitle: string;
+    skipToContent: string;
   };
   requestAccess: string;
   productPhase: string;
@@ -41,13 +56,47 @@ export interface PublicCopy {
   moduleStatusNote: string;
   footer: {
     tagline: string;
+    siteLabel: string;
     legalLabel: string;
     privacy: string;
     terms: string;
     rights: string;
   };
-  meta: Record<MarketingPageKey, PageMeta>;
+  meta: Record<MarketingMetaKey, PageMeta>;
   cmsMeta: Record<CmsPageKey, PageMeta>;
+  home: {
+    title: string;
+    lead: string;
+    secondaryCta: string;
+    problem: { title: string; items: readonly TitledText[] };
+    loop: {
+      title: string;
+      intro: string;
+      steps: readonly TitledText[];
+      link: string;
+    };
+    status: { title: string; body: string; link: string };
+    principles: { title: string; items: readonly TitledText[] };
+    finalCta: TitledText;
+  };
+  modules: {
+    title: string;
+    lead: string;
+    legendTitle: string;
+    legend: Record<PublicModuleStatus, string>;
+    summary: string;
+    cta: TitledText;
+  };
+  howItWorks: {
+    title: string;
+    lead: string;
+    layersTitle: string;
+    layers: readonly TitledText[];
+    loopTitle: string;
+    safeguards: { title: string; items: readonly string[] };
+    notYet: { title: string; body: string; link: string };
+    cta: TitledText;
+  };
   earlyAccess: {
     eyebrow: string;
     title: string;
@@ -57,6 +106,42 @@ export interface PublicCopy {
     steps: readonly string[];
     cta: string;
     ctaHint: string;
+    form: {
+      title: string;
+      intro: string;
+      name: string;
+      email: string;
+      company: string;
+      message: string;
+      messageHint: string;
+      optional: string;
+      honeypot: string;
+      privacyNote: string;
+      privacyLink: string;
+      submit: string;
+      submitting: string;
+      successTitle: string;
+      successBody: string;
+      errorTitle: string;
+      errorBody: string;
+      rateLimited: string;
+      unavailable: string;
+      errorSummary: string;
+      errors: {
+        nameRequired: string;
+        emailRequired: string;
+        emailInvalid: string;
+        companyRequired: string;
+        tooLong: string;
+      };
+    };
+  };
+  contact: {
+    title: string;
+    lead: string;
+    emailLabel: string;
+    earlyAccess: TitledText & { link: string };
+    existing: TitledText & { help: string; login: string };
   };
   cmsPage: {
     pendingTitle: string;
@@ -66,10 +151,7 @@ export interface PublicCopy {
     backHome: string;
     editorLink: string;
   };
-  legalDraft: {
-    title: string;
-    body: string;
-  };
+  legalDraft: TitledText;
   notFound: {
     code: string;
     title: string;
@@ -77,239 +159,18 @@ export interface PublicCopy {
     backHome: string;
     contact: string;
   };
+  help: {
+    emptyTitle: string;
+    emptyBody: string;
+    errorTitle: string;
+    errorBody: string;
+    retry: string;
+    noResultsTitle: string;
+    noResultsBody: string;
+    clearSearch: string;
+    contactSupport: string;
+  };
 }
-
-const tr: PublicCopy = {
-  brand: "AffeXAI Cortex",
-  nav: {
-    label: "Ana menü",
-    modules: "Modüller",
-    architecture: "Mimari",
-    features: "Özellikler",
-    earlyAccess: "Erken erişim",
-    login: "Giriş yap",
-    openMenu: "Menüyü aç",
-    closeMenu: "Menüyü kapat",
-    menuTitle: "Menü",
-  },
-  requestAccess: "Erken erişim talep et",
-  productPhase: "Erken erişim · davetle",
-  moduleStatus: {
-    "early-access": "Erken erişim",
-    "in-development": "Geliştiriliyor",
-    roadmap: "Yol haritasında",
-  },
-  moduleStatusNote:
-    "Durumlar modül kabul matrisinden gelir; bir modül yalnız kabul testlerini geçince ilerler.",
-  footer: {
-    tagline: "Marka iletişimini tek bir karar masasında toplayan platform.",
-    legalLabel: "Yasal",
-    privacy: "Gizlilik",
-    terms: "Kullanım koşulları",
-    rights: "Tüm hakları saklıdır.",
-  },
-  meta: {
-    home: {
-      title: "AffeXAI Cortex · Marka iletişim merkezi",
-      description:
-        "Destek, form, kampanya ve konuşma sinyallerini ortak bir marka hafızasında toplayan platform. Erken erişim aşamasında.",
-    },
-    modules: {
-      title: "Modüller · AffeXAI Cortex",
-      description:
-        "AffeXAI Cortex modülleri ve her birinin güncel geliştirme durumu.",
-    },
-    architecture: {
-      title: "Mimari · AffeXAI Cortex",
-      description:
-        "AffeXAI Cortex katmanları: altyapı, ortak hafıza ve karar yüzeyi.",
-    },
-    features: {
-      title: "Özellikler · AffeXAI Cortex",
-      description:
-        "AffeXAI Cortex ile marka sinyallerini nasıl okuyup eyleme dönüştürdüğünüz.",
-    },
-    pricing: {
-      title: "Erken erişim · AffeXAI Cortex",
-      description: "AffeXAI Cortex erken erişim programı ve başvuru yolu.",
-    },
-    manifesto: {
-      title: "Modül haritası · AffeXAI Cortex",
-      description: "AffeXAI Cortex modüllerinin katmanlara göre haritası.",
-    },
-  },
-  cmsMeta: {
-    about: {
-      title: "Hakkımızda · AffeXAI Cortex",
-      description: "AffeXAI ve AffeXAI Cortex hakkında.",
-    },
-    support: {
-      title: "Destek · AffeXAI Cortex",
-      description: "AffeXAI Cortex destek kaynakları ve yardım yolları.",
-    },
-    contact: {
-      title: "İletişim · AffeXAI Cortex",
-      description: "AffeXAI ekibine ulaşmanın yolları.",
-    },
-    products: {
-      title: "Ürünler · AffeXAI Cortex",
-      description: "AffeXAI Cortex ürün ve modül özeti.",
-    },
-  },
-  earlyAccess: {
-    eyebrow: "Erken erişim",
-    title: "AffeXAI Cortex şu an davetle açılıyor",
-    lead: "Platform erken erişim aşamasında. Modüller kabul testlerinden geçtikçe kuruluşlara kademeli olarak açılıyor.",
-    pricingNote:
-      "Herkese açık bir fiyat listesi henüz yok. Kapsam ve koşulları ihtiyacınıza göre birlikte belirliyoruz.",
-    stepsTitle: "Süreç nasıl işliyor",
-    steps: [
-      "Talebinizi e-postayla iletin; kuruluşunuzu ve öncelikli ihtiyacınızı kısaca yazın.",
-      "Kapsamı birlikte netleştirmek için sizinle iletişime geçelim.",
-      "Uygun olduğunda çalışma alanınızı kurup ekibinizi davet edelim.",
-    ],
-    cta: "Erken erişim talep et",
-    ctaHint:
-      "E-posta uygulamanız açılır. Doğrudan yazmak isterseniz adresimiz:",
-  },
-  cmsPage: {
-    pendingTitle: "Bu sayfa hazırlanıyor",
-    pendingBody:
-      "İçerik henüz yayımlanmadı. Kısa süre sonra tekrar bakabilirsiniz.",
-    errorTitle: "Sayfa şu an açılamıyor",
-    errorBody:
-      "İçeriği yüklerken bir sorun oluştu. Lütfen biraz sonra yeniden deneyin.",
-    backHome: "Ana sayfaya dön",
-    editorLink: "İçerik yönetiminde aç",
-  },
-  legalDraft: {
-    title: "Taslak metin",
-    body: "Bu sayfa örnek bir taslaktır ve AffeXAI için bağlayıcı değildir. Geçerli metin yayımlanana kadar arama motorlarına kapalıdır.",
-  },
-  notFound: {
-    code: "404",
-    title: "Aradığınız sayfa bulunamadı",
-    body: "Bağlantı değişmiş ya da sayfa kaldırılmış olabilir.",
-    backHome: "Ana sayfaya dön",
-    contact: "Bize yazın",
-  },
-};
-
-const en: PublicCopy = {
-  brand: "AffeXAI Cortex",
-  nav: {
-    label: "Main menu",
-    modules: "Modules",
-    architecture: "Architecture",
-    features: "Features",
-    earlyAccess: "Early access",
-    login: "Log in",
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-    menuTitle: "Menu",
-  },
-  requestAccess: "Request early access",
-  productPhase: "Early access · by invitation",
-  moduleStatus: {
-    "early-access": "Early access",
-    "in-development": "In development",
-    roadmap: "On the roadmap",
-  },
-  moduleStatusNote:
-    "Statuses come from the module acceptance matrix; a module only advances after passing its acceptance tests.",
-  footer: {
-    tagline: "One decision desk for all of your brand communication.",
-    legalLabel: "Legal",
-    privacy: "Privacy",
-    terms: "Terms of use",
-    rights: "All rights reserved.",
-  },
-  meta: {
-    home: {
-      title: "AffeXAI Cortex · Brand communication center",
-      description:
-        "A platform that brings support, form, campaign and conversation signals into a shared brand memory. In early access.",
-    },
-    modules: {
-      title: "Modules · AffeXAI Cortex",
-      description:
-        "AffeXAI Cortex modules and the current development status of each.",
-    },
-    architecture: {
-      title: "Architecture · AffeXAI Cortex",
-      description:
-        "AffeXAI Cortex layers: infrastructure, shared memory and the decision surface.",
-    },
-    features: {
-      title: "Features · AffeXAI Cortex",
-      description:
-        "How AffeXAI Cortex turns brand signals into the next action.",
-    },
-    pricing: {
-      title: "Early access · AffeXAI Cortex",
-      description:
-        "The AffeXAI Cortex early access programme and how to apply.",
-    },
-    manifesto: {
-      title: "Module map · AffeXAI Cortex",
-      description: "A layer-by-layer map of the AffeXAI Cortex modules.",
-    },
-  },
-  cmsMeta: {
-    about: {
-      title: "About · AffeXAI Cortex",
-      description: "About AffeXAI and AffeXAI Cortex.",
-    },
-    support: {
-      title: "Support · AffeXAI Cortex",
-      description: "AffeXAI Cortex support resources and ways to get help.",
-    },
-    contact: {
-      title: "Contact · AffeXAI Cortex",
-      description: "Ways to reach the AffeXAI team.",
-    },
-    products: {
-      title: "Products · AffeXAI Cortex",
-      description: "An overview of AffeXAI Cortex products and modules.",
-    },
-  },
-  earlyAccess: {
-    eyebrow: "Early access",
-    title: "AffeXAI Cortex is currently opening by invitation",
-    lead: "The platform is in early access. Modules open to organisations step by step as they pass acceptance testing.",
-    pricingNote:
-      "There is no public price list yet. We agree scope and terms together, based on your needs.",
-    stepsTitle: "How it works",
-    steps: [
-      "Send your request by email with a short note on your organisation and main need.",
-      "We get in touch to clarify the scope together.",
-      "When the fit is right, we set up your workspace and invite your team.",
-    ],
-    cta: "Request early access",
-    ctaHint: "Your email app opens. To write directly, our address is:",
-  },
-  cmsPage: {
-    pendingTitle: "This page is being prepared",
-    pendingBody:
-      "The content has not been published yet. Please check back soon.",
-    errorTitle: "This page cannot be opened right now",
-    errorBody:
-      "Something went wrong while loading the content. Please try again shortly.",
-    backHome: "Back to home",
-    editorLink: "Open in content management",
-  },
-  legalDraft: {
-    title: "Draft text",
-    body: "This page is a sample draft and is not binding for AffeXAI. It is hidden from search engines until the final text is published.",
-  },
-  notFound: {
-    code: "404",
-    title: "We could not find that page",
-    body: "The link may have changed or the page may have been removed.",
-    backHome: "Back to home",
-    contact: "Write to us",
-  },
-};
 
 const PUBLIC_COPY: Readonly<Record<PublicLocale, PublicCopy>> = { tr, en };
 
@@ -317,4 +178,14 @@ export function getPublicCopy(
   locale: PublicLocale = DEFAULT_PUBLIC_LOCALE,
 ): PublicCopy {
   return PUBLIC_COPY[locale];
+}
+
+/** Replaces `{name}` placeholders; unknown names stay visible on purpose. */
+export function fillTemplate(
+  template: string,
+  values: Readonly<Record<string, string | number>>,
+): string {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    name in values ? String(values[name]) : match,
+  );
 }

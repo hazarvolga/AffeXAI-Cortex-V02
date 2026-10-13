@@ -2,6 +2,7 @@ import { applyResponseCachePolicy } from "./lib/api/response-cache";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { protectedLoginPath } from "./lib/auth/admin-login-routing";
+import { isReservedTenantSlug } from "@affexai/shared-types";
 
 /**
  * Middleware for authentication, authorization, and optimizations
@@ -66,11 +67,9 @@ export async function middleware(request: NextRequest) {
 
   // Check if route requires authentication
   const pathSegments = path.split("/");
+  // Reserved first segments (admin, portal, api, the /en locale, ...) are never tenants.
   const isTenantRoute =
-    pathSegments.length > 2 &&
-    pathSegments[1] !== "admin" &&
-    pathSegments[1] !== "portal" &&
-    pathSegments[1] !== "api";
+    pathSegments.length > 2 && !isReservedTenantSlug(pathSegments[1]);
 
   // Normalized path for check (remove tenant prefix if present)
   const normalizedPath = isTenantRoute

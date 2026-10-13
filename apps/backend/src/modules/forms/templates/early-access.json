@@ -1,0 +1,72 @@
+{
+  "name": "Erken erişim başvurusu",
+  "description": "affexai.tr/erken-erisim ve /en/early-access sayfalarındaki başvuru formu. Alan kimlikleri frontend EarlyAccessForm ile birebir aynı olmalıdır.",
+  "structure": {
+    "rows": [
+      {
+        "id": "row-early-access",
+        "type": "section",
+        "settings": {},
+        "columns": [
+          {
+            "id": "col-early-access",
+            "width": "100%",
+            "blocks": [
+              {
+                "id": "contactName",
+                "type": "input",
+                "properties": {
+                  "label": "Ad soyad",
+                  "inputType": "text",
+                  "required": true
+                },
+                "styles": {}
+              },
+              {
+                "id": "email",
+                "type": "input",
+                "properties": {
+                  "label": "İş e-postası",
+                  "inputType": "email",
+                  "required": true
+                },
+                "styles": {}
+              },
+              {
+                "id": "companyName",
+                "type": "input",
+                "properties": {
+                  "label": "Kuruluş",
+                  "inputType": "text",
+                  "required": true
+                },
+                "styles": {}
+              },
+              {
+                "id": "message",
+                "type": "textarea",
+                "properties": {
+                  "label": "Öncelikli ihtiyacınız",
+                  "rows": 5,
+                  "required": false
+                },
+                "styles": {}
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "settings": { "submitButtonText": "Başvuruyu gönder" }
+  },
+  "settings": {
+    "submitButtonText": "Başvuruyu gönder",
+    "successMessage": "Başvurunuz alındı.",
+    "crmLeadCapture": {
+      "enabled": true,
+      "emailField": "email",
+      "companyField": "companyName",
+      "contactNameField": "contactName"
+    }
+  }
+}

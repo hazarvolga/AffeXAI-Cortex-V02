@@ -33,9 +33,9 @@ export function Footer() {
     {
       title: "Keşfet",
       customLinks: [
-        { name: "Modüller", href: "/modules", order: 1 },
-        { name: "Mimari", href: "/architecture", order: 2 },
-        { name: "Erken erişim", href: "/pricing", order: 3 },
+        { name: "Modüller", href: "/moduller", order: 1 },
+        { name: "Nasıl çalışır", href: "/nasil-calisir", order: 2 },
+        { name: "Erken erişim", href: "/erken-erisim", order: 3 },
       ],
     },
     {
@@ -43,7 +43,7 @@ export function Footer() {
       customLinks: [
         { name: "Yardım merkezi", href: "/help", order: 1 },
         { name: "Destek", href: "/support", order: 2 },
-        { name: "İletişim", href: "/contact", order: 3 },
+        { name: "İletişim", href: "/iletisim", order: 3 },
       ],
     },
     {

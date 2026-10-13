@@ -1,0 +1,70 @@
+/**
+ * Top-level paths owned by the public site or the platform. A tenant slug must
+ * never equal one of them, otherwise `/<slug>/...` would shadow a real route
+ * (for example the English site under `/en`).
+ */
+export const RESERVED_TENANT_SLUGS: readonly string[] = [
+  "about",
+  "accept-invitation",
+  "admin",
+  "api",
+  "architecture",
+  "auth",
+  "backup-downloads",
+  "backup-home",
+  "backup-products",
+  "backup-solutions",
+  "case-studies",
+  "chat",
+  "cms",
+  "cms-component-test",
+  "cms-demo",
+  "cms-demo-enhanced",
+  "cms-drag-drop-demo",
+  "cms-responsive-demo",
+  "complete-profile",
+  "confirm-subscription",
+  "contact",
+  "downloads",
+  "editorial-console",
+  "education",
+  "email",
+  "en",
+  "erken-erisim",
+  "features",
+  "forgot-password",
+  "help",
+  "iletisim",
+  "login",
+  "manifesto",
+  "media",
+  "modules",
+  "moduller",
+  "nasil-calisir",
+  "portal",
+  "preferences",
+  "preview",
+  "pricing",
+  "privacy",
+  "products",
+  "reset-password",
+  "resubscribe",
+  "signup",
+  "solutions",
+  "static",
+  "support",
+  "survey",
+  "terms",
+  "test-dynamic-blocks",
+  "test-editor",
+  "test-list",
+  "test-move",
+  "unsubscribe",
+  "verify-email",
+];
+
+const RESERVED = new Set(RESERVED_TENANT_SLUGS);
+
+export function isReservedTenantSlug(slug: string): boolean {
+  return RESERVED.has(slug.trim().toLowerCase());
+}

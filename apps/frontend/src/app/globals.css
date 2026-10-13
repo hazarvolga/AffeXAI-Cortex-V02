@@ -269,6 +269,66 @@
     --chart-5: 276 48% 65%;
   }
 
+  /* Theme: Marketing — public site, always the Cortex Editorial dark palette */
+  .theme-marketing.theme-marketing.theme-marketing {
+    color-scheme: dark;
+
+    --editorial-canvas: 225 8% 8%;
+    --editorial-surface: 225 7% 11%;
+    --editorial-surface-raised: 225 7% 14%;
+    --editorial-ink: 42 15% 91%;
+    --editorial-ink-muted: 42 7% 68%;
+    --editorial-rule: 40 6% 24%;
+    --editorial-rule-strong: 40 7% 40%;
+    --editorial-signal: 39 100% 54%;
+    --editorial-signal-ink: 42 100% 70%;
+    --editorial-signal-foreground: 220 15% 9%;
+    --editorial-danger-text: 2 90% 76%;
+    --editorial-focus: 42 100% 66%;
+    --editorial-selection: 39 62% 28%;
+
+    --cortex-canvas: hsl(var(--editorial-canvas));
+    --cortex-surface: hsl(var(--editorial-surface));
+    --cortex-surface-raised: hsl(var(--editorial-surface-raised));
+    --cortex-line: hsl(var(--editorial-rule));
+    --cortex-line-strong: hsl(var(--editorial-rule-strong));
+    --cortex-text: hsl(var(--editorial-ink));
+    --cortex-text-muted: hsl(var(--editorial-ink-muted));
+    --cortex-accent: hsl(var(--editorial-signal));
+    --cortex-accent-ink: hsl(var(--editorial-signal-ink));
+    --cortex-accent-soft: hsl(var(--editorial-signal) / 0.14);
+    --cortex-danger-text: hsl(var(--editorial-danger-text));
+    --cortex-focus: hsl(var(--editorial-focus));
+
+    --background: var(--editorial-canvas);
+    --foreground: var(--editorial-ink);
+    --card: var(--editorial-surface);
+    --card-foreground: var(--editorial-ink);
+    --popover: var(--editorial-surface-raised);
+    --popover-foreground: var(--editorial-ink);
+    --primary: var(--editorial-signal);
+    --primary-foreground: var(--editorial-signal-foreground);
+    --secondary: 225 7% 16%;
+    --secondary-foreground: var(--editorial-ink);
+    --muted: 225 7% 13%;
+    --muted-foreground: var(--editorial-ink-muted);
+    --accent: 225 7% 18%;
+    --accent-foreground: var(--editorial-ink);
+    --destructive: 2 62% 43%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 49% 44%;
+    --success-foreground: 145 68% 10%;
+    --border: var(--editorial-rule);
+    --input: var(--editorial-rule-strong);
+    --ring: var(--editorial-focus);
+    --radius: 0.375rem;
+  }
+
+  .theme-marketing ::selection {
+    background-color: hsl(var(--editorial-selection));
+    color: hsl(var(--editorial-ink));
+  }
+
   /* Default root variables (fallback) */
   :root {
     --background: 0 0% 98%;

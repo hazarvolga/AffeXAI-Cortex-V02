@@ -97,3 +97,18 @@ test("returns 503 when BACKEND_URL is missing", async () => {
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   assert.equal(response.headers.get("location"), null);
 });
+
+test("never treats the /en locale prefix as a tenant workspace", async () => {
+  process.env.BACKEND_URL = "http://backend:9006";
+  globalThis.fetch = (async () => {
+    throw new Error("public locale routes must not call the auth backend");
+  }) as typeof fetch;
+
+  for (const path of ["/en/how-it-works", "/en/admin/settings"]) {
+    const response = await middleware(
+      new NextRequest(`https://affexai.tr${path}`),
+    );
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers.get("location"), null, path);
+  }
+});

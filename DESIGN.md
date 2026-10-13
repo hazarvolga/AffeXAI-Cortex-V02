@@ -127,6 +127,12 @@ Frontmatter eşlemesi: `colors.primary` amber sinyali, `colors.background`/`colo
 | `--editorial-danger-text` | `2 72% 38%` | `2 90% 76%` | Destructive metin ve ikon |
 | `--editorial-focus` | `39 100% 38%` | `42 100% 66%` | Klavye focus halkası |
 
+### Pazarlama teması
+
+Public site (`/`, `/moduller`, `/nasil-calisir`, `/erken-erisim`, `/iletisim` ve `/en/...` karşılıkları) her zaman koyu paleti kullanır. Kaynak `globals.css` içindeki `.theme-marketing`; değerler yukarıdaki dark sütunla aynıdır, tek fark küçük metinlerde AA payını artırmak için `--editorial-ink-muted: 42 7% 68%`. Pazarlama bileşenleri yalnız semantik Tailwind sınıflarını (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`) kullanır; sayfa içinde hex renk yoktur. Durum rozetleri nötrdür; amber yalnız birincil eylem ve aktif navigasyon içindir.
+
+Okunabilirlik tabanı (public site): gövde ≥ 16 px, yardımcı metin ≥ 14 px, etiket ≥ 12 px, font-weight ≥ 400 (başlıklar 600), metin kontrastı ≥ 4.5:1.
+
 Amber dekorasyon değildir. Bir görünümde yalnızca en önemli eylem, aktif navigasyon veya karar sinyali yüksek amber vurgu alır. Başarı, uyarı, bilgi ve tehlike kendi semantik renkleriyle ve metin/ikon desteğiyle gösterilir. Renk tek başına durum iletmez.
 
 Grafikler ancak bir öneri veya karşılaştırmayı açıklıyorsa kullanılır. Her grafik başlık, kısa yorum ve erişilebilir metin/tablo alternatifi taşır.

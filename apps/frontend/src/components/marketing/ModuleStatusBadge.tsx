@@ -1,37 +1,48 @@
+import { CircleCheck, CircleDashed, CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPublicCopy } from "@/lib/i18n/public-copy";
+import {
+  getPublicCopy,
+  type PublicLocale,
+  type PublicModuleStatus,
+} from "@/lib/i18n/public-copy";
 import {
   publicStatusOf,
   type MarketedModule,
 } from "@/lib/marketing/module-status";
 
 interface ModuleStatusBadgeProps {
+  locale: PublicLocale;
   module: MarketedModule;
 }
 
-/** Honest, matrix-backed module status; only accepted modules get the amber signal. */
-export function ModuleStatusBadge({ module }: ModuleStatusBadgeProps) {
+const STATUS_STYLE: Readonly<Record<PublicModuleStatus, string>> = {
+  "early-access": "border-foreground/40 text-foreground",
+  "in-development": "border-border text-muted-foreground",
+  roadmap: "border-dashed border-border text-muted-foreground",
+};
+
+const STATUS_ICON = {
+  "early-access": CircleCheck,
+  "in-development": CircleDot,
+  roadmap: CircleDashed,
+} as const;
+
+/**
+ * Matrix-backed module status. Text and icon carry the meaning; colour stays
+ * neutral so the amber signal remains reserved for the primary action.
+ */
+export function ModuleStatusBadge({ locale, module }: ModuleStatusBadgeProps) {
   const status = publicStatusOf(module);
+  const Icon = STATUS_ICON[status];
   return (
     <span
-      lang="tr"
       className={cn(
-        "border px-2 py-1 text-xs tracking-wide",
-        status === "early-access"
-          ? "border-[#f9f906]/40 text-[#f9f906]"
-          : "border-[#333] text-[#a3a3a3]",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium",
+        STATUS_STYLE[status],
       )}
     >
-      {getPublicCopy().moduleStatus[status]}
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+      {getPublicCopy(locale).moduleStatus[status]}
     </span>
-  );
-}
-
-/** States the product's real phase instead of a blanket system status. */
-export function ProductPhaseLine() {
-  return (
-    <p lang="tr" className="mt-8 text-xs tracking-wide text-[#a3a3a3]">
-      {getPublicCopy().productPhase}
-    </p>
   );
 }

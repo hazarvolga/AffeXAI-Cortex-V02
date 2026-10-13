@@ -4,104 +4,125 @@ import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getPublicCopy } from "@/lib/i18n/public-copy";
-import { EARLY_ACCESS_ANCHOR } from "@/lib/marketing/contact";
-
-export type MarketingNavKey =
-  "modules" | "architecture" | "features" | "pricing";
+import { getPublicCopy, type PublicLocale } from "@/lib/i18n/public-copy";
+import {
+  earlyAccessFormPath,
+  marketingPath,
+  type MarketingPage,
+} from "@/lib/marketing/routes";
+import { CONTAINER, FOCUS_RING } from "./marketing-styles";
 
 interface MarketingHeaderProps {
-  active?: MarketingNavKey;
-  /** Keeps the header pinned while the page scrolls. */
-  sticky?: boolean;
+  locale: PublicLocale;
+  active: MarketingPage;
 }
 
 interface NavItem {
-  key: MarketingNavKey;
-  href: string;
+  page: MarketingPage;
   label: string;
 }
 
-function navItems(): readonly NavItem[] {
-  const { nav } = getPublicCopy();
-  return [
-    { key: "modules", href: "/modules", label: nav.modules },
-    { key: "architecture", href: "/architecture", label: nav.architecture },
-    { key: "features", href: "/features", label: nav.features },
-    { key: "pricing", href: "/pricing", label: nav.earlyAccess },
-  ];
+const NAV_PAGES: readonly MarketingPage[] = [
+  "modules",
+  "howItWorks",
+  "earlyAccess",
+  "contact",
+];
+
+function navItems(locale: PublicLocale): readonly NavItem[] {
+  const { nav } = getPublicCopy(locale);
+  const labels: Record<MarketingPage, string> = {
+    home: nav.label,
+    modules: nav.modules,
+    howItWorks: nav.howItWorks,
+    earlyAccess: nav.earlyAccess,
+    contact: nav.contact,
+  };
+  return NAV_PAGES.map((page) => ({ page, label: labels[page] }));
 }
 
-const FOCUS_RING =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f9f906]";
+function otherLocale(locale: PublicLocale): PublicLocale {
+  return locale === "tr" ? "en" : "tr";
+}
 
-export function MarketingHeader({
-  active,
-  sticky = false,
-}: MarketingHeaderProps) {
-  const copy = getPublicCopy();
-  const items = navItems();
+export function MarketingHeader({ locale, active }: MarketingHeaderProps) {
+  const copy = getPublicCopy(locale);
+  const items = navItems(locale);
+  const alternate = otherLocale(locale);
 
   return (
-    <header
-      className={cn(
-        "z-40 border-b border-[#1a1a1a] bg-[#050505] px-4 py-5 sm:px-6 lg:px-20 lg:py-8",
-        sticky && "sticky top-0",
-      )}
-    >
-      <div className="flex items-center justify-between gap-4">
+    <header className="border-b border-border bg-background">
+      <div
+        className={cn(
+          CONTAINER,
+          "flex h-16 items-center justify-between gap-4 lg:h-20",
+        )}
+      >
         <Link
-          href="/"
+          href={marketingPath(locale, "home")}
           className={cn(
-            "flex items-center gap-3 whitespace-nowrap text-xs font-bold uppercase tracking-[0.2em] text-white transition-colors hover:text-[#f9f906]",
+            "flex items-center gap-2 whitespace-nowrap text-base font-semibold tracking-tight text-foreground",
             FOCUS_RING,
           )}
         >
-          <span aria-hidden="true" className="h-1.5 w-1.5 bg-[#f9f906]" />
+          <span aria-hidden="true" className="h-2.5 w-2.5 bg-primary" />
           {copy.brand}
         </Link>
 
-        <div className="flex items-center gap-3 lg:gap-10">
-          <nav
-            aria-label={copy.nav.label}
-            className="hidden items-center gap-8 lg:flex"
+        <nav
+          aria-label={copy.nav.label}
+          className="hidden items-center gap-8 lg:flex"
+        >
+          {items.map((item) => (
+            <Link
+              key={item.page}
+              href={marketingPath(locale, item.page)}
+              aria-current={item.page === active ? "page" : undefined}
+              className={cn(
+                "whitespace-nowrap border-b-2 py-1 text-sm transition-colors",
+                item.page === active
+                  ? "border-primary font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+                FOCUS_RING,
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link
+            href={marketingPath(alternate, active)}
+            hrefLang={alternate}
+            lang={alternate}
+            title={copy.language.switchLabel}
+            className={cn(
+              "hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline",
+              FOCUS_RING,
+            )}
           >
-            {items.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={item.key === active ? "page" : undefined}
-                className={cn(
-                  "whitespace-nowrap text-xs uppercase tracking-widest transition-colors",
-                  item.key === active
-                    ? "text-[#f9f906]"
-                    : "text-[#a3a3a3] hover:text-white",
-                  FOCUS_RING,
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+            {copy.language.switchTo}
+          </Link>
           <Link
             href="/login"
             className={cn(
-              "hidden h-10 items-center justify-center whitespace-nowrap border border-[#2a2a2a] bg-[#1a1a1a] px-5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:border-[#f9f906]/50 lg:flex",
+              "hidden h-10 items-center whitespace-nowrap rounded-md border border-input px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent lg:inline-flex",
               FOCUS_RING,
             )}
           >
             {copy.nav.login}
           </Link>
           <Link
-            href={EARLY_ACCESS_ANCHOR}
+            href={earlyAccessFormPath(locale)}
             className={cn(
-              "hidden h-10 items-center justify-center whitespace-nowrap bg-[#f9f906] px-5 text-xs font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 sm:flex",
+              "hidden h-10 items-center whitespace-nowrap rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex",
               FOCUS_RING,
             )}
           >
             {copy.requestAccess}
           </Link>
-          <MobileMenu items={items} active={active} />
+          <MobileMenu locale={locale} items={items} active={active} />
         </div>
       </div>
     </header>
@@ -109,41 +130,46 @@ export function MarketingHeader({
 }
 
 interface MobileMenuProps {
+  locale: PublicLocale;
   items: readonly NavItem[];
-  active?: MarketingNavKey;
+  active: MarketingPage;
 }
 
-function MobileMenu({ items, active }: MobileMenuProps) {
-  const copy = getPublicCopy();
-  const linkClass = cn(
-    "flex min-h-11 items-center border-b border-[#1a1a1a] text-base text-[#d4d4d4] transition-colors hover:text-white",
+function MobileMenu({ locale, items, active }: MobileMenuProps) {
+  const copy = getPublicCopy(locale);
+  const alternate = otherLocale(locale);
+  const rowClass = cn(
+    "flex min-h-12 items-center border-b border-border text-base text-foreground",
     FOCUS_RING,
   );
 
   return (
     <Dialog.Root>
       <Dialog.Trigger
+        aria-label={copy.nav.openMenu}
         className={cn(
-          "flex h-11 w-11 items-center justify-center border border-[#2a2a2a] text-white lg:hidden",
+          "flex h-11 w-11 items-center justify-center rounded-md border border-input text-foreground lg:hidden",
           FOCUS_RING,
         )}
-        aria-label={copy.nav.openMenu}
       >
         <Menu aria-hidden="true" className="h-5 w-5" />
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(20rem,85vw)] flex-col gap-6 border-l border-[#1a1a1a] bg-[#050505] p-6 text-white shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right motion-reduce:animate-none">
+        <Dialog.Content
+          lang={locale}
+          className="theme-marketing fixed inset-y-0 right-0 z-50 flex w-[min(22rem,88vw)] flex-col gap-6 border-l border-border bg-background p-6 text-foreground shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right motion-reduce:animate-none"
+        >
           <div className="flex items-center justify-between">
-            <Dialog.Title className="text-xs font-bold uppercase tracking-[0.2em]">
+            <Dialog.Title className="text-base font-semibold">
               {copy.nav.menuTitle}
             </Dialog.Title>
             <Dialog.Close
+              aria-label={copy.nav.closeMenu}
               className={cn(
-                "flex h-11 w-11 items-center justify-center text-[#d4d4d4] hover:text-white",
+                "flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground",
                 FOCUS_RING,
               )}
-              aria-label={copy.nav.closeMenu}
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </Dialog.Close>
@@ -153,26 +179,37 @@ function MobileMenu({ items, active }: MobileMenuProps) {
           </Dialog.Description>
           <nav aria-label={copy.nav.label} className="flex flex-col">
             {items.map((item) => (
-              <Dialog.Close asChild key={item.key}>
+              <Dialog.Close asChild key={item.page}>
                 <Link
-                  href={item.href}
-                  aria-current={item.key === active ? "page" : undefined}
+                  href={marketingPath(locale, item.page)}
+                  aria-current={item.page === active ? "page" : undefined}
                   className={cn(
-                    linkClass,
-                    item.key === active && "text-[#f9f906]",
+                    rowClass,
+                    item.page === active && "font-semibold text-primary",
                   )}
                 >
                   {item.label}
                 </Link>
               </Dialog.Close>
             ))}
+            <Dialog.Close asChild>
+              <Link
+                href={marketingPath(alternate, active)}
+                hrefLang={alternate}
+                lang={alternate}
+                title={copy.language.switchLabel}
+                className={cn(rowClass, "text-muted-foreground")}
+              >
+                {copy.language.switchTo}
+              </Link>
+            </Dialog.Close>
           </nav>
           <div className="mt-auto flex flex-col gap-3">
             <Dialog.Close asChild>
               <Link
                 href="/login"
                 className={cn(
-                  "flex h-11 items-center justify-center border border-[#2a2a2a] text-sm font-bold uppercase tracking-widest",
+                  "flex h-12 items-center justify-center rounded-md border border-input text-base font-medium",
                   FOCUS_RING,
                 )}
               >
@@ -181,9 +218,9 @@ function MobileMenu({ items, active }: MobileMenuProps) {
             </Dialog.Close>
             <Dialog.Close asChild>
               <Link
-                href={EARLY_ACCESS_ANCHOR}
+                href={earlyAccessFormPath(locale)}
                 className={cn(
-                  "flex h-11 items-center justify-center bg-[#f9f906] text-sm font-bold uppercase tracking-widest text-black",
+                  "flex h-12 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground",
                   FOCUS_RING,
                 )}
               >
