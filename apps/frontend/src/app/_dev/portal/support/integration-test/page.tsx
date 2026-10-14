@@ -1,28 +1,38 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  MessageCircle, 
-  FileText, 
-  Eye, 
-  EyeOff, 
-  Maximize2, 
-  Minimize2 
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  MessageCircle,
+  FileText,
+  Eye,
+  EyeOff,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Mock components for testing
 const MockChatBox = ({ embedded, showHeader, height, className }: any) => (
-  <div className={cn("bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center", className)} style={{ height }}>
+  <div
+    className={cn(
+      "bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center",
+      className,
+    )}
+    style={{ height }}
+  >
     <div className="text-center">
       <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
       <p className="text-sm text-gray-500">ChatBox Component</p>
-      <p className="text-xs text-gray-400">Embedded: {embedded ? 'Yes' : 'No'}</p>
-      <p className="text-xs text-gray-400">Header: {showHeader ? 'Yes' : 'No'}</p>
+      <p className="text-xs text-gray-400">
+        Embedded: {embedded ? "Yes" : "No"}
+      </p>
+      <p className="text-xs text-gray-400">
+        Header: {showHeader ? "Yes" : "No"}
+      </p>
     </div>
   </div>
 );
@@ -38,7 +48,7 @@ const MockForm = () => (
 );
 
 export default function IntegrationTestPage() {
-  const [activeTab, setActiveTab] = useState<'form' | 'chat' | 'both'>('form');
+  const [activeTab, setActiveTab] = useState<"form" | "chat" | "both">("form");
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
   const [chatSession, setChatSession] = useState<any>(null);
@@ -46,15 +56,15 @@ export default function IntegrationTestPage() {
   const toggleChatVisibility = () => {
     const newVisibility = !isChatVisible;
     setIsChatVisible(newVisibility);
-    
+
     if (newVisibility) {
       setIsChatMinimized(false);
-      if (activeTab === 'form') {
-        setActiveTab('both');
+      if (activeTab === "form") {
+        setActiveTab("both");
       }
     } else {
-      if (activeTab === 'both') {
-        setActiveTab('form');
+      if (activeTab === "both") {
+        setActiveTab("form");
       }
     }
   };
@@ -64,14 +74,14 @@ export default function IntegrationTestPage() {
   };
 
   const handleTabChange = (value: string) => {
-    const newTab = value as 'form' | 'chat' | 'both';
+    const newTab = value as "form" | "chat" | "both";
     setActiveTab(newTab);
-    
-    if ((newTab === 'chat' || newTab === 'both') && !isChatVisible) {
+
+    if ((newTab === "chat" || newTab === "both") && !isChatVisible) {
       setIsChatVisible(true);
     }
-    
-    if (newTab === 'form' && isChatVisible) {
+
+    if (newTab === "form" && isChatVisible) {
       setIsChatVisible(false);
     }
   };
@@ -80,27 +90,38 @@ export default function IntegrationTestPage() {
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Portal Support Integration Test</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Portal Support Integration Test
+          </h1>
           <p className="text-muted-foreground">
-            Testing the chatbox integration with side-by-side layout and toggle functionality.
+            Testing the chatbox integration with side-by-side layout and toggle
+            functionality.
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button
-            variant={activeTab === 'both' ? "default" : "outline"}
-            onClick={() => handleTabChange(activeTab === 'both' ? 'form' : 'both')}
+            variant={activeTab === "both" ? "default" : "outline"}
+            onClick={() =>
+              handleTabChange(activeTab === "both" ? "form" : "both")
+            }
             className="flex items-center space-x-2"
           >
             <MessageCircle className="h-4 w-4" />
-            <span>{activeTab === 'both' ? 'Yan Yana Görünüm' : 'Form + Chat'}</span>
+            <span>
+              {activeTab === "both" ? "Yan Yana Görünüm" : "Form + Chat"}
+            </span>
           </Button>
           <Button
             variant={isChatVisible ? "default" : "outline"}
             onClick={toggleChatVisibility}
             className="flex items-center space-x-2"
           >
-            {isChatVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            <span>{isChatVisible ? 'Chat\'i Gizle' : 'AI Chat\'i Göster'}</span>
+            {isChatVisible ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            <span>{isChatVisible ? "Chat'i Gizle" : "AI Chat'i Göster"}</span>
           </Button>
         </div>
       </div>
@@ -119,19 +140,19 @@ export default function IntegrationTestPage() {
             <div>
               <p className="text-sm font-medium">Chat Visible</p>
               <Badge variant={isChatVisible ? "default" : "secondary"}>
-                {isChatVisible ? 'Yes' : 'No'}
+                {isChatVisible ? "Yes" : "No"}
               </Badge>
             </div>
             <div>
               <p className="text-sm font-medium">Chat Minimized</p>
               <Badge variant={isChatMinimized ? "default" : "secondary"}>
-                {isChatMinimized ? 'Yes' : 'No'}
+                {isChatMinimized ? "Yes" : "No"}
               </Badge>
             </div>
             <div>
               <p className="text-sm font-medium">Chat Session</p>
               <Badge variant={chatSession ? "default" : "secondary"}>
-                {chatSession ? 'Active' : 'None'}
+                {chatSession ? "Active" : "None"}
               </Badge>
             </div>
           </div>
@@ -139,7 +160,11 @@ export default function IntegrationTestPage() {
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="form" className="flex items-center space-x-2">
             <FileText className="h-4 w-4" />
@@ -206,7 +231,7 @@ export default function IntegrationTestPage() {
                   Detaylı destek talebi oluşturun
                 </p>
               </div>
-              
+
               <Card className="flex-1">
                 <CardContent className="p-6 h-full">
                   <MockForm />
@@ -238,15 +263,21 @@ export default function IntegrationTestPage() {
                     onClick={toggleChatMinimized}
                     className="h-8 w-8"
                   >
-                    {isChatMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                    {isChatMinimized ? (
+                      <Maximize2 className="h-4 w-4" />
+                    ) : (
+                      <Minimize2 className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               </div>
-              
-              <Card className={cn(
-                "flex-1 transition-all duration-300",
-                isChatMinimized ? "h-16" : "h-full"
-              )}>
+
+              <Card
+                className={cn(
+                  "flex-1 transition-all duration-300",
+                  isChatMinimized ? "h-16" : "h-full",
+                )}
+              >
                 {isChatMinimized ? (
                   <CardContent className="flex items-center justify-center h-full">
                     <Button
@@ -255,7 +286,7 @@ export default function IntegrationTestPage() {
                       className="flex items-center space-x-2"
                     >
                       <MessageCircle className="h-4 w-4" />
-                      <span>Chat'i Genişlet</span>
+                      <span>Chat&apos;i Genişlet</span>
                     </Button>
                   </CardContent>
                 ) : (
@@ -275,14 +306,14 @@ export default function IntegrationTestPage() {
       </Tabs>
 
       {/* Floating Buttons (Mobile) */}
-      {(!isChatVisible || (activeTab !== 'chat' && activeTab !== 'both')) && (
+      {(!isChatVisible || (activeTab !== "chat" && activeTab !== "both")) && (
         <div className="fixed bottom-4 right-4 z-40 lg:hidden">
           <Button
             onClick={() => {
               if (!isChatVisible) {
                 toggleChatVisibility();
               }
-              handleTabChange('chat');
+              handleTabChange("chat");
             }}
             className="rounded-full h-14 w-14 shadow-lg"
             size="icon"
@@ -290,14 +321,17 @@ export default function IntegrationTestPage() {
             <MessageCircle className="h-6 w-6" />
           </Button>
           {chatSession && (
-            <Badge variant="secondary" className="absolute -top-2 -left-2 text-xs">
+            <Badge
+              variant="secondary"
+              className="absolute -top-2 -left-2 text-xs"
+            >
               Aktif
             </Badge>
           )}
         </div>
       )}
 
-      {isChatVisible && activeTab === 'both' && (
+      {isChatVisible && activeTab === "both" && (
         <div className="fixed bottom-4 left-4 z-40 lg:hidden">
           <Button
             onClick={toggleChatMinimized}
@@ -305,7 +339,11 @@ export default function IntegrationTestPage() {
             className="rounded-full h-12 w-12 shadow-lg"
             size="icon"
           >
-            {isChatMinimized ? <Maximize2 className="h-5 w-5" /> : <Minimize2 className="h-5 w-5" />}
+            {isChatMinimized ? (
+              <Maximize2 className="h-5 w-5" />
+            ) : (
+              <Minimize2 className="h-5 w-5" />
+            )}
           </Button>
         </div>
       )}

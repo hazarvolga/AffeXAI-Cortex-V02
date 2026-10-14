@@ -1,21 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { httpClient } from '@/lib/api/http-client';
-import settingsService, { SiteSettings } from '@/lib/api/settingsService';
+import { httpClient } from "@/lib/api/http-client";
+import settingsService, { SiteSettings } from "@/lib/api/settingsService";
 
 export default function SettingsTestPage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
 
   const fetchSettings = async () => {
     try {
@@ -23,21 +20,26 @@ export default function SettingsTestPage() {
       const data = await settingsService.getAdministrativeSiteSettings();
       setSettings(data);
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error("Error fetching settings:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  useAsyncEffect(() => fetchSettings(), []);
+
   const updateSettings = async () => {
     if (!settings) return;
-    
+
     try {
       setUpdating(true);
-      const updatedSettings = await httpClient.putWrapped<SiteSettings>('/settings/site', settings);
+      const updatedSettings = await httpClient.putWrapped<SiteSettings>(
+        "/settings/site",
+        settings,
+      );
       setSettings(updatedSettings);
     } catch (error) {
-      console.error('Error updating settings:', error);
+      console.error("Error updating settings:", error);
     } finally {
       setUpdating(false);
     }
@@ -47,31 +49,34 @@ export default function SettingsTestPage() {
     if (settings) {
       setSettings({
         ...settings,
-        [field]: value
+        [field]: value,
       });
     }
   };
 
-  const handleContactChange = (field: keyof SiteSettings['contact'], value: string) => {
+  const handleContactChange = (
+    field: keyof SiteSettings["contact"],
+    value: string,
+  ) => {
     if (settings) {
       setSettings({
         ...settings,
         contact: {
           ...settings.contact,
-          [field]: value
-        }
+          [field]: value,
+        },
       });
     }
   };
 
-  const handleSeoChange = (field: keyof SiteSettings['seo'], value: string) => {
+  const handleSeoChange = (field: keyof SiteSettings["seo"], value: string) => {
     if (settings) {
       setSettings({
         ...settings,
         seo: {
           ...settings.seo,
-          [field]: value
-        }
+          [field]: value,
+        },
       });
     }
   };
@@ -100,28 +105,32 @@ export default function SettingsTestPage() {
               <Input
                 id="companyName"
                 value={settings.companyName}
-                onChange={(e) => handleInputChange('companyName', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("companyName", e.target.value)
+                }
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="logoUrl">Logo URL</Label>
               <Input
                 id="logoUrl"
                 value={settings.logoUrl}
-                onChange={(e) => handleInputChange('logoUrl', e.target.value)}
+                onChange={(e) => handleInputChange("logoUrl", e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="logoDarkUrl">Dark Logo URL</Label>
               <Input
                 id="logoDarkUrl"
                 value={settings.logoDarkUrl}
-                onChange={(e) => handleInputChange('logoDarkUrl', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("logoDarkUrl", e.target.value)
+                }
               />
             </div>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>Contact Information</CardTitle>
@@ -132,31 +141,37 @@ export default function SettingsTestPage() {
                   <Input
                     id="address"
                     value={settings.contact.address}
-                    onChange={(e) => handleContactChange('address', e.target.value)}
+                    onChange={(e) =>
+                      handleContactChange("address", e.target.value)
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
                     value={settings.contact.phone}
-                    onChange={(e) => handleContactChange('phone', e.target.value)}
+                    onChange={(e) =>
+                      handleContactChange("phone", e.target.value)
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={settings.contact.email}
-                    onChange={(e) => handleContactChange('email', e.target.value)}
+                    onChange={(e) =>
+                      handleContactChange("email", e.target.value)
+                    }
                   />
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>SEO Settings</CardTitle>
@@ -167,24 +182,30 @@ export default function SettingsTestPage() {
                   <Input
                     id="defaultTitle"
                     value={settings.seo.defaultTitle}
-                    onChange={(e) => handleSeoChange('defaultTitle', e.target.value)}
+                    onChange={(e) =>
+                      handleSeoChange("defaultTitle", e.target.value)
+                    }
                   />
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label htmlFor="defaultDescription">Default Description</Label>
+                  <Label htmlFor="defaultDescription">
+                    Default Description
+                  </Label>
                   <Input
                     id="defaultDescription"
                     value={settings.seo.defaultDescription}
-                    onChange={(e) => handleSeoChange('defaultDescription', e.target.value)}
+                    onChange={(e) =>
+                      handleSeoChange("defaultDescription", e.target.value)
+                    }
                   />
                 </div>
               </CardContent>
             </Card>
-            
+
             <div className="flex gap-2">
               <Button onClick={updateSettings} disabled={updating}>
-                {updating ? 'Updating...' : 'Update Settings'}
+                {updating ? "Updating..." : "Update Settings"}
               </Button>
               <Button variant="outline" onClick={fetchSettings}>
                 Refresh

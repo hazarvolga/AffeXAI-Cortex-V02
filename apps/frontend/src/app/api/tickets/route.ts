@@ -1,20 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { backendApiUrl } from "@/lib/server/backend-api-url";
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
+    const backendUrl = backendApiUrl();
 
     // Get JWT token from request
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get("authorization");
 
-    const response = await fetch(`${backendUrl}/tickets?${searchParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authHeader && { Authorization: authHeader }),
+    const response = await fetch(
+      `${backendUrl}/tickets?${searchParams.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeader && { Authorization: authHeader }),
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -24,7 +28,10 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('Tickets fetch error:', error);
-    return NextResponse.json({ message: 'Talepler yüklenemedi' }, { status: 500 });
+    console.error("Tickets fetch error:", error);
+    return NextResponse.json(
+      { message: "Talepler yüklenemedi" },
+      { status: 500 },
+    );
   }
 }

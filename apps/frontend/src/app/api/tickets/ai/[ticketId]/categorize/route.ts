@@ -1,25 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { backendApiUrl } from "@/lib/server/backend-api-url";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ ticketId: string }> }
+  { params }: { params: Promise<{ ticketId: string }> },
 ) {
   try {
     const { ticketId } = await params;
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const backendUrl = backendApiUrl();
 
     // Get JWT token from request
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get("authorization");
 
     const response = await fetch(
       `${backendUrl}/tickets/ai/${ticketId}/categorize`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...(authHeader && { Authorization: authHeader }),
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -30,10 +31,10 @@ export async function POST(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('AI categorization error:', error);
+    console.error("AI categorization error:", error);
     return NextResponse.json(
-      { message: 'Kategori uygulanamadı' },
-      { status: 500 }
+      { message: "Kategori uygulanamadı" },
+      { status: 500 },
     );
   }
 }

@@ -1,40 +1,49 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  MessageCircle, 
-  Bot, 
-  Settings, 
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  MessageCircle,
+  Bot,
+  Settings,
   Play,
   Pause,
   RotateCcw,
   Info,
   CheckCircle,
-  AlertCircle
-} from 'lucide-react';
-import { ChatBox } from '@/components/support/chatbox';
-import type { ChatMessage, ChatSession } from '@/components/support/chatbox/ChatBox';
+  AlertCircle,
+} from "lucide-react";
+import { ChatBox } from "@/components/support/chatbox";
+import type {
+  ChatMessage,
+  ChatSession,
+} from "@/components/support/chatbox/ChatBox";
 
 export default function ChatboxDemoPage() {
   const [demoActive, setDemoActive] = useState(false);
-  const [sessionType, setSessionType] = useState<'support' | 'general'>('support');
+  const [sessionType, setSessionType] = useState<"support" | "general">(
+    "support",
+  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(
+    null,
+  );
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connected" | "disconnected" | "connecting"
+  >("disconnected");
 
   const handleSessionCreate = (session: ChatSession) => {
     setCurrentSession(session);
-    console.log('Session created:', session);
+    console.log("Session created:", session);
   };
 
   const handleMessageSent = (message: ChatMessage) => {
-    setMessages(prev => [...prev, message]);
-    console.log('Message sent:', message);
+    setMessages((prev) => [...prev, message]);
+    console.log("Message sent:", message);
   };
 
   const resetDemo = () => {
@@ -48,45 +57,45 @@ export default function ChatboxDemoPage() {
       setDemoActive(false);
     } else {
       setDemoActive(true);
-      setConnectionStatus('connecting');
+      setConnectionStatus("connecting");
       // Simulate connection
       setTimeout(() => {
-        setConnectionStatus('connected');
+        setConnectionStatus("connected");
       }, 1000);
     }
   };
 
   const demoFeatures = [
     {
-      title: 'Real-time Mesajlaşma',
-      description: 'WebSocket tabanlı anlık mesaj gönderme ve alma',
-      status: 'implemented'
+      title: "Real-time Mesajlaşma",
+      description: "WebSocket tabanlı anlık mesaj gönderme ve alma",
+      status: "implemented",
     },
     {
-      title: 'AI Yanıtları',
-      description: 'Context-aware AI yanıtları ve streaming desteği',
-      status: 'implemented'
+      title: "AI Yanıtları",
+      description: "Context-aware AI yanıtları ve streaming desteği",
+      status: "implemented",
     },
     {
-      title: 'Dosya Yükleme',
-      description: 'Sürükle & bırak ile çoklu dosya yükleme',
-      status: 'implemented'
+      title: "Dosya Yükleme",
+      description: "Sürükle & bırak ile çoklu dosya yükleme",
+      status: "implemented",
     },
     {
-      title: 'URL İşleme',
-      description: 'Web sayfası analizi ve içerik çıkarma',
-      status: 'implemented'
+      title: "URL İşleme",
+      description: "Web sayfası analizi ve içerik çıkarma",
+      status: "implemented",
     },
     {
-      title: 'Bağlam Görselleştirme',
-      description: 'Kaynak alıntıları ve alaka düzeyi skorları',
-      status: 'implemented'
+      title: "Bağlam Görselleştirme",
+      description: "Kaynak alıntıları ve alaka düzeyi skorları",
+      status: "implemented",
     },
     {
-      title: 'Destek Ekibi Entegrasyonu',
-      description: 'Canlı destek ve chat transfer özellikleri',
-      status: 'planned'
-    }
+      title: "Destek Ekibi Entegrasyonu",
+      description: "Canlı destek ve chat transfer özellikleri",
+      status: "planned",
+    },
   ];
 
   return (
@@ -98,7 +107,7 @@ export default function ChatboxDemoPage() {
           <h1 className="text-3xl font-bold">AI Support Chatbox Demo</h1>
         </div>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          AI destekli destek chatbox sisteminin tüm özelliklerini test edin. 
+          AI destekli destek chatbox sisteminin tüm özelliklerini test edin.
           Real-time mesajlaşma, dosya yükleme, URL analizi ve daha fazlası.
         </p>
       </div>
@@ -116,17 +125,29 @@ export default function ChatboxDemoPage() {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium">Demo Durumu:</span>
-                <Badge variant={demoActive ? 'default' : 'secondary'}>
-                  {demoActive ? 'Aktif' : 'Pasif'}
+                <Badge variant={demoActive ? "default" : "secondary"}>
+                  {demoActive ? "Aktif" : "Pasif"}
                 </Badge>
-                <Badge variant={connectionStatus === 'connected' ? 'default' : 'secondary'}>
-                  {connectionStatus === 'connected' ? 'Bağlı' : 
-                   connectionStatus === 'connecting' ? 'Bağlanıyor...' : 'Bağlantı Yok'}
+                <Badge
+                  variant={
+                    connectionStatus === "connected" ? "default" : "secondary"
+                  }
+                >
+                  {connectionStatus === "connected"
+                    ? "Bağlı"
+                    : connectionStatus === "connecting"
+                      ? "Bağlanıyor..."
+                      : "Bağlantı Yok"}
                 </Badge>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium">Oturum Türü:</span>
-                <Tabs value={sessionType} onValueChange={(value) => setSessionType(value as 'support' | 'general')}>
+                <Tabs
+                  value={sessionType}
+                  onValueChange={(value) =>
+                    setSessionType(value as "support" | "general")
+                  }
+                >
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="support">Destek</TabsTrigger>
                     <TabsTrigger value="general">Genel</TabsTrigger>
@@ -137,7 +158,7 @@ export default function ChatboxDemoPage() {
             <div className="flex space-x-2">
               <Button
                 onClick={toggleDemo}
-                variant={demoActive ? 'destructive' : 'default'}
+                variant={demoActive ? "destructive" : "default"}
               >
                 {demoActive ? (
                   <>
@@ -163,10 +184,9 @@ export default function ChatboxDemoPage() {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <strong>Aktif Oturum:</strong> {currentSession.id.slice(0, 8)}... • 
-                Tür: {currentSession.sessionType} • 
-                Mesaj Sayısı: {messages.length} • 
-                Durum: {currentSession.status}
+                <strong>Aktif Oturum:</strong> {currentSession.id.slice(0, 8)}
+                ... • Tür: {currentSession.sessionType} • Mesaj Sayısı:{" "}
+                {messages.length} • Durum: {currentSession.status}
               </AlertDescription>
             </Alert>
           )}
@@ -184,17 +204,29 @@ export default function ChatboxDemoPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {demoFeatures.map((feature, index) => (
-              <div key={index} className="flex items-start space-x-3 p-3 border rounded-lg">
-                {feature.status === 'implemented' ? (
+              <div
+                key={index}
+                className="flex items-start space-x-3 p-3 border rounded-lg"
+              >
+                {feature.status === "implemented" ? (
                   <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                 )}
                 <div className="space-y-1">
                   <h4 className="font-medium text-sm">{feature.title}</h4>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  <Badge variant={feature.status === 'implemented' ? 'default' : 'secondary'} className="text-xs">
-                    {feature.status === 'implemented' ? 'Tamamlandı' : 'Planlandı'}
+                  <p className="text-sm text-muted-foreground">
+                    {feature.description}
+                  </p>
+                  <Badge
+                    variant={
+                      feature.status === "implemented" ? "default" : "secondary"
+                    }
+                    className="text-xs"
+                  >
+                    {feature.status === "implemented"
+                      ? "Tamamlandı"
+                      : "Planlandı"}
                   </Badge>
                 </div>
               </div>
@@ -214,7 +246,7 @@ export default function ChatboxDemoPage() {
               <h4 className="font-semibold">Temel Özellikler</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>• Sağ alt köşedeki chat butonuna tıklayın</li>
-                <li>• Mesaj yazın ve Enter'a basın</li>
+                <li>• Mesaj yazın ve Enter&apos;a basın</li>
                 <li>• AI yanıtlarını gerçek zamanlı olarak görün</li>
                 <li>• Chat penceresini minimize/maximize edin</li>
                 <li>• Mobil uyumlu responsive tasarımı test edin</li>
@@ -246,7 +278,10 @@ export default function ChatboxDemoPage() {
 
       {/* Footer */}
       <div className="text-center text-sm text-muted-foreground">
-        <p>Bu demo sayfası geliştirme amaçlıdır. Gerçek AI yanıtları için backend bağlantısı gereklidir.</p>
+        <p>
+          Bu demo sayfası geliştirme amaçlıdır. Gerçek AI yanıtları için backend
+          bağlantısı gereklidir.
+        </p>
       </div>
     </div>
   );

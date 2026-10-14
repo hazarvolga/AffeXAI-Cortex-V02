@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { backendApiUrl } from "@/lib/server/backend-api-url";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9002';
-    const authHeader = request.headers.get('authorization');
+    const backendUrl = backendApiUrl();
+    const authHeader = request.headers.get("authorization");
 
     const response = await fetch(`${backendUrl}/cms-metrics/view`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(authHeader && { Authorization: authHeader }),
       },
       body: JSON.stringify(body),
@@ -23,9 +24,9 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('Page view track error:', error);
+    console.error("Page view track error:", error);
     return NextResponse.json(
-      { message: 'Sayfa görüntüleme kaydedilemedi' },
+      { message: "Sayfa görüntüleme kaydedilemedi" },
       { status: 500 },
     );
   }

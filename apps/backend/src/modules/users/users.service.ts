@@ -20,6 +20,8 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { FilterUsersDto } from "./dto/filter-users.dto";
 import { ChangeUserRoleDto } from "./dto/change-user-role.dto";
 import { CompleteProfileDto } from "./dto/complete-profile.dto";
+import { UpdateOwnProfileDto } from "./dto/update-own-profile.dto";
+import { applyOwnProfileUpdate } from "./own-profile";
 import { User } from "./entities/user.entity";
 import { UserRole as UserRoleEntity } from "./entities/user-role.entity";
 import {
@@ -607,6 +609,34 @@ export class UsersService {
 
     // Reload user with updated roles
     return this.findOne(id, activeTenantId, isGlobal);
+  }
+
+  /** Self-service profile edit for the signed-in user (see applyOwnProfileUpdate). */
+  async updateOwnProfile(
+    userId: string,
+    tenantId: string,
+    dto: UpdateOwnProfileDto,
+  ): Promise<User> {
+    const user = await this.findOne(userId, tenantId);
+    const next = applyOwnProfileUpdate(user, dto);
+    // update() rather than save(): save() would try to persist eager-loaded relations.
+    await this.usersRepository.update(
+      { id: user.id, tenantId: user.tenantId } as any,
+      {
+        firstName: next.firstName,
+        lastName: next.lastName,
+        phone: next.phone,
+        city: next.city,
+        country: next.country,
+        address: next.address,
+        bio: next.bio,
+        metadata: next.metadata,
+      } as any,
+    );
+    await this.cacheService.del(`users:${user.id}`);
+    await this.cacheService.del(`users:email:${user.email}`);
+    await this.cacheService.del("users:all");
+    return this.findOne(userId, tenantId);
   }
 
   /** Atomic authentication writes: no tenant/user-editable role authority is involved. */

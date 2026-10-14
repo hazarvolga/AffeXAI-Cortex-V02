@@ -1,31 +1,40 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  MessageCircle, 
-  FileText, 
-  Lightbulb, 
+import React, { useState } from "react";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  MessageCircle,
+  FileText,
+  Lightbulb,
   CheckCircle,
   Monitor,
   Smartphone,
-  Tablet
-} from 'lucide-react';
+  Tablet,
+} from "lucide-react";
 
 export default function IntegratedDemoPage() {
-  const [viewMode, setViewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [viewMode, setViewMode] = useState<"desktop" | "tablet" | "mobile">(
+    "desktop",
+  );
 
   const getViewportClass = () => {
     switch (viewMode) {
-      case 'mobile':
-        return 'max-w-sm mx-auto';
-      case 'tablet':
-        return 'max-w-2xl mx-auto';
+      case "mobile":
+        return "max-w-sm mx-auto";
+      case "tablet":
+        return "max-w-2xl mx-auto";
       default:
-        return 'w-full';
+        return "w-full";
     }
   };
 
@@ -33,34 +42,37 @@ export default function IntegratedDemoPage() {
     <div className="flex-1 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Portal Entegrasyonu Demo</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Portal Entegrasyonu Demo
+          </h2>
           <p className="text-muted-foreground">
-            Chatbox'ın portal destek sayfasına entegrasyonunun demo görünümü
+            Chatbox&apos;ın portal destek sayfasına entegrasyonunun demo
+            görünümü
           </p>
         </div>
-        
+
         {/* Viewport Toggle */}
         <div className="flex items-center space-x-2">
           <Button
-            variant={viewMode === 'desktop' ? 'default' : 'outline'}
+            variant={viewMode === "desktop" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode('desktop')}
+            onClick={() => setViewMode("desktop")}
           >
             <Monitor className="h-4 w-4 mr-2" />
             Desktop
           </Button>
           <Button
-            variant={viewMode === 'tablet' ? 'default' : 'outline'}
+            variant={viewMode === "tablet" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode('tablet')}
+            onClick={() => setViewMode("tablet")}
           >
             <Tablet className="h-4 w-4 mr-2" />
             Tablet
           </Button>
           <Button
-            variant={viewMode === 'mobile' ? 'default' : 'outline'}
+            variant={viewMode === "mobile" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode('mobile')}
+            onClick={() => setViewMode("mobile")}
           >
             <Smartphone className="h-4 w-4 mr-2" />
             Mobile
@@ -142,10 +154,10 @@ export default function IntegratedDemoPage() {
                       Destek talebi oluşturun veya AI asistanımızla sohbet edin
                     </p>
                   </div>
-                  {viewMode === 'desktop' && (
+                  {viewMode === "desktop" && (
                     <Button variant="outline" size="sm">
                       <MessageCircle className="h-4 w-4 mr-2" />
-                      AI Chat'i Göster
+                      AI Chat&apos;i Göster
                     </Button>
                   )}
                 </div>
@@ -153,23 +165,37 @@ export default function IntegratedDemoPage() {
                 {/* Tabs */}
                 <Tabs defaultValue="form" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="form" className="flex items-center space-x-2">
+                    <TabsTrigger
+                      value="form"
+                      className="flex items-center space-x-2"
+                    >
                       <FileText className="h-4 w-4" />
                       <span>Destek Formu</span>
                     </TabsTrigger>
-                    <TabsTrigger value="chat" className="flex items-center space-x-2">
+                    <TabsTrigger
+                      value="chat"
+                      className="flex items-center space-x-2"
+                    >
                       <MessageCircle className="h-4 w-4" />
                       <span>AI Sohbet</span>
-                      <Badge variant="secondary" className="ml-2">Aktif</Badge>
+                      <Badge variant="secondary" className="ml-2">
+                        Aktif
+                      </Badge>
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="form" className="mt-4">
-                    <div className={`grid gap-4 ${viewMode === 'desktop' ? 'grid-cols-3' : 'grid-cols-1'}`}>
-                      <div className={viewMode === 'desktop' ? 'col-span-2' : ''}>
+                    <div
+                      className={`grid gap-4 ${viewMode === "desktop" ? "grid-cols-3" : "grid-cols-1"}`}
+                    >
+                      <div
+                        className={viewMode === "desktop" ? "col-span-2" : ""}
+                      >
                         <Card>
                           <CardHeader>
-                            <CardTitle className="text-lg">Destek Talebi Formu</CardTitle>
+                            <CardTitle className="text-lg">
+                              Destek Talebi Formu
+                            </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
@@ -189,8 +215,8 @@ export default function IntegratedDemoPage() {
                           </CardContent>
                         </Card>
                       </div>
-                      
-                      {viewMode === 'desktop' && (
+
+                      {viewMode === "desktop" && (
                         <div className="space-y-4">
                           <Card>
                             <CardHeader>
@@ -211,8 +237,12 @@ export default function IntegratedDemoPage() {
                   </TabsContent>
 
                   <TabsContent value="chat" className="mt-4">
-                    <div className={`grid gap-4 ${viewMode === 'desktop' ? 'grid-cols-4' : 'grid-cols-1'}`}>
-                      <div className={viewMode === 'desktop' ? 'col-span-3' : ''}>
+                    <div
+                      className={`grid gap-4 ${viewMode === "desktop" ? "grid-cols-4" : "grid-cols-1"}`}
+                    >
+                      <div
+                        className={viewMode === "desktop" ? "col-span-3" : ""}
+                      >
                         <Card>
                           <CardHeader>
                             <CardTitle className="text-lg flex items-center space-x-2">
@@ -232,12 +262,14 @@ export default function IntegratedDemoPage() {
                           </CardContent>
                         </Card>
                       </div>
-                      
-                      {viewMode === 'desktop' && (
+
+                      {viewMode === "desktop" && (
                         <div className="space-y-4">
                           <Card>
                             <CardHeader>
-                              <CardTitle className="text-base">Özellikler</CardTitle>
+                              <CardTitle className="text-base">
+                                Özellikler
+                              </CardTitle>
                             </CardHeader>
                             <CardContent className="text-sm space-y-2">
                               <div className="flex items-center space-x-2">
@@ -257,9 +289,12 @@ export default function IntegratedDemoPage() {
                 </Tabs>
 
                 {/* Mobile floating button */}
-                {viewMode === 'mobile' && (
+                {viewMode === "mobile" && (
                   <div className="fixed bottom-4 right-4">
-                    <Button className="rounded-full h-12 w-12 shadow-lg" size="icon">
+                    <Button
+                      className="rounded-full h-12 w-12 shadow-lg"
+                      size="icon"
+                    >
                       <MessageCircle className="h-6 w-6" />
                     </Button>
                   </div>
@@ -285,7 +320,7 @@ export default function IntegratedDemoPage() {
                 <li>• Desktop: &gt; 1024px - Side-by-side</li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-medium mb-2">State Persistence</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
@@ -310,7 +345,7 @@ export default function IntegratedDemoPage() {
                 <li>• Contextual help sidebar</li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-medium mb-2">Accessibility</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
@@ -326,14 +361,10 @@ export default function IntegratedDemoPage() {
       {/* Action Buttons */}
       <div className="flex justify-center space-x-4">
         <Button asChild>
-          <a href="/portal/support/new">
-            Gerçek Sayfayı Görüntüle
-          </a>
+          <Link href="/portal/support/new">Gerçek Sayfayı Görüntüle</Link>
         </Button>
         <Button variant="outline" asChild>
-          <a href="/portal/support/chatbox-demo">
-            Chatbox Demo
-          </a>
+          <Link href="/portal/support/chatbox-demo">Chatbox Demo</Link>
         </Button>
       </div>
     </div>

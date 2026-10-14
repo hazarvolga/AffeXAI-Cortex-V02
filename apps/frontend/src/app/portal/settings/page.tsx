@@ -1,17 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { authService, usersService, type CurrentUser } from '@/lib/api';
-import { useRouter } from 'next/navigation';
-import { Loader2, Save, User, Bell, Lock, Shield } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { authService, usersService, type CurrentUser } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { Loader2, Save, User, Bell, Lock, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -21,20 +28,21 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   // Profile form state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
-  const [country, setCountry] = useState('');
-  const [address, setAddress] = useState('');
-  const [bio, setBio] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [address, setAddress] = useState("");
+  const [bio, setBio] = useState("");
 
   // Account metadata state
-  const [customerNumber, setCustomerNumber] = useState('');
-  const [schoolName, setSchoolName] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [isSubscribedToNewsletter, setIsSubscribedToNewsletter] = useState(false);
+  const [customerNumber, setCustomerNumber] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [isSubscribedToNewsletter, setIsSubscribedToNewsletter] =
+    useState(false);
 
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -42,74 +50,74 @@ export default function SettingsPage() {
   const [pushNotifications, setPushNotifications] = useState(true);
 
   // Password change state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
-  useEffect(() => {
-    loadUserData();
-  }, []);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const loadUserData = async () => {
     try {
       if (!authService.isAuthenticated()) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
-      const tokenUser = authService.getUserFromToken();
-      if (!tokenUser) {
-        router.push('/login');
-        return;
-      }
-
-      // Fetch fresh user data from API
-      const user = await usersService.getById(tokenUser.id);
+      // Self-service endpoint: works for every role, unlike GET /users/:id.
+      const user = await usersService.getCurrentUser();
       setCurrentUser(user as unknown as CurrentUser);
 
       // Set form values from user data
-      setFirstName(user.firstName || '');
-      setLastName(user.lastName || '');
-      setEmail(user.email || '');
-      setPhone(user.phone || '');
-      setCity(user.city || '');
-      setCountry(user.country || '');
-      setAddress(user.address || '');
-      setBio(user.bio || '');
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
+      setCity(user.city || "");
+      setCountry(user.country || "");
+      setAddress(user.address || "");
+      setBio(user.bio || "");
 
       // Set metadata
       if (user.metadata) {
-        setCustomerNumber(user.metadata.customerNumber || '');
-        setSchoolName(user.metadata.schoolName || '');
-        setStudentId(user.metadata.studentId || '');
-        setIsSubscribedToNewsletter(user.metadata.isSubscribedToNewsletter || false);
+        setCustomerNumber(user.metadata.customerNumber || "");
+        setSchoolName(user.metadata.schoolName || "");
+        setStudentId(user.metadata.studentId || "");
+        setIsSubscribedToNewsletter(
+          user.metadata.isSubscribedToNewsletter || false,
+        );
 
         // Set notification preferences
         if (user.metadata.notificationPreferences) {
-          setEmailNotifications(user.metadata.notificationPreferences.email ?? true);
-          setSmsNotifications(user.metadata.notificationPreferences.sms ?? false);
-          setPushNotifications(user.metadata.notificationPreferences.push ?? true);
+          setEmailNotifications(
+            user.metadata.notificationPreferences.email ?? true,
+          );
+          setSmsNotifications(
+            user.metadata.notificationPreferences.sms ?? false,
+          );
+          setPushNotifications(
+            user.metadata.notificationPreferences.push ?? true,
+          );
         }
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error("Error loading user data:", error);
       toast({
-        title: 'Hata',
-        description: 'Kullanıcı bilgileri yüklenemedi',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Kullanıcı bilgileri yüklenemedi",
+        variant: "destructive",
       });
       setLoading(false);
     }
   };
+
+  useAsyncEffect(() => loadUserData(), []);
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
 
     setSaving(true);
     try {
-      await usersService.update(currentUser.id, {
+      await usersService.updateOwnProfile({
         firstName,
         lastName,
         phone,
@@ -118,7 +126,6 @@ export default function SettingsPage() {
         address,
         bio,
         metadata: {
-          ...currentUser.metadata,
           customerNumber,
           schoolName,
           studentId,
@@ -127,18 +134,18 @@ export default function SettingsPage() {
       });
 
       toast({
-        title: 'Başarılı',
-        description: 'Profil bilgileriniz güncellendi',
+        title: "Başarılı",
+        description: "Profil bilgileriniz güncellendi",
       });
 
       // Refresh user data
       await loadUserData();
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error("Error updating profile:", error);
       toast({
-        title: 'Hata',
-        description: 'Profil güncellenirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Profil güncellenirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -151,30 +158,29 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       // Update metadata with notification preferences
-      await usersService.update(currentUser.id, {
+      await usersService.updateOwnProfile({
         metadata: {
-          ...currentUser.metadata,
           notificationPreferences: {
             email: emailNotifications,
             sms: smsNotifications,
-            push: pushNotifications
-          }
-        }
+            push: pushNotifications,
+          },
+        },
       });
 
       toast({
-        title: 'Başarılı',
-        description: 'Bildirim ayarlarınız güncellendi',
+        title: "Başarılı",
+        description: "Bildirim ayarlarınız güncellendi",
       });
 
       // Refresh user data
       await loadUserData();
     } catch (error) {
-      console.error('Error updating notifications:', error);
+      console.error("Error updating notifications:", error);
       toast({
-        title: 'Hata',
-        description: 'Bildirim ayarları güncellenirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Bildirim ayarları güncellenirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -184,27 +190,27 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword || !currentPassword) {
       toast({
-        title: 'Hata',
-        description: 'Lütfen tüm alanları doldurun',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Lütfen tüm alanları doldurun",
+        variant: "destructive",
       });
       return;
     }
 
     if (newPassword !== confirmPassword) {
       toast({
-        title: 'Hata',
-        description: 'Yeni şifreler eşleşmiyor',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Yeni şifreler eşleşmiyor",
+        variant: "destructive",
       });
       return;
     }
 
     if (newPassword.length < 8) {
       toast({
-        title: 'Hata',
-        description: 'Şifre en az 8 karakter olmalıdır',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Şifre en az 8 karakter olmalıdır",
+        variant: "destructive",
       });
       return;
     }
@@ -213,23 +219,23 @@ export default function SettingsPage() {
     try {
       await authService.changePassword({
         currentPassword,
-        newPassword
+        newPassword,
       });
 
       toast({
-        title: 'Başarılı',
-        description: 'Şifreniz başarıyla güncellendi',
+        title: "Başarılı",
+        description: "Şifreniz başarıyla güncellendi",
       });
 
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (error: any) {
-      console.error('Error changing password:', error);
+      console.error("Error changing password:", error);
       toast({
-        title: 'Hata',
-        description: error.message || 'Şifre değiştirilirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description: error.message || "Şifre değiştirilirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -254,12 +260,15 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
+        <TabsList className="h-auto w-full flex-wrap justify-start sm:w-auto">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profil
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger
+            value="notifications"
+            className="flex items-center gap-2"
+          >
             <Bell className="h-4 w-4" />
             Bildirimler
           </TabsTrigger>
@@ -402,9 +411,7 @@ export default function SettingsPage() {
                   checked={isSubscribedToNewsletter}
                   onCheckedChange={setIsSubscribedToNewsletter}
                 />
-                <Label htmlFor="newsletter">
-                  E-bültene abone ol
-                </Label>
+                <Label htmlFor="newsletter">E-bültene abone ol</Label>
               </div>
 
               <div className="flex justify-end">
@@ -437,7 +444,9 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="email-notifications">E-posta Bildirimleri</Label>
+                  <Label htmlFor="email-notifications">
+                    E-posta Bildirimleri
+                  </Label>
                   <p className="text-sm text-muted-foreground">
                     Önemli güncellemeler için e-posta alın
                   </p>
@@ -553,9 +562,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Hesap Bilgileri</CardTitle>
-              <CardDescription>
-                Hesabınız hakkında bilgiler
-              </CardDescription>
+              <CardDescription>Hesabınız hakkında bilgiler</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -617,14 +624,15 @@ export default function SettingsPage() {
 
           <Card className="border-destructive">
             <CardHeader>
-              <CardTitle className="text-destructive">Tehlikeli Bölge</CardTitle>
-              <CardDescription>
-                Hesabınızı kalıcı olarak silin
-              </CardDescription>
+              <CardTitle className="text-destructive">
+                Tehlikeli Bölge
+              </CardTitle>
+              <CardDescription>Hesabınızı kalıcı olarak silin</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Hesabınızı sildiğinizde, tüm verileriniz kalıcı olarak silinir ve geri alınamaz.
+                Hesabınızı sildiğinizde, tüm verileriniz kalıcı olarak silinir
+                ve geri alınamaz.
               </p>
               <Button variant="destructive" disabled>
                 Hesabı Sil

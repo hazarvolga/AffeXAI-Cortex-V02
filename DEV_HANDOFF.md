@@ -371,3 +371,15 @@ Açık: diğer ekranlardaki onayların `destructive` işareti dönüştürücün
 - **Kabul testi:** `apps/frontend/scripts/acceptance/honest-data.cjs` (`HONEST_ACCEPTANCE_ISOLATED=1`), izole stack, 4/4.
 
 Açık: tenant admin kabuğunun axe ihlalleri (F3.4), legacy `/admin` ağacındaki fixture sayfaları (F3.7), render edilmeyen eski simülasyon modülleri (silme yasağı nedeniyle yerinde), sosyal yeniden planlama endpoint'i ve otomasyon kaydetme eşlemesi (modül sprinti).
+
+## UI/UX F3.3 — portal rotaları — 2026-10-14
+
+- **Kapsam:** test/demo rotaları `src/app/_dev/portal/` altında. `src/app/portal/layout.tsx` artık server bileşeni (başlık şablonu + noindex) ve istemci mantığını `components/portal/PortalLayoutClient.tsx`'e veriyor. Her rota kendi `layout.tsx`'inde `metadata.title` taşıyor. Segment `error.tsx` (tekrar dene + panele dön) ve `loading.tsx` eklendi.
+- **Erişilebilirlik:** her rotada tek h1; `ComingSoon` h1 kullanıyor ve tarih vaat etmiyor; toast kapatma düğmesinin adı "Bildirimi kapat"; destek sihirbazı adımları `aria-current="step"` ve etiketli progressbar.
+- **Oturum doğrulama yükü (önemli):** middleware her korumalı sayfa isteğinde backend'e `GET /auth/me` gönderiyor. İstek frontend sunucusundan geldiği için tüm kullanıcılar aynı IP sayılıyor ve global 60/dk sınırı birkaç hızlı tıklamada 429 → kullanıcıya boş 503 oluyordu. Çözüm: `GET /auth/me` için `@SkipThrottle()` (JWT guard yerinde; kimlik bilgisi uç noktalarının sınırları değişmedi) ve middleware'de `lib/auth/session-validation-cache.ts` (yalnız olumlu sonuç, 30 sn, 1000 kayıt, SHA-256 anahtar, edge uyumlu Web Crypto). Sonuç: iptal edilen bir token en fazla 30 sn daha geçerli sayılabilir.
+- **Self-service profil:** `PATCH /users/me` (`UpdateOwnProfileDto` + saf `applyOwnProfileUpdate`). Ad, soyad, telefon, şehir, ülke, adres, biyografi ve izinli metadata anahtarları (bildirim/bülten tercihleri, müşteri/öğrenci bilgileri) değişebilir; e-posta, rol, durum ve tenant değişemez, diğer metadata anahtarları korunur. Portal ayarlar ve profil sayfaları bunu kullanıyor; ayarlar `GET /users/me` ile yükleniyor.
+- **Route handler backend adresi:** `lib/server/backend-api-url.ts` → `backendApiUrl()` (önce `BACKEND_URL`, sonra `NEXT_PUBLIC_API_URL`, tek `/api` öneki). Macros, cms-metrics, media, tickets (liste, istatistik, AI) handler'ları buna geçti. Yeni handler yazarken `NEXT_PUBLIC_API_URL`'i sunucu tarafında doğrudan kullanmayın.
+- **E2E build notu:** izole harness için frontend build'ine `NEXT_PUBLIC_SOCKET_URL=http://127.0.0.1:19006` de verin; production compose bu değişkeni zaten zorunlu tutuyor.
+- **Kabul testi:** `apps/frontend/scripts/acceptance/portal-routes.cjs` (`PORTAL_ACCEPTANCE_ISOLATED=1`, `ONLY=/portal/kb` ile tek rota, `PACE_MS` ile hız). Fixture müşteri rolü seed'deki gibi `events.view`, `certificates.view` izinlerine sahip.
+
+Açık: production'da `TRUST_PROXY_HOPS` ve throttle anahtarı (istemci IP'si Traefik + Next rewrite zincirinde korunuyor mu) altyapı tarafında doğrulanmalı. Rol panelleri ayrı rollerle denetlenmedi. `users.service.spec` ("should be defined") ve `users.controller.spec` (`PickType` mock) HEAD'de de kırık.

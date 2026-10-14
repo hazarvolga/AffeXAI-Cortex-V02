@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { protectedLoginPath } from "./lib/auth/admin-login-routing";
 import { isReservedTenantSlug } from "@affexai/shared-types";
+import { createSessionValidationCache } from "./lib/auth/session-validation-cache";
 
 /**
  * Middleware for authentication, authorization, and optimizations
@@ -14,8 +15,24 @@ import { isReservedTenantSlug } from "@affexai/shared-types";
  */
 type BackendAuthResult = "valid" | "invalid" | "unavailable";
 
+const SESSION_CACHE_TTL_MS = 30_000;
+const SESSION_CACHE_MAX_ENTRIES = 1_000;
+const validatedSessions = createSessionValidationCache({
+  ttlMs: SESSION_CACHE_TTL_MS,
+  maxEntries: SESSION_CACHE_MAX_ENTRIES,
+});
+
 /** Validate the session at the backend, which alone owns the JWT signing key. */
 async function validateAuthToken(token: string): Promise<BackendAuthResult> {
+  if (await validatedSessions.isFresh(token)) return "valid";
+  const result = await validateAuthTokenAtBackend(token);
+  if (result === "valid") await validatedSessions.remember(token);
+  return result;
+}
+
+async function validateAuthTokenAtBackend(
+  token: string,
+): Promise<BackendAuthResult> {
   const configuredBackendUrl = process.env.BACKEND_URL;
   if (!configuredBackendUrl) {
     console.error("🔐 Middleware: BACKEND_URL is not configured");

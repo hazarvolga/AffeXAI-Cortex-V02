@@ -7,7 +7,6 @@ export default function LicensesPage() {
       icon={KeyRound}
       title="Lisanslarım"
       description="Lisans yönetim sistemi geliştirme aşamasındadır. Yakında tüm lisanslarınızı ve aboneliklerinizi buradan yönetebileceksiniz."
-      expectedDate="2025 Q1"
     />
   );
 }

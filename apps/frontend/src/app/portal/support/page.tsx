@@ -1,8 +1,9 @@
+"use client";
 
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { filterTickets } from "./ticket-filters";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardHeader,
@@ -10,7 +11,7 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -18,10 +19,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   MoreHorizontal,
   PlusCircle,
@@ -34,8 +35,8 @@ import {
   ArrowLeft,
   Loader2,
   Search,
-} from 'lucide-react';
-import Link from 'next/link';
+} from "lucide-react";
+import Link from "next/link";
 import {
   Pagination,
   PaginationContent,
@@ -43,20 +44,25 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination';
-import { cn } from '@/lib/utils';
-import { ticketsService, type Ticket, TicketStatus, TicketPriority } from '@/lib/api/ticketsService';
-import { authService } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
-import { useTicketNotifications } from '@/hooks/useTicketNotifications';
-import { Wifi, WifiOff, Filter } from 'lucide-react';
+} from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
+import {
+  ticketsService,
+  type Ticket,
+  TicketStatus,
+  TicketPriority,
+} from "@/lib/api/ticketsService";
+import { authService } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { useTicketNotifications } from "@/hooks/useTicketNotifications";
+import { Wifi, WifiOff, Filter } from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 const getStatusIcon = (status: TicketStatus) => {
   switch (status) {
@@ -95,28 +101,19 @@ export default function UserSupportTicketsPage() {
   const { toast } = useToast();
   const { isConnected } = useTicketNotifications();
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Filter states
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [tickets, statusFilter, priorityFilter, searchQuery]);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadTickets = async () => {
     try {
       if (!authService.isAuthenticated()) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
@@ -124,45 +121,33 @@ export default function UserSupportTicketsPage() {
       // Get tickets for current user only
       const data = await ticketsService.getMyTickets();
       setTickets(data);
-      setFilteredTickets(data);
     } catch (error: any) {
-      console.error('Error loading tickets:', error);
+      console.error("Error loading tickets:", error);
       toast({
-        title: 'Hata',
-        description: error.message || 'Destek talepleri yüklenirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description:
+          error.message || "Destek talepleri yüklenirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...tickets];
+  useAsyncEffect(() => loadTickets(), []);
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(t => t.status === statusFilter);
-    }
-
-    // Priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(t => t.priority === priorityFilter);
-    }
-
-    // Search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.subject.toLowerCase().includes(query) ||
-        t.description?.toLowerCase().includes(query) ||
-        t.id.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredTickets(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  };
+  const filteredTickets = filterTickets(tickets, {
+    status: statusFilter,
+    priority: priorityFilter,
+    query: searchQuery,
+  });
+  // Any filter change starts again from the first page.
+  const updateFilter =
+    <T,>(setter: (value: T) => void) =>
+    (value: T) => {
+      setter(value);
+      setCurrentPage(1);
+    };
 
   // Pagination
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
@@ -180,16 +165,18 @@ export default function UserSupportTicketsPage() {
 
   return (
     <div className="flex-1 space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Destek Taleplerim</h2>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Destek Taleplerim
+            </h1>
             <p className="text-muted-foreground">
               Oluşturduğunuz tüm destek taleplerini buradan yönetebilirsiniz.
             </p>
           </div>
           <Badge
-            variant={isConnected ? 'default' : 'secondary'}
+            variant={isConnected ? "default" : "secondary"}
             className="flex items-center gap-1"
           >
             {isConnected ? (
@@ -205,19 +192,19 @@ export default function UserSupportTicketsPage() {
             )}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
-            <Button asChild>
-                <Link href="/portal/support/new">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Yeni Destek Talebi Oluştur
-                </Link>
-            </Button>
-             <Button asChild variant="outline">
-                <Link href="/portal/dashboard">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Geri Dön
-                </Link>
-            </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild>
+            <Link href="/portal/support/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Yeni Destek Talebi Oluştur
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/portal/dashboard">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Geri Dön
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -232,27 +219,41 @@ export default function UserSupportTicketsPage() {
                   <Input
                     placeholder="Ticket ara (ID, başlık, açıklama)..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) =>
+                      updateFilter(setSearchQuery)(e.target.value)
+                    }
                     className="pl-10"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select
+                  value={statusFilter}
+                  onValueChange={updateFilter(setStatusFilter)}
+                >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Durum Filtrele" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tüm Durumlar</SelectItem>
                     <SelectItem value={TicketStatus.OPEN}>Açık</SelectItem>
-                    <SelectItem value={TicketStatus.PENDING_INTERNAL}>İşlemde</SelectItem>
-                    <SelectItem value={TicketStatus.PENDING_CUSTOMER}>Müşteri Bekliyor</SelectItem>
-                    <SelectItem value={TicketStatus.RESOLVED}>Çözüldü</SelectItem>
+                    <SelectItem value={TicketStatus.PENDING_INTERNAL}>
+                      İşlemde
+                    </SelectItem>
+                    <SelectItem value={TicketStatus.PENDING_CUSTOMER}>
+                      Müşteri Bekliyor
+                    </SelectItem>
+                    <SelectItem value={TicketStatus.RESOLVED}>
+                      Çözüldü
+                    </SelectItem>
                     <SelectItem value={TicketStatus.CLOSED}>Kapalı</SelectItem>
                   </SelectContent>
                 </Select>
 
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <Select
+                  value={priorityFilter}
+                  onValueChange={updateFilter(setPriorityFilter)}
+                >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Öncelik Filtrele" />
                   </SelectTrigger>
@@ -270,14 +271,17 @@ export default function UserSupportTicketsPage() {
               <span>
                 {filteredTickets.length} / {tickets.length} ticket gösteriliyor
               </span>
-              {(statusFilter !== 'all' || priorityFilter !== 'all' || searchQuery.trim()) && (
+              {(statusFilter !== "all" ||
+                priorityFilter !== "all" ||
+                searchQuery.trim()) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setStatusFilter('all');
-                    setPriorityFilter('all');
-                    setSearchQuery('');
+                    setStatusFilter("all");
+                    setPriorityFilter("all");
+                    setSearchQuery("");
+                    setCurrentPage(1);
                   }}
                 >
                   Filtreleri Temizle
@@ -292,9 +296,12 @@ export default function UserSupportTicketsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Circle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Henüz destek talebiniz yok</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Henüz destek talebiniz yok
+            </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Bir sorunla karşılaştığınızda yeni bir destek talebi oluşturabilirsiniz.
+              Bir sorunla karşılaştığınızda yeni bir destek talebi
+              oluşturabilirsiniz.
             </p>
             <Button asChild>
               <Link href="/portal/support/new">
@@ -321,7 +328,7 @@ export default function UserSupportTicketsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentTickets.map(ticket => (
+                {currentTickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-mono text-xs">
                       #{ticket.id.substring(0, 8)}
@@ -343,8 +350,8 @@ export default function UserSupportTicketsPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          'flex items-center gap-1.5 w-fit',
-                          ticketsService.getStatusColor(ticket.status)
+                          "flex items-center gap-1.5 w-fit",
+                          ticketsService.getStatusColor(ticket.status),
                         )}
                       >
                         {getStatusIcon(ticket.status)}
@@ -352,21 +359,23 @@ export default function UserSupportTicketsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className={cn(
-                        "flex items-center gap-1.5",
-                        ticketsService.getPriorityColor(ticket.priority)
-                      )}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5",
+                          ticketsService.getPriorityColor(ticket.priority),
+                        )}
+                      >
                         {getPriorityIcon(ticket.priority)}
                         {ticketsService.getPriorityLabel(ticket.priority)}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {new Date(ticket.updatedAt).toLocaleDateString('tr-TR', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                      {new Date(ticket.updatedAt).toLocaleDateString("tr-TR", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </TableCell>
                     <TableCell>
@@ -386,37 +395,48 @@ export default function UserSupportTicketsPage() {
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
-                    <PaginationPrevious 
-                      href="#" 
+                    <PaginationPrevious
+                      href="#"
                       onClick={(e) => {
                         e.preventDefault();
                         if (currentPage > 1) setCurrentPage(currentPage - 1);
                       }}
-                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
                     />
                   </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(page);
-                        }}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(page);
+                          }}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ),
+                  )}
                   <PaginationItem>
-                    <PaginationNext 
-                      href="#" 
+                    <PaginationNext
+                      href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                        if (currentPage < totalPages)
+                          setCurrentPage(currentPage + 1);
                       }}
-                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
                     />
                   </PaginationItem>
                 </PaginationContent>

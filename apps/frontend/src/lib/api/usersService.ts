@@ -1,4 +1,4 @@
-import { BaseApiService } from './base-service';
+import { BaseApiService } from "./base-service";
 import type {
   User,
   CreateUserDto,
@@ -6,15 +6,59 @@ import type {
   UserQueryParams,
   UserStats,
   UsersListResponse,
-  ChangeUserRoleDto
-} from '@affexai/shared-types';
+  ChangeUserRoleDto,
+} from "@affexai/shared-types";
 
 // Re-export types for backward compatibility
-export type { User, CreateUserDto, UpdateUserDto, UserQueryParams, UserStats, UsersListResponse, ChangeUserRoleDto };
+export type {
+  User,
+  CreateUserDto,
+  UpdateUserDto,
+  UserQueryParams,
+  UserStats,
+  UsersListResponse,
+  ChangeUserRoleDto,
+};
+
+/** Mirrors the backend UpdateOwnProfileDto allow-list. */
+export interface UpdateOwnProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  bio?: string;
+  metadata?: {
+    customerNumber?: string;
+    schoolName?: string;
+    studentId?: string;
+    isSubscribedToNewsletter?: boolean;
+    notificationPreferences?: {
+      email?: boolean;
+      sms?: boolean;
+      push?: boolean;
+    };
+    newsletterPreferences?: {
+      email?: boolean;
+      productUpdates?: boolean;
+      eventUpdates?: boolean;
+    };
+    customerData?: {
+      customerNumber?: string;
+      companyName?: string;
+      taxNumber?: string;
+      companyPhone?: string;
+      companyAddress?: string;
+      companyCity?: string;
+    };
+    studentData?: { schoolName?: string; studentId?: string };
+  };
+}
 
 export interface UserActivity {
   id: string;
-  type: 'ticket' | 'login' | 'profile' | 'system';
+  type: "ticket" | "login" | "profile" | "system";
   title: string;
   description: string;
   timestamp: string; // ISO date string
@@ -29,8 +73,8 @@ export interface UserActivity {
 class UsersService extends BaseApiService<User, CreateUserDto, UpdateUserDto> {
   constructor() {
     super({
-      endpoint: '/users',
-      useWrappedResponses: true // Backend uses global ApiResponse wrapper
+      endpoint: "/users",
+      useWrappedResponses: true, // Backend uses global ApiResponse wrapper
     });
   }
 
@@ -47,7 +91,10 @@ class UsersService extends BaseApiService<User, CreateUserDto, UpdateUserDto> {
    * Returns backend format: { data, total, page, limit }
    */
   async getUsersList(params?: UserQueryParams): Promise<UsersListResponse> {
-    const response = await this.client.getWrapped<UsersListResponse>(this.endpoint, { params });
+    const response = await this.client.getWrapped<UsersListResponse>(
+      this.endpoint,
+      { params },
+    );
     return response;
   }
 
@@ -90,7 +137,10 @@ class UsersService extends BaseApiService<User, CreateUserDto, UpdateUserDto> {
   /**
    * Search users
    */
-  async searchUsers(query: string, params?: Omit<UserQueryParams, 'search'>): Promise<UsersListResponse> {
+  async searchUsers(
+    query: string,
+    params?: Omit<UserQueryParams, "search">,
+  ): Promise<UsersListResponse> {
     return this.getUsersList({ ...params, search: query });
   }
 
@@ -98,19 +148,32 @@ class UsersService extends BaseApiService<User, CreateUserDto, UpdateUserDto> {
    * Change user role
    */
   async changeUserRole(userId: string, roleId: string): Promise<User> {
-    return this.client.patchWrapped<User>(`${this.endpoint}/${userId}/role`, { roleId });
+    return this.client.patchWrapped<User>(`${this.endpoint}/${userId}/role`, {
+      roleId,
+    });
   }
 
   /**
    * Toggle user active status
    */
   async toggleUserActive(userId: string): Promise<User> {
-    return this.client.patchWrapped<User>(`${this.endpoint}/${userId}/toggle-active`, {});
+    return this.client.patchWrapped<User>(
+      `${this.endpoint}/${userId}/toggle-active`,
+      {},
+    );
   }
 
   /**
    * Update user profile
    */
+  /**
+   * Update the signed-in user's own profile and preferences (PATCH /users/me).
+   * The backend accepts only self-editable fields; role, email and status are not.
+   */
+  async updateOwnProfile(data: UpdateOwnProfileInput): Promise<User> {
+    return this.client.patchWrapped<User>(`${this.endpoint}/me`, data);
+  }
+
   async updateUser(userId: string, data: UpdateUserDto): Promise<User> {
     return this.client.patchWrapped<User>(`${this.endpoint}/${userId}`, data);
   }
@@ -134,7 +197,10 @@ class UsersService extends BaseApiService<User, CreateUserDto, UpdateUserDto> {
    * Restore soft-deleted user
    */
   async restoreUser(userId: string): Promise<User> {
-    return this.client.postWrapped<User>(`${this.endpoint}/${userId}/restore`, {});
+    return this.client.postWrapped<User>(
+      `${this.endpoint}/${userId}/restore`,
+      {},
+    );
   }
 
   /**

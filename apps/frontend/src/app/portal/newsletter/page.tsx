@@ -7,7 +7,6 @@ export default function NewsletterPage() {
       icon={Mail}
       title="Bülten Arşivi"
       description="Bülten arşiv sistemi hazırlanıyor. Yakında geçmiş bültenlerimize buradan ulaşabilecek ve tercihlerinizi yönetebileceksiniz."
-      expectedDate="2025 Q2"
     />
   );
 }
