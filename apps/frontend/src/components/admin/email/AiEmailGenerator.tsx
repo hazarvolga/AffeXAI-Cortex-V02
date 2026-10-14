@@ -1,70 +1,87 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Sparkles, Loader2, Wand2, AlertCircle, Info } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import aiService from '@/lib/api/aiService';
-import type { GeneratedEmailBoth } from '@/lib/api/aiService';
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Sparkles, Loader2, Wand2, AlertCircle, Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import aiService from "@/lib/api/aiService";
+import type { GeneratedEmailBoth } from "@/lib/api/aiService";
 
 interface AiEmailGeneratorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGenerated: (subject: string, bodyHtml: string, alternatives: string[]) => void;
+  onGenerated: (
+    subject: string,
+    bodyHtml: string,
+    alternatives: string[],
+  ) => void;
   defaultCampaignName?: string;
 }
 
 const TONES = [
-  { value: 'professional', label: 'Profesyonel' },
-  { value: 'friendly', label: 'Samimi' },
-  { value: 'formal', label: 'Resmi' },
-  { value: 'casual', label: 'Gündelik' },
-  { value: 'enthusiastic', label: 'Heyecanlı' },
-  { value: 'informative', label: 'Bilgilendirici' },
+  { value: "professional", label: "Profesyonel" },
+  { value: "friendly", label: "Samimi" },
+  { value: "formal", label: "Resmi" },
+  { value: "casual", label: "Gündelik" },
+  { value: "enthusiastic", label: "Heyecanlı" },
+  { value: "informative", label: "Bilgilendirici" },
 ];
 
 export default function AiEmailGenerator({
   open,
   onOpenChange,
   onGenerated,
-  defaultCampaignName = '',
+  defaultCampaignName = "",
 }: AiEmailGeneratorProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [generatingStep, setGeneratingStep] = useState('');
-  
-  const [campaignName, setCampaignName] = useState(defaultCampaignName);
-  const [product, setProduct] = useState('');
-  const [targetAudience, setTargetAudience] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [keywords, setKeywords] = useState('');
-  const [errors, setErrors] = useState<{campaignName?: string}>({});
+  const [generatingStep, setGeneratingStep] = useState("");
 
-  // Update campaign name when prop changes
-  useEffect(() => {
-    if (defaultCampaignName) {
-      setCampaignName(defaultCampaignName);
-    }
-  }, [defaultCampaignName]);
+  const [campaignName, setCampaignName] = useState(defaultCampaignName);
+  const [product, setProduct] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [tone, setTone] = useState("professional");
+  const [keywords, setKeywords] = useState("");
+  const [errors, setErrors] = useState<{ campaignName?: string }>({});
+
+  // Follow a new default campaign name from the parent (state adjusted during render).
+  const [seenDefaultName, setSeenDefaultName] = useState(defaultCampaignName);
+  if (defaultCampaignName !== seenDefaultName) {
+    setSeenDefaultName(defaultCampaignName);
+    if (defaultCampaignName) setCampaignName(defaultCampaignName);
+  }
 
   // Validate form
   const validateForm = () => {
-    const newErrors: {campaignName?: string} = {};
-    
+    const newErrors: { campaignName?: string } = {};
+
     if (!campaignName.trim()) {
-      newErrors.campaignName = 'Kampanya adı zorunludur';
+      newErrors.campaignName = "Kampanya adı zorunludur";
     } else if (campaignName.trim().length < 3) {
-      newErrors.campaignName = 'Kampanya adı en az 3 karakter olmalıdır';
+      newErrors.campaignName = "Kampanya adı en az 3 karakter olmalıdır";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -77,21 +94,17 @@ export default function AiEmailGenerator({
 
     setIsGenerating(true);
     setProgress(0);
-    setGeneratingStep('Hazırlanıyor...');
+    setGeneratingStep("Hazırlanıyor...");
 
     try {
       const keywordsArray = keywords
-        .split(',')
-        .map(k => k.trim())
-        .filter(k => k.length > 0);
+        .split(",")
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0);
 
-      // Simulate progress
-      setProgress(20);
-      setGeneratingStep('AI modeline bağlanılıyor...');
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // One real request; the bar shows only "sent" and "done", no invented stages.
       setProgress(40);
-      setGeneratingStep('Konu satırı oluşturuluyor...');
+      setGeneratingStep("AI modeli e-postayı oluşturuyor...");
 
       const result: GeneratedEmailBoth = await aiService.generateEmailBoth({
         campaignName: campaignName.trim(),
@@ -101,49 +114,58 @@ export default function AiEmailGenerator({
         keywords: keywordsArray.length > 0 ? keywordsArray : undefined,
       });
 
-      setProgress(80);
-      setGeneratingStep('E-posta içeriği hazırlanıyor...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       setProgress(100);
-      setGeneratingStep('Tamamlandı!');
+      setGeneratingStep("Tamamlandı!");
 
       // Call the callback with generated content
       onGenerated(result.subject, result.bodyHtml, result.subjectAlternatives);
 
       // Show success message
       toast({
-        title: '✨ Başarılı!',
-        description: 'AI ile e-posta içeriği oluşturuldu. Alternatif konu satırlarını görmek için konu alanının altına bakın.',
+        title: "✨ Başarılı!",
+        description:
+          "AI ile e-posta içeriği oluşturuldu. Alternatif konu satırlarını görmek için konu alanının altına bakın.",
       });
 
       // Close dialog
       onOpenChange(false);
 
       // Reset form
-      setCampaignName('');
-      setProduct('');
-      setTargetAudience('');
-      setTone('professional');
-      setKeywords('');
+      setCampaignName("");
+      setProduct("");
+      setTargetAudience("");
+      setTone("professional");
+      setKeywords("");
       setProgress(0);
-      setGeneratingStep('');
+      setGeneratingStep("");
       setErrors({});
     } catch (error: any) {
-      console.error('AI generation error:', error);
-      
-      let errorMessage = 'AI ile içerik oluşturulurken bir hata oluştu';
-      let errorTitle = 'Hata';
-      
-      if (error?.message?.includes('API key') || error?.message?.includes('not configured')) {
-        errorTitle = 'AI Ayarları Eksik';
-        errorMessage = 'AI ayarları yapılmamış. Lütfen önce Ayarlar > AI Ayarları bölümünden OpenAI API anahtarınızı ekleyin.';
-      } else if (error?.message?.includes('rate limit') || error?.message?.includes('429')) {
-        errorTitle = 'API Limiti';
-        errorMessage = 'API kullanım limitine ulaşıldı. Lütfen birkaç dakika bekleyip tekrar deneyin veya OpenAI hesabınıza kredi ekleyin.';
-      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
-        errorTitle = 'Bağlantı Hatası';
-        errorMessage = 'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.';
+      console.error("AI generation error:", error);
+
+      let errorMessage = "AI ile içerik oluşturulurken bir hata oluştu";
+      let errorTitle = "Hata";
+
+      if (
+        error?.message?.includes("API key") ||
+        error?.message?.includes("not configured")
+      ) {
+        errorTitle = "AI Ayarları Eksik";
+        errorMessage =
+          "AI ayarları yapılmamış. Lütfen önce Ayarlar > AI Ayarları bölümünden OpenAI API anahtarınızı ekleyin.";
+      } else if (
+        error?.message?.includes("rate limit") ||
+        error?.message?.includes("429")
+      ) {
+        errorTitle = "API Limiti";
+        errorMessage =
+          "API kullanım limitine ulaşıldı. Lütfen birkaç dakika bekleyip tekrar deneyin veya OpenAI hesabınıza kredi ekleyin.";
+      } else if (
+        error?.message?.includes("network") ||
+        error?.message?.includes("fetch")
+      ) {
+        errorTitle = "Bağlantı Hatası";
+        errorMessage =
+          "Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.";
       } else if (error?.message) {
         errorMessage = error.message;
       }
@@ -151,12 +173,12 @@ export default function AiEmailGenerator({
       toast({
         title: errorTitle,
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsGenerating(false);
       setProgress(0);
-      setGeneratingStep('');
+      setGeneratingStep("");
     }
   };
 
@@ -169,7 +191,8 @@ export default function AiEmailGenerator({
             AI ile E-posta Oluştur
           </DialogTitle>
           <DialogDescription>
-            Kampanya bilgilerinizi girin, AI sizin için profesyonel bir e-posta oluştursun.
+            Kampanya bilgilerinizi girin, AI sizin için profesyonel bir e-posta
+            oluştursun.
           </DialogDescription>
         </DialogHeader>
 
@@ -187,8 +210,9 @@ export default function AiEmailGenerator({
           <Alert className="mx-6">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              AI, kampanya bilgilerinize göre özelleştirilmiş e-posta içeriği oluşturacak. 
-              Daha detaylı bilgi verirseniz daha iyi sonuçlar alırsınız.
+              AI, kampanya bilgilerinize göre özelleştirilmiş e-posta içeriği
+              oluşturacak. Daha detaylı bilgi verirseniz daha iyi sonuçlar
+              alırsınız.
             </AlertDescription>
           </Alert>
         )}
@@ -205,11 +229,11 @@ export default function AiEmailGenerator({
               onChange={(e) => {
                 setCampaignName(e.target.value);
                 if (errors.campaignName) {
-                  setErrors({...errors, campaignName: undefined});
+                  setErrors({ ...errors, campaignName: undefined });
                 }
               }}
               disabled={isGenerating}
-              className={errors.campaignName ? 'border-destructive' : ''}
+              className={errors.campaignName ? "border-destructive" : ""}
             />
             {errors.campaignName && (
               <p className="text-xs text-destructive flex items-center gap-1">
@@ -243,7 +267,11 @@ export default function AiEmailGenerator({
 
           <div className="grid gap-2">
             <Label htmlFor="ai-tone">Ton</Label>
-            <Select value={tone} onValueChange={setTone} disabled={isGenerating}>
+            <Select
+              value={tone}
+              onValueChange={setTone}
+              disabled={isGenerating}
+            >
               <SelectTrigger id="ai-tone">
                 <SelectValue />
               </SelectTrigger>
@@ -268,7 +296,8 @@ export default function AiEmailGenerator({
               rows={2}
             />
             <p className="text-xs text-muted-foreground">
-              İçerikte vurgulanmasını istediğiniz kelimeleri virgülle ayırarak girin
+              İçerikte vurgulanmasını istediğiniz kelimeleri virgülle ayırarak
+              girin
             </p>
           </div>
         </div>
@@ -284,7 +313,10 @@ export default function AiEmailGenerator({
           >
             İptal
           </Button>
-          <Button onClick={handleGenerate} disabled={isGenerating || !campaignName.trim()}>
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating || !campaignName.trim()}
+          >
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

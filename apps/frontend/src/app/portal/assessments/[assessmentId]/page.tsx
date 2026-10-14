@@ -28,7 +28,9 @@ import { FormEvent, use } from "react";
 import { eventsService } from "@/lib/api";
 import { type EventWithUIData } from "@affexai/shared-types";
 import { useState, useEffect } from "react";
-import { toast as notify } from "@/lib/notify";
+import { DemoDataBadge } from "@/components/patterns/demo-data-badge";
+
+const SUBMIT_NOTE_ID = "assessment-submit-note";
 
 const QuestionCard = ({
   question,
@@ -98,10 +100,9 @@ export default function AssessmentPage({
     }
   }, [assessment.eventId]);
 
+  // Assessments are sample content without a backend; answers are never sent.
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you would process the form data here.
-    notify.success("Değerlendirme gönderildi! (Bu bir demo mesajıdır.)");
   };
 
   return (
@@ -138,9 +139,12 @@ export default function AssessmentPage({
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {assessment.title}
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">
+              {assessment.title}
+            </h1>
+            <DemoDataBadge reason="Bu değerlendirme örnek içeriktir; cevaplar henüz kaydedilmiyor." />
+          </div>
           <p className="text-lg text-muted-foreground mt-1">
             {assessment.type === "quiz"
               ? "Lütfen aşağıdaki soruları cevaplayın."
@@ -152,8 +156,16 @@ export default function AssessmentPage({
           <QuestionCard key={q.id} question={q} questionNumber={index + 1} />
         ))}
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg">
+        <div className="flex flex-col items-end gap-2">
+          <p id={SUBMIT_NOTE_ID} className="text-sm text-muted-foreground">
+            Değerlendirme gönderimi henüz bağlı değil; cevaplarınız kaydedilmez.
+          </p>
+          <Button
+            type="submit"
+            size="lg"
+            disabled
+            aria-describedby={SUBMIT_NOTE_ID}
+          >
             Cevapları Gönder
           </Button>
         </div>

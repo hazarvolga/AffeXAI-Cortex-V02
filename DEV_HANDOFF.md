@@ -360,3 +360,14 @@ Açık: eski public CMS kabuğunun token seti (`publicLightTokensProduction` ad�
 - **Test koşucusu notu:** `pnpm exec tsx --test` ile koşan node:test dosyaları yeşil. 22 dosya Jest API'si (`describe`, `jest`, `@testing-library/react`) kullanıyor ve bu koşucuda yüklenmiyor; durum HEAD'de de aynı. Ayrı bir test altyapısı işi olarak açık.
 
 Açık: diğer ekranlardaki onayların `destructive` işareti dönüştürücünün tahmini (silme/kaldırma = yıkıcı). F3.4/F3.5 E2E'lerinde ekran ekran doğrulanacak.
+
+## UI/UX F3.2 — sahte veri temizliği — 2026-10-14
+
+- **Gerçek kaynağa bağlananlar:** tenant dashboard'daki kullanıcı kartı `/users/stats`, AI kredi kartı `/commerce/usage` okuyor (react-query; yükleniyor/hata/tekrar dene durumları). CMS bülten bloğu çift onaylı `/api/email-marketing/subscription/subscribe`'a gidiyor; başarı yalnız 2xx'te. CMS iletişim bloğu `formTenant` + `formId` prop'larıyla Forms public submit'e gidiyor; bu prop'lar yoksa gönderim kapalı ve nedenini yazıyor.
+- **Gölgeleyen fixture API:** `src/app/api/cms/{route,pages/...}` route handler'ları, `next.config` rewrite'ından önce çalıştığı için `/api/cms/pages*` istekleri backend'e hiç gitmiyordu (statik Aluplan sayfası dönüyordu). Dosyalar `src/app/_dev/cms-fixture-api/` altına taşındı. Kalan local `/api` handler'ları proxy veya local token yardımcıları; yeni bir handler eklerken backend yolunu gölgelemediğini kontrol edin.
+- **Kaldırılan sahte başarılar:** sosyal takvimde sürükle-bırak "rescheduled" (endpoint yok; artık açık bir bilgi mesajı), "Logic rules updated", otomasyon düzenleyicisinin kaydet/etkinleştir/test düğmeleri (düğüm→`WorkflowStep` eşlemesi yok; düğmeler kapalı ve açıklamalı), değerlendirme gönderimi, e-posta izleme "Generate Report", chat dosya yükleme ve URL önizleme simülasyonları, AI e-posta üreticisindeki yapay bekleme adımları, her render'da değişen otomasyon ID'si, "AUTO-SAVE: ACTIVE".
+- **`DemoDataBadge`** (`components/patterns/demo-data-badge.tsx`): metinle "Demo veri" / "Önizleme" der, nedeni `title` ve ekran okuyucu metni olarak taşır. Overseer, e-posta izleme paneli, portal pazarlama/izleyici/editör panelleri ve değerlendirme sayfasında kullanılıyor. F4 dürüstlük katmanı bunu kullanacak.
+- **Kaldırılan sahte widget'lar:** tenant dashboard'daki "Unified Performance Timeline" (statik dizi) ve "Reserve Module" yer tutucusu. Tenant CMS `pages/[pageId]` fixture düzenleyicisi görsel düzenleyiciye redirect.
+- **Kabul testi:** `apps/frontend/scripts/acceptance/honest-data.cjs` (`HONEST_ACCEPTANCE_ISOLATED=1`), izole stack, 4/4.
+
+Açık: tenant admin kabuğunun axe ihlalleri (F3.4), legacy `/admin` ağacındaki fixture sayfaları (F3.7), render edilmeyen eski simülasyon modülleri (silme yasağı nedeniyle yerinde), sosyal yeniden planlama endpoint'i ve otomasyon kaydetme eşlemesi (modül sprinti).

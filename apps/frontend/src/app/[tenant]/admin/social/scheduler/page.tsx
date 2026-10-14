@@ -85,13 +85,6 @@ export default function SocialMediaScheduler() {
     }
   };
 
-  const handleUpdateLogic = () => {
-    toast.info("Synchronizing dispatch logic...");
-    setTimeout(() => {
-      toast.success("Logic rules updated: v2.4.2");
-    }, 1000);
-  };
-
   const handleToggleProvider = (provider: SocialProvider) => {
     setSelectedProviders((prev) =>
       prev.includes(provider)
@@ -100,18 +93,11 @@ export default function SocialMediaScheduler() {
     );
   };
 
-  const handlePostMove = async (postId: string, newDate: Date) => {
-    // Optimistic UI Update (or simply toast for now)
-    toast.info(`Rescheduling post...`);
-    console.log(`Moving post ${postId} to ${newDate.toISOString()}`);
-
-    // TODO: Call API to update scheduledAt
-    // await socialMediaService.updatePost(postId, { scheduledAt: newDate });
-
-    toast.success(`Post rescheduled to ${newDate.toLocaleDateString()}`);
-
-    // Reload to sync (or update local state if we want better UX)
-    // loadPosts();
+  // The API has no reschedule endpoint yet, so a drop must not claim success.
+  const handlePostMove = () => {
+    toast.info("Yeniden planlama henüz desteklenmiyor", {
+      description: "Gönderiyi silip yeni tarihle yeniden oluşturun.",
+    });
   };
 
   const filteredQueue = queue.filter((post) => {

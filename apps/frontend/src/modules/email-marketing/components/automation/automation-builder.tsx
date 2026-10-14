@@ -1,14 +1,18 @@
+"use client";
 
-'use client';
-
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2,
   Circle,
@@ -19,14 +23,19 @@ import {
   Eye,
   AlertTriangle,
   LayoutTemplate,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { TriggerConfigForm } from './trigger-config-form';
-import { WorkflowBuilder } from './workflow-builder';
-import { TemplateGallery } from './template-gallery';
-import { StrategicTemplate } from './strategic-templates';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TriggerConfigForm } from "./trigger-config-form";
+import { WorkflowBuilder } from "./workflow-builder";
+import { TemplateGallery } from "./template-gallery";
+import { StrategicTemplate } from "./strategic-templates";
+import { DemoDataBadge } from "@/components/patterns/demo-data-badge";
 
-type Step = 'template' | 'trigger' | 'workflow' | 'review';
+// Builder nodes are not yet mapped to the automation API's workflow steps, so
+// saving, activating and testing stay disabled instead of faking success.
+const NOT_CONNECTED_NOTE_ID = "automation-builder-not-connected";
+
+type Step = "template" | "trigger" | "workflow" | "review";
 
 interface AutomationData {
   name: string;
@@ -41,50 +50,48 @@ interface AutomationData {
 interface AutomationBuilderProps {
   automationId?: string;
   initialData?: AutomationData;
-  mode?: 'create' | 'edit';
+  mode?: "create" | "edit";
   initialStep?: Step;
 }
 
 export function AutomationBuilder({
   automationId,
   initialData,
-  mode = 'create',
+  mode = "create",
   initialStep,
 }: AutomationBuilderProps) {
-  const router = useRouter();
   const { toast } = useToast();
   // Start with 'template' step only if creating new, unless initialStep is provided
   const [currentStep, setCurrentStep] = useState<Step>(
-    initialStep || (mode === 'create' ? 'template' : 'trigger')
+    initialStep || (mode === "create" ? "template" : "trigger"),
   );
   const [automationData, setAutomationData] = useState<AutomationData>(
     initialData || {
-      name: '',
-      description: '',
-    }
+      name: "",
+      description: "",
+    },
   );
-  const [isSaving, setIsSaving] = useState(false);
 
   const steps: { id: Step; label: string; description: string }[] = [
     {
-      id: 'template',
-      label: 'Select Blueprint',
-      description: 'Choose a strategic starting point',
+      id: "template",
+      label: "Select Blueprint",
+      description: "Choose a strategic starting point",
     },
     {
-      id: 'trigger',
-      label: 'Configure Trigger',
-      description: 'When should this automation start?',
+      id: "trigger",
+      label: "Configure Trigger",
+      description: "When should this automation start?",
     },
     {
-      id: 'workflow',
-      label: 'Build Workflow',
-      description: 'What actions should happen?',
+      id: "workflow",
+      label: "Build Workflow",
+      description: "What actions should happen?",
     },
     {
-      id: 'review',
-      label: 'Review & Activate',
-      description: 'Review and activate your automation',
+      id: "review",
+      label: "Review & Activate",
+      description: "Review and activate your automation",
     },
   ];
 
@@ -101,7 +108,7 @@ export function AutomationBuilder({
       workflow: {
         nodes: template.nodes,
         edges: template.edges,
-      }
+      },
     });
 
     toast({
@@ -128,17 +135,17 @@ export function AutomationBuilder({
 
   const canProceedToNext = () => {
     switch (currentStep) {
-      case 'template':
+      case "template":
         // Can always skip template (manual creation) or proceed if selected
         return true;
-      case 'trigger':
+      case "trigger":
         return !!automationData.trigger;
-      case 'workflow':
+      case "workflow":
         return !!(
           automationData.workflow?.nodes &&
           automationData.workflow.nodes.length > 1
         );
-      case 'review':
+      case "review":
         return true;
       default:
         return false;
@@ -146,86 +153,38 @@ export function AutomationBuilder({
   };
 
   const handleNext = () => {
-    if (currentStep === 'template') {
-      setCurrentStep('trigger');
-    } else if (currentStep === 'trigger') {
-      setCurrentStep('workflow');
-    } else if (currentStep === 'workflow') {
-      setCurrentStep('review');
+    if (currentStep === "template") {
+      setCurrentStep("trigger");
+    } else if (currentStep === "trigger") {
+      setCurrentStep("workflow");
+    } else if (currentStep === "workflow") {
+      setCurrentStep("review");
     }
   };
 
   const handleBack = () => {
-    if (currentStep === 'trigger') {
-      setCurrentStep('template');
-    } else if (currentStep === 'workflow') {
-      setCurrentStep('trigger');
-    } else if (currentStep === 'review') {
-      setCurrentStep('workflow');
+    if (currentStep === "trigger") {
+      setCurrentStep("template");
+    } else if (currentStep === "workflow") {
+      setCurrentStep("trigger");
+    } else if (currentStep === "review") {
+      setCurrentStep("workflow");
     }
-  };
-
-  const handleSaveDraft = async () => {
-    setIsSaving(true);
-    try {
-      // Save to backend API
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-
-      toast({
-        title: 'Draft saved',
-        description: 'Your automation has been saved as a draft.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save draft. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleActivate = async () => {
-    setIsSaving(true);
-    try {
-      // Activate automation via backend API
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
-
-      toast({
-        title: 'Automation activated!',
-        description: 'Your automation is now running.',
-      });
-
-      router.push('/admin/email-marketing/automations');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to activate automation. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleTestFlow = () => {
-    toast({
-      title: 'Test Started',
-      description: 'A test execution has been initiated with your email.',
-    });
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 'template':
+      case "template":
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Select a Strategic Blueprint</h3>
+                <h3 className="text-lg font-semibold">
+                  Select a Strategic Blueprint
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Start with a pre-configured marketing strategy or build from scratch.
+                  Start with a pre-configured marketing strategy or build from
+                  scratch.
                 </p>
               </div>
               <Button variant="outline" onClick={handleNext}>
@@ -238,7 +197,7 @@ export function AutomationBuilder({
           </div>
         );
 
-      case 'trigger':
+      case "trigger":
         return (
           <Card>
             <CardHeader>
@@ -256,7 +215,7 @@ export function AutomationBuilder({
           </Card>
         );
 
-      case 'workflow':
+      case "workflow":
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -280,7 +239,7 @@ export function AutomationBuilder({
           </div>
         );
 
-      case 'review':
+      case "review":
         return (
           <div className="space-y-6">
             {/* Automation Summary */}
@@ -299,7 +258,9 @@ export function AutomationBuilder({
                     Trigger Configuration
                   </h4>
                   <div className="ml-6 space-y-1 text-sm text-muted-foreground">
-                    <p>Type: {automationData.trigger?.type || 'Not configured'}</p>
+                    <p>
+                      Type: {automationData.trigger?.type || "Not configured"}
+                    </p>
                     {automationData.trigger?.eventType && (
                       <p>Event: {automationData.trigger.eventType}</p>
                     )}
@@ -318,19 +279,21 @@ export function AutomationBuilder({
                     Workflow Steps
                   </h4>
                   <div className="ml-6 space-y-2 text-sm">
-                    {automationData.workflow?.nodes?.map((node: any, index: number) => (
-                      <div key={node.id} className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          Step {index + 1}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {node.data?.label || node.type}
-                        </span>
-                        {node.data?.configured === false && (
-                          <AlertTriangle className="h-3 w-3 text-amber-600" />
-                        )}
-                      </div>
-                    ))}
+                    {automationData.workflow?.nodes?.map(
+                      (node: any, index: number) => (
+                        <div key={node.id} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            Step {index + 1}
+                          </Badge>
+                          <span className="text-muted-foreground">
+                            {node.data?.label || node.type}
+                          </span>
+                          {node.data?.configured === false && (
+                            <AlertTriangle className="h-3 w-3 text-amber-600" />
+                          )}
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
 
@@ -338,35 +301,45 @@ export function AutomationBuilder({
 
                 {/* Validation Warnings */}
                 {automationData.workflow?.nodes?.some(
-                  (n: any) => n.data?.configured === false
+                  (n: any) => n.data?.configured === false,
                 ) && (
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-900">
-                      <div className="flex gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                            Unconfigured Steps
-                          </h4>
-                          <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
-                            Some workflow steps are not fully configured. Please review
-                            and complete all step configurations before activating.
-                          </p>
-                        </div>
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-900">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          Unconfigured Steps
+                        </h4>
+                        <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                          Some workflow steps are not fully configured. Please
+                          review and complete all step configurations before
+                          activating.
+                        </p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Action Buttons */}
             <div className="grid gap-3 md:grid-cols-2">
-              <Button variant="outline" onClick={handleTestFlow} className="w-full">
+              <Button
+                variant="outline"
+                disabled
+                aria-describedby={NOT_CONNECTED_NOTE_ID}
+                className="w-full"
+              >
                 <Eye className="h-4 w-4 mr-2" />
                 Test Flow
               </Button>
-              <Button onClick={handleActivate} disabled={isSaving} className="w-full">
+              <Button
+                disabled
+                aria-describedby={NOT_CONNECTED_NOTE_ID}
+                className="w-full"
+              >
                 <Play className="h-4 w-4 mr-2" />
-                {isSaving ? 'Activating...' : 'Activate Automation'}
+                Activate Automation
               </Button>
             </div>
           </div>
@@ -383,15 +356,29 @@ export function AutomationBuilder({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">
-            {mode === 'edit' ? 'Edit Automation' : 'Create New Automation'}
+            {mode === "edit" ? "Edit Automation" : "Create New Automation"}
           </h1>
           <p className="text-muted-foreground mt-1">
             Build powerful automated workflows for your subscribers
           </p>
+          <p
+            id={NOT_CONNECTED_NOTE_ID}
+            className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+          >
+            <DemoDataBadge
+              label="Önizleme"
+              reason="Akış düzenleyicisi henüz otomasyon API'sine bağlı değil."
+            />
+            Kaydetme, test ve etkinleştirme henüz bu düzenleyiciden yapılamıyor.
+          </p>
         </div>
-        <Button variant="outline" onClick={handleSaveDraft} disabled={isSaving}>
+        <Button
+          variant="outline"
+          disabled
+          aria-describedby={NOT_CONNECTED_NOTE_ID}
+        >
           <Save className="h-4 w-4 mr-2" />
-          {isSaving ? 'Saving...' : 'Save Draft'}
+          Save Draft
         </Button>
       </div>
 
@@ -399,7 +386,9 @@ export function AutomationBuilder({
       <div className="space-y-2">
         <Progress value={progress} className="h-2" />
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Step {currentStepIndex + 1} of {steps.length}</span>
+          <span>
+            Step {currentStepIndex + 1} of {steps.length}
+          </span>
           <span>{Math.round(progress)}% complete</span>
         </div>
       </div>
@@ -415,8 +404,8 @@ export function AutomationBuilder({
               <div className="flex items-center">
                 <div
                   className={cn(
-                    'flex items-center gap-2 cursor-pointer',
-                    isActive && 'text-primary font-medium'
+                    "flex items-center gap-2 cursor-pointer",
+                    isActive && "text-primary font-medium",
                   )}
                   onClick={() => setCurrentStep(step.id)}
                 >
@@ -425,8 +414,8 @@ export function AutomationBuilder({
                   ) : (
                     <Circle
                       className={cn(
-                        'h-5 w-5',
-                        isActive ? 'text-primary' : 'text-muted-foreground'
+                        "h-5 w-5",
+                        isActive ? "text-primary" : "text-muted-foreground",
                       )}
                     />
                   )}
@@ -460,20 +449,13 @@ export function AutomationBuilder({
           Back
         </Button>
 
-        {currentStep !== 'review' && currentStep !== 'template' ? (
-          <Button
-            onClick={handleNext}
-            disabled={!canProceedToNext()}
-          >
+        {currentStep !== "review" && currentStep !== "template" ? (
+          <Button onClick={handleNext} disabled={!canProceedToNext()}>
             Next
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
-        ) : currentStep === 'template' ? (
-          null
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            Review complete
-          </div>
+        ) : currentStep === "template" ? null : (
+          <div className="text-sm text-muted-foreground">Review complete</div>
         )}
       </div>
     </div>
