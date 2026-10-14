@@ -1,272 +1,201 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { BccEditorialWrapper } from "@/components/brand/BccEditorialWrapper";
-import { BccHudTile } from "@/components/brand/BccHudTile";
-import { PermissionMatrix } from "@/components/roles/PermissionMatrix";
-import { RoleEditor } from "@/components/roles/RoleEditor";
-import { Shield, Users, Activity, Clock, Plus, RefreshCw } from "lucide-react";
+import {
+  PermissionMatrix,
+  roleLabel,
+  type MatrixRole,
+} from "@/components/roles/PermissionMatrix";
+import {
+  RoleEditor,
+  type EditableRole,
+  type RoleValues,
+} from "@/components/roles/RoleEditor";
 import { Button } from "@/components/ui/button";
-import { rolesService, Resource } from "@/lib/api/rolesService";
-import { Role } from "@affexai/shared-types";
+import { ErrorState } from "@/components/patterns/page-states";
+import { rolesService } from "@/lib/api/rolesService";
+import { ApiError } from "@/lib/api/http-client";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 import { toast } from "@/lib/notify";
-import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useAsyncEffect } from "@/hooks/use-async-effect";
+
+type TenantRole = MatrixRole & EditableRole;
+
+const HTTP_CONFLICT = 409;
+const HTTP_FORBIDDEN = 403;
+
+function roleErrorMessage(error: unknown, fallback: string): string {
+  const status = error instanceof ApiError ? error.status : undefined;
+  if (status === HTTP_CONFLICT) return "Bu sistem adıyla bir rol zaten var.";
+  if (status === HTTP_FORBIDDEN) return "Bu işlem için yetkiniz yok.";
+  return fallback;
+}
+
+const permissionList = (role: MatrixRole): string[] =>
+  Array.isArray(role.permissions)
+    ? role.permissions
+    : Object.entries(role.permissions)
+        .filter(([, on]) => on)
+        .map(([id]) => id);
 
 export default function RolesPage() {
+  const { tenant } = useParams<{ tenant: string }>();
   const { isAdmin } = usePermissions();
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [elevatedPrivileges, setElevatedPrivileges] = useState(0);
-  const [lastChange, setLastChange] = useState<Date | null>(null);
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<TenantRole | "new" | null>(null);
+  const [pendingCell, setPendingCell] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [rolesData, resourcesData] = await Promise.all([
+  const data = useQuery({
+    queryKey: ["roles", tenant, "matrix"],
+    queryFn: async () => {
+      const [roles, resources] = await Promise.all([
         rolesService.getRoles(),
         rolesService.getAllResources(),
       ]);
+      return { roles: roles as unknown as TenantRole[], resources };
+    },
+  });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["roles"] });
 
-      // Roles returned from backend likely have permissions as IDs,
-      // but we need to fetch full details for the matrix if needed.
-      // For now, assume the basic roles list is enough for selection.
-      setRoles(rolesData);
-      setResources(resourcesData);
-      setLastChange(new Date());
-
-      const tenantAdminRoles = new Set([
-        "admin",
-        "organization_admin",
-        "organization_owner",
-      ]);
-      setElevatedPrivileges(
-        rolesData.filter((r) => tenantAdminRoles.has(r.name.toLowerCase()))
-          .length,
-      );
-    } catch (error) {
-      console.error("Failed to fetch roles/resources:", error);
-      toast.error("Identity Grid Sync Failed");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useAsyncEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handlePermissionToggle = async (roleId: string, resourceId: string) => {
-    if (!isAdmin) return;
+  // Permission changes are confirmed by name and saved pessimistically (UX-CONTRACT).
+  const togglePermission = async (roleId: string, resourceId: string) => {
+    const role = data.data?.roles.find((r) => r.id === roleId);
+    const resource = data.data?.resources.find((r) => r.id === resourceId);
+    if (!isAdmin || !role || !resource || pendingCell) return;
+    const current = permissionList(role);
+    const granting = !current.includes(resourceId);
+    const confirmed = await confirmDialog({
+      title: granting
+        ? `${roleLabel(role)} rolüne “${resource.name}” yetkisi verilsin mi?`
+        : `${roleLabel(role)} rolünden “${resource.name}” yetkisi kaldırılsın mı?`,
+      description: `${role.userCount} kullanıcı etkilenir. Değişiklik bir sonraki istekte geçerli olur.`,
+      confirmText: granting ? "Yetkiyi ver" : "Yetkiyi kaldır",
+      destructive: !granting,
+    });
+    if (!confirmed) return;
+    setPendingCell(`${roleId}:${resourceId}`);
     try {
-      const role = roles.find((r) => r.id === roleId);
-      if (!role) return;
-
-      // Optimistic update
-      const currentPermissions = (role as any).permissions || [];
-      const newPermissions = currentPermissions.includes(resourceId)
-        ? currentPermissions.filter((id: string) => id !== resourceId)
-        : [...currentPermissions, resourceId];
-
-      setRoles((prev) =>
-        prev.map((r) =>
-          r.id === roleId ? { ...r, permissions: newPermissions } : r,
+      const next = granting
+        ? [...current, resourceId]
+        : current.filter((id) => id !== resourceId);
+      await rolesService.updateRolePermissions(roleId, next);
+      toast.success(granting ? "Yetki verildi" : "Yetki kaldırıldı");
+      await refresh();
+    } catch (error) {
+      toast.error("Yetki değiştirilemedi", {
+        description: roleErrorMessage(
+          error,
+          "Değişiklik kaydedilmedi; tekrar deneyin.",
         ),
-      );
-
-      await rolesService.updateRolePermissions(roleId, newPermissions);
-      setLastChange(new Date());
-      toast.success("Permission state synchronized");
-    } catch (error) {
-      console.error("Failed to toggle permission:", error);
-      toast.error("Matrix Linkage Error");
-      fetchData(); // Revert on failure
+      });
+    } finally {
+      setPendingCell(null);
     }
   };
 
-  const handleRefresh = () => {
-    fetchData();
-  };
-
-  const handleRoleSelect = (role: Role) => {
-    if (!isAdmin) return;
-    setSelectedRole(role);
-    setEditorOpen(true);
-  };
-
-  const handleRoleSave = async (values: {
-    name: string;
-    displayName: string;
-    description: string;
-  }) => {
+  const saveRole = async (values: RoleValues) => {
+    const existing = editing === "new" ? null : editing;
     try {
-      if (selectedRole) {
-        await rolesService.updateRole(selectedRole.id, values);
-      } else {
-        await rolesService.createRole({ ...values, permissions: [] });
-      }
-      await fetchData();
-      setEditorOpen(false);
-      setSelectedRole(null);
-      setLastChange(new Date());
-      toast.success(
-        selectedRole ? "Role configuration updated" : "Role provisioned",
+      if (existing) await rolesService.updateRole(existing.id, values);
+      else await rolesService.createRole({ ...values, permissions: [] });
+    } catch (error) {
+      throw new Error(
+        roleErrorMessage(error, "Rol kaydedilemedi. Tekrar deneyin."),
       );
-    } catch (error) {
-      console.error("Failed to save role:", error);
-      toast.error("Role configuration could not be saved");
-      throw error;
     }
+    toast.success(
+      existing
+        ? "Değişiklikler kaydedildi"
+        : `${values.displayName} rolü oluşturuldu`,
+    );
+    setEditing(null);
+    await refresh();
   };
 
-  const handleRoleDelete = async (roleId: string) => {
+  const deleteRole = async (role: EditableRole) => {
     try {
-      await rolesService.deleteRole(roleId);
-      await fetchData();
-      setEditorOpen(false);
-      setSelectedRole(null);
-      setLastChange(new Date());
-      toast.success("Role deleted");
+      await rolesService.deleteRole(role.id);
     } catch (error) {
-      console.error("Failed to delete role:", error);
-      toast.error("Assigned or protected roles cannot be deleted");
-      throw error;
+      throw new Error(
+        roleErrorMessage(error, "Atanmış veya korumalı roller silinemez."),
+      );
     }
+    toast.success(`${role.displayName || role.name} rolü silindi`);
+    setEditing(null);
+    await refresh();
   };
 
-  const totalUsers = roles.reduce(
-    (sum, role) => sum + ((role as any).userCount || 0),
+  const roles = data.data?.roles ?? [];
+  const resources = data.data?.resources ?? [];
+  const assignments = roles.reduce(
+    (sum, role) => sum + (role.userCount || 0),
     0,
   );
 
   return (
     <BccEditorialWrapper
-      headerTitle="Access Control"
-      headerSubtitle="Role-based permission management and security matrix"
-      headerBadge="Access_Matrix"
-      telemetryData={[
-        {
-          label: "Role Assignments",
-          value: totalUsers.toString(),
-          color: "#9df425",
-        },
-        {
-          label: "Elevated Nodes",
-          value: elevatedPrivileges.toString(),
-          color: "#ff8c00",
-        },
-        {
-          label: "Role Definitions",
-          value: roles.length.toString(),
-          color: "#ffffff",
-        },
-      ]}
+      headerTitle="Roller"
+      headerSubtitle="Rolleri ve her rolün hangi kaynaklara erişebileceğini yönetin."
+      headerBadge="Yönetim"
+      telemetryData={
+        data.data
+          ? [
+              { label: "Rol", value: String(roles.length) },
+              { label: "Kaynak", value: String(resources.length) },
+              { label: "Atama", value: String(assignments) },
+            ]
+          : []
+      }
+      headerAction={
+        isAdmin ? (
+          <Button onClick={() => setEditing("new")}>
+            <Plus aria-hidden className="mr-2 h-4 w-4" />
+            Yeni rol
+          </Button>
+        ) : undefined
+      }
     >
-      <div className="space-y-6">
-        {/* Control Panel */}
-        <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 backdrop-blur-sm">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <Shield className="w-4 h-4 text-[#9df425]" />
-              <h2 className="text-[12px] font-bold uppercase tracking-[.2em] text-white">
-                Governance Protocol
-              </h2>
-            </div>
-            <div className="h-4 w-[1px] bg-white/10" />
-            <div className="text-[10px] uppercase tracking-widest text-white/40 font-mono">
-              Status: <span className="text-[#9df425]">Operational</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              size="sm"
-              className="h-8 bg-transparent border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-none text-[10px] uppercase tracking-widest font-mono"
-            >
-              <RefreshCw
-                className={cn("w-3 h-3 mr-1.5", loading && "animate-spin")}
-              />
-              Sync Grid
-            </Button>
-            {isAdmin && (
-              <Button
-                onClick={() => {
-                  setSelectedRole(null);
-                  setEditorOpen(true);
-                }}
-                variant="default"
-                size="sm"
-                className="h-8 bg-[#9df425] text-black hover:bg-[#8ce620] rounded-none text-[10px] uppercase tracking-widest font-bold px-4"
-              >
-                <Plus className="w-3 h-3 mr-1.5" />
-                Provision New Role
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Telemetry HUD */}
-        <div className="grid grid-cols-4 gap-4">
-          <BccHudTile title="TOTAL_ROLES" subtitle="Configured" icon="shield">
-            <div className="text-3xl font-mono tracking-tighter text-white">
-              {roles.length.toString().padStart(2, "0")}
-            </div>
-          </BccHudTile>
-
-          <BccHudTile title="RESOURCES" subtitle="Protected" icon="activity">
-            <div className="text-3xl font-mono tracking-tighter text-white">
-              {resources.length.toString().padStart(2, "0")}
-            </div>
-          </BccHudTile>
-
-          <BccHudTile
-            title="ROLE_ASSIGNMENTS"
-            subtitle="Tenant roles"
-            icon="users"
-          >
-            <div className="text-3xl font-mono tracking-tighter text-[#9df425]">
-              {totalUsers.toLocaleString()}
-            </div>
-          </BccHudTile>
-
-          <BccHudTile title="LAST_SYNC" subtitle="Audit Pulse" icon="clock">
-            <div className="text-sm font-mono tracking-tighter text-white/80">
-              {lastChange ? lastChange.toLocaleTimeString() : "--:--:--"}
-            </div>
-            <div className="text-[9px] uppercase tracking-widest text-white/30 mt-1">
-              {lastChange ? lastChange.toLocaleDateString() : "--/--/----"}
-            </div>
-          </BccHudTile>
-        </div>
-
-        {/* Permission Matrix */}
-        <PermissionMatrix
-          roles={roles as any}
-          resources={resources}
-          onPermissionToggle={handlePermissionToggle}
-          onRoleSelect={handleRoleSelect}
-          readOnly={!isAdmin}
-        />
-
-        {/* Role Editor Sidebar */}
-        {isAdmin && editorOpen && (
-          <RoleEditor
-            role={selectedRole as any}
-            onClose={() => {
-              setEditorOpen(false);
-              setSelectedRole(null);
-            }}
-            onSave={handleRoleSave}
-            onDelete={handleRoleDelete}
+      <div className="space-y-6 pb-20">
+        {!isAdmin && (
+          <p className="border border-white/15 p-4 text-sm text-white/80">
+            Rolleri yalnız kuruluş yöneticileri değiştirebilir; matris yalnız
+            görüntüleme modunda.
+          </p>
+        )}
+        {data.isPending ? (
+          <p role="status" className="py-12 text-center text-sm text-white/70">
+            Roller yükleniyor…
+          </p>
+        ) : data.isError ? (
+          <ErrorState
+            title="Roller yüklenemedi"
+            description="Bağlantınızı kontrol edip tekrar deneyin."
+            action={<Button onClick={() => data.refetch()}>Tekrar dene</Button>}
+          />
+        ) : (
+          <PermissionMatrix
+            roles={roles}
+            resources={resources}
+            onPermissionToggle={togglePermission}
+            onRoleSelect={(role) => setEditing(role as TenantRole)}
+            pendingCell={pendingCell}
+            readOnly={!isAdmin}
           />
         )}
       </div>
+
+      {isAdmin && editing && (
+        <RoleEditor
+          role={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSave={saveRole}
+          onDelete={deleteRole}
+        />
+      )}
     </BccEditorialWrapper>
   );
 }

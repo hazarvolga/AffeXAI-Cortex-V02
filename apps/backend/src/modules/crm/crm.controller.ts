@@ -9,22 +9,22 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Query,
-} from '@nestjs/common';
-import { CrmService } from './crm.service';
-import { CreateCrmCustomerDto } from './dto/create-crm-customer.dto';
-import { ImportCrmCustomersDto } from './dto/import-crm-customers.dto';
-import { JwtAuthGuard } from '../../core/auth/guards/jwt-auth.guard';
-import { UpdateCrmCustomerDto } from './dto/update-crm-customer.dto';
-import { PermissionsGuard } from '../../core/auth/guards/permissions.guard';
-import { RequirePermissions } from '../../core/auth/decorators/permissions.decorator';
-import { PERMISSIONS } from '../../lib/permissions';
-import { Throttle } from '@nestjs/throttler';
-import { ListCrmCustomersDto } from './dto/list-crm-customers.dto';
+} from "@nestjs/common";
+import { CrmService } from "./crm.service";
+import { CreateCrmCustomerDto } from "./dto/create-crm-customer.dto";
+import { ImportCrmCustomersDto } from "./dto/import-crm-customers.dto";
+import { JwtAuthGuard } from "../../core/auth/guards/jwt-auth.guard";
+import { UpdateCrmCustomerDto } from "./dto/update-crm-customer.dto";
+import { PermissionsGuard } from "../../core/auth/guards/permissions.guard";
+import { RequirePermissions } from "../../core/auth/decorators/permissions.decorator";
+import { PERMISSIONS } from "../../lib/permissions";
+import { Throttle } from "@nestjs/throttler";
+import { ListCrmCustomersDto } from "./dto/list-crm-customers.dto";
 
-@Controller('crm')
+@Controller("crm")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CrmController {
-  constructor(private readonly crmService: CrmService) { }
+  constructor(private readonly crmService: CrmService) {}
 
   /**
    * Get all CRM customers
@@ -33,14 +33,17 @@ export class CrmController {
   @Get()
   @RequirePermissions(PERMISSIONS.CRM_VIEW)
   async findAll(@Query() query: ListCrmCustomersDto) {
-    const customers = await this.crmService.findAll(query.page, query.limit);
-    const stats = await this.crmService.getStats();
+    const { items, total } = await this.crmService.findPage(
+      query.page,
+      query.limit,
+      query.search,
+    );
     return {
       success: true,
-      data: customers,
+      data: items,
       meta: {
-        count: customers.length,
-        total: stats.total,
+        count: items.length,
+        total,
         page: query.page,
         limit: query.limit,
       },
@@ -51,7 +54,7 @@ export class CrmController {
    * Get CRM statistics
    * Admin only
    */
-  @Get('stats')
+  @Get("stats")
   @RequirePermissions(PERMISSIONS.CRM_VIEW)
   async getStats() {
     const stats = await this.crmService.getStats();
@@ -65,9 +68,9 @@ export class CrmController {
    * Get single CRM customer
    * Admin only
    */
-  @Get(':id')
+  @Get(":id")
   @RequirePermissions(PERMISSIONS.CRM_VIEW)
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(@Param("id", ParseUUIDPipe) id: string) {
     const customer = await this.crmService.findOne(id);
     return { success: true, data: customer };
   }
@@ -80,14 +83,18 @@ export class CrmController {
   @RequirePermissions(PERMISSIONS.CRM_MANAGE)
   async create(@Body() createDto: CreateCrmCustomerDto) {
     const customer = await this.crmService.create(createDto);
-    return { success: true, message: 'CRM customer created successfully', data: customer };
+    return {
+      success: true,
+      message: "CRM customer created successfully",
+      data: customer,
+    };
   }
 
   /**
    * Bulk import CRM customers
    * Admin only
    */
-  @Post('import')
+  @Post("import")
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @RequirePermissions(PERMISSIONS.CRM_MANAGE)
   async bulkImport(@Body() importDto: ImportCrmCustomersDto) {
@@ -103,35 +110,39 @@ export class CrmController {
    * Update CRM customer
    * Admin only
    */
-  @Put(':id')
+  @Put(":id")
   @RequirePermissions(PERMISSIONS.CRM_MANAGE)
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateCrmCustomerDto,
   ) {
     const customer = await this.crmService.update(id, updateDto);
-    return { success: true, message: 'CRM customer updated successfully', data: customer };
+    return {
+      success: true,
+      message: "CRM customer updated successfully",
+      data: customer,
+    };
   }
 
   /**
    * Soft delete CRM customer (set isActive = false)
    * Admin only
    */
-  @Delete(':id')
+  @Delete(":id")
   @RequirePermissions(PERMISSIONS.CRM_MANAGE)
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(@Param("id", ParseUUIDPipe) id: string) {
     await this.crmService.remove(id);
-    return { success: true, message: 'CRM customer deactivated successfully' };
+    return { success: true, message: "CRM customer deactivated successfully" };
   }
 
   /**
    * Hard delete CRM customer (permanently delete)
    * Admin only
    */
-  @Delete(':id/hard')
+  @Delete(":id/hard")
   @RequirePermissions(PERMISSIONS.CRM_DELETE)
-  async hardDelete(@Param('id', ParseUUIDPipe) id: string) {
+  async hardDelete(@Param("id", ParseUUIDPipe) id: string) {
     await this.crmService.hardDelete(id);
-    return { success: true, message: 'CRM customer permanently deleted' };
+    return { success: true, message: "CRM customer permanently deleted" };
   }
 }

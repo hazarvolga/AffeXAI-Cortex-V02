@@ -1,11 +1,17 @@
-import { Injectable, ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CrmCustomer } from './entities/crm-customer.entity';
-import { CreateCrmCustomerDto } from './dto/create-crm-customer.dto';
-import { UpdateCrmCustomerDto } from './dto/update-crm-customer.dto';
-import { TenantService } from '../../core/tenant/tenant.service';
-import { CrmLead } from './entities/crm-lead.entity';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  InternalServerErrorException,
+} from "@nestjs/common";
+import { crmSearchWhere } from "./crm-search";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { CrmCustomer } from "./entities/crm-customer.entity";
+import { CreateCrmCustomerDto } from "./dto/create-crm-customer.dto";
+import { UpdateCrmCustomerDto } from "./dto/update-crm-customer.dto";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { CrmLead } from "./entities/crm-lead.entity";
 
 @Injectable()
 export class CrmService {
@@ -15,11 +21,12 @@ export class CrmService {
     @InjectRepository(CrmLead)
     private crmLeadRepository: Repository<CrmLead>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private get tenantId(): string {
     const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) throw new InternalServerErrorException('Tenant context is required');
+    if (!tenantId)
+      throw new InternalServerErrorException("Tenant context is required");
     return tenantId;
   }
 
@@ -29,7 +36,11 @@ export class CrmService {
    */
   async isCustomerEmail(email: string): Promise<boolean> {
     const customer = await this.crmCustomerRepository.findOne({
-      where: { email: email.toLowerCase(), isActive: true, tenantId: this.tenantId },
+      where: {
+        email: email.toLowerCase(),
+        isActive: true,
+        tenantId: this.tenantId,
+      },
     });
     return !!customer;
   }
@@ -46,10 +57,25 @@ export class CrmService {
   /**
    * Get all CRM customers for a tenant
    */
+  /** One page of customers matching `search`, with the total for that same query. */
+  async findPage(
+    page = 1,
+    limit = 50,
+    search?: string,
+  ): Promise<{ items: CrmCustomer[]; total: number }> {
+    const [items, total] = await this.crmCustomerRepository.findAndCount({
+      where: crmSearchWhere(this.tenantId, search),
+      order: { createdAt: "DESC" },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { items, total };
+  }
+
   async findAll(page = 1, limit = 50): Promise<CrmCustomer[]> {
     return this.crmCustomerRepository.find({
       where: { tenantId: this.tenantId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -77,7 +103,9 @@ export class CrmService {
     // Check for duplicate email within tenant
     const existing = await this.findByEmail(createDto.email);
     if (existing) {
-      throw new ConflictException(`Email ${createDto.email} already exists in CRM`);
+      throw new ConflictException(
+        `Email ${createDto.email} already exists in CRM`,
+      );
     }
 
     const customer = this.crmCustomerRepository.create({
@@ -136,25 +164,42 @@ export class CrmService {
   /**
    * Update CRM customer
    */
-  async update(id: string, updateDto: UpdateCrmCustomerDto): Promise<CrmCustomer> {
+  async update(
+    id: string,
+    updateDto: UpdateCrmCustomerDto,
+  ): Promise<CrmCustomer> {
     const customer = await this.findOne(id);
 
     // Check email uniqueness if email is being updated
     if (updateDto.email && updateDto.email !== customer.email) {
       const existing = await this.findByEmail(updateDto.email);
       if (existing) {
-        throw new ConflictException(`Email ${updateDto.email} already exists in CRM`);
+        throw new ConflictException(
+          `Email ${updateDto.email} already exists in CRM`,
+        );
       }
     }
 
     const editableFields: (keyof UpdateCrmCustomerDto)[] = [
-      'companyName', 'email', 'customerNumber', 'contactPerson', 'phone',
-      'address', 'city', 'country', 'isActive', 'notes', 'metadata',
+      "companyName",
+      "email",
+      "customerNumber",
+      "contactPerson",
+      "phone",
+      "address",
+      "city",
+      "country",
+      "isActive",
+      "notes",
+      "metadata",
     ];
-    const changes = editableFields.reduce<Partial<CrmCustomer>>((result, field) => {
-      if (updateDto[field] === undefined) return result;
-      return { ...result, [field]: updateDto[field] };
-    }, {});
+    const changes = editableFields.reduce<Partial<CrmCustomer>>(
+      (result, field) => {
+        if (updateDto[field] === undefined) return result;
+        return { ...result, [field]: updateDto[field] };
+      },
+      {},
+    );
     if (changes.email) changes.email = changes.email.trim().toLowerCase();
 
     try {
@@ -182,7 +227,9 @@ export class CrmService {
       where: { tenantId: this.tenantId, customerId: id },
     });
     if (relatedLeads > 0) {
-      throw new ConflictException('Customer cannot be permanently deleted while CRM leads reference it');
+      throw new ConflictException(
+        "Customer cannot be permanently deleted while CRM leads reference it",
+      );
     }
     await this.crmCustomerRepository.remove(customer);
   }
@@ -195,24 +242,40 @@ export class CrmService {
     active: number;
     inactive: number;
   }> {
-    const total = await this.crmCustomerRepository.count({ where: { tenantId: this.tenantId } });
-    const active = await this.crmCustomerRepository.count({ where: { isActive: true, tenantId: this.tenantId } });
+    const total = await this.crmCustomerRepository.count({
+      where: { tenantId: this.tenantId },
+    });
+    const active = await this.crmCustomerRepository.count({
+      where: { isActive: true, tenantId: this.tenantId },
+    });
     const inactive = total - active;
 
     return { total, active, inactive };
   }
 
   private rethrowSafePersistenceError(error: unknown): never {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
-      throw new ConflictException('A CRM customer with this email already exists');
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      throw new ConflictException(
+        "A CRM customer with this email already exists",
+      );
     }
     throw error;
   }
 
   private importErrorCode(error: unknown): string {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
-      return 'duplicate';
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      return "duplicate";
     }
-    return 'persistence_failed';
+    return "persistence_failed";
   }
 }

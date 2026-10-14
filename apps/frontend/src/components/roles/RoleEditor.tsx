@@ -1,175 +1,249 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { X, Save, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
-interface RoleEditorProps {
-    role: {
-        id: string;
-        name: string;
-        displayName?: string;
-        description: string;
-        userCount: number;
-        permissions: string[];
-        isCustom?: boolean;
-    } | null;
-    onClose: () => void;
-    onSave: (role: { name: string; displayName: string; description: string }) => Promise<void>;
-    onDelete?: (roleId: string) => Promise<void>;
+export interface EditableRole {
+  id: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  userCount: number;
+  isCustom?: boolean;
 }
 
-export function RoleEditor({ role, onClose, onSave, onDelete }: RoleEditorProps) {
-    const [name, setName] = useState(role?.name || '');
-    const [displayName, setDisplayName] = useState(role?.displayName || '');
-    const [description, setDescription] = useState(role?.description || '');
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [deleteArmed, setDeleteArmed] = useState(false);
+export interface RoleValues {
+  name: string;
+  displayName: string;
+  description: string;
+}
 
-    const handleSave = async () => {
-        if (!name.trim() || !displayName.trim() || saving) return;
-        setSaving(true);
-        try {
-            await onSave({ name: name.trim(), displayName: displayName.trim(), description: description.trim() });
-        } finally {
-            setSaving(false);
-        }
-    };
+interface RoleEditorProps {
+  /** null opens the editor for a new role. */
+  role: EditableRole | null;
+  onClose: () => void;
+  /** Rejects with a user-facing message when the save fails. */
+  onSave: (values: RoleValues) => Promise<void>;
+  onDelete?: (role: EditableRole) => Promise<void>;
+}
 
-    const handleDelete = async () => {
-        if (!role || !onDelete || deleting || role.userCount > 0) return;
-        if (!deleteArmed) {
-            setDeleteArmed(true);
-            return;
-        }
-        setDeleting(true);
-        try {
-            await onDelete(role.id);
-        } finally {
-            setDeleting(false);
-            setDeleteArmed(false);
-        }
-    };
+const ROLE_NAME_PATTERN = /^[a-z0-9_]+$/;
 
-    return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-none w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-white/5">
-                    <div>
-                        <div className="text-[14px] font-bold uppercase tracking-[0.2em] text-white">
-                            {role ? 'Role Configuration' : 'Provision Role'}
-                        </div>
-                        <div className="text-[9px] uppercase tracking-[0.2em] text-white/30 mt-1 font-mono">
-                            Edit identity vector parameters
-                        </div>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        disabled={saving || deleting}
-                        className="text-white/20 hover:text-white transition-colors disabled:opacity-30"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
+/** Create/edit dialog for a role (UX-CONTRACT ledger: Create, Edit, Delete). */
+export function RoleEditor({
+  role,
+  onClose,
+  onSave,
+  onDelete,
+}: RoleEditorProps) {
+  const [name, setName] = useState(role?.name ?? "");
+  const [displayName, setDisplayName] = useState(role?.displayName ?? "");
+  const [description, setDescription] = useState(role?.description ?? "");
+  const [busy, setBusy] = useState<"save" | "delete" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showErrors, setShowErrors] = useState(false);
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
-                    {/* Role Name */}
-                    <div>
-                        <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-mono block mb-2">
-                            Identification Label
-                        </label>
-                        <Input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="bg-black border-white/10 rounded-none text-white h-10 text-[11px] focus:border-[#9df425] transition-colors"
-                        />
-                    </div>
+  const nameError = !name.trim()
+    ? "Sistem adı gerekli."
+    : !ROLE_NAME_PATTERN.test(name.trim())
+      ? "Yalnız küçük harf, rakam ve alt çizgi kullanın (ör. icerik_editoru)."
+      : null;
+  const displayNameError = displayName.trim() ? null : "Görünen ad gerekli.";
 
-                    <div>
-                        <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-mono block mb-2">
-                            Display Label
-                        </label>
-                        <Input
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            className="bg-black border-white/10 rounded-none text-white h-10 text-[11px] focus:border-[#9df425] transition-colors"
-                        />
-                    </div>
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    setShowErrors(true);
+    if (nameError || displayNameError || busy) {
+      document
+        .getElementById(nameError ? "role-name" : "role-display-name")
+        ?.focus();
+      return;
+    }
+    setBusy("save");
+    setError(null);
+    try {
+      await onSave({
+        name: name.trim(),
+        displayName: displayName.trim(),
+        description: description.trim(),
+      });
+    } catch (failure) {
+      setError(
+        failure instanceof Error ? failure.message : "Rol kaydedilemedi.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
 
-                    {/* Description */}
-                    <div>
-                        <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-mono block mb-2">
-                            Functional Description
-                        </label>
-                        <Textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="bg-black border-white/10 rounded-none text-white min-h-[100px] text-[11px] focus:border-[#9df425] transition-colors resize-none"
-                        />
-                    </div>
+  const remove = async () => {
+    if (!role || !onDelete || busy) return;
+    const label = role.displayName || role.name;
+    const confirmed = await confirmDialog({
+      title: `${label} rolü silinsin mi?`,
+      description: "Bu işlem geri alınamaz.",
+      confirmText: "Rolü sil",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      await onDelete(role);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Rol silinemedi.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
-                    {/* Meta Stats */}
-                    <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
-                        <div className="space-y-1">
-                            <div className="text-[9px] uppercase tracking-widest text-white/30 font-mono">
-                                Population
-                            </div>
-                            <div className="text-2xl font-mono text-white flex items-baseline gap-2">
-                                {role?.userCount || 0}
-                                <span className="text-[10px] text-white/20">Units</span>
-                            </div>
-                        </div>
-                        <div className="space-y-1 text-right">
-                            <div className="text-[9px] uppercase tracking-widest text-white/30 font-mono">
-                                Perms_Score
-                            </div>
-                            <div className="text-2xl font-mono text-[#9df425]">
-                                {role?.permissions.length || 0}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+  const canDelete = Boolean(role?.isCustom && onDelete);
+  const deleteBlocked = (role?.userCount ?? 0) > 0;
 
-                {/* Footer */}
-                <div className="flex items-center gap-3 p-5 border-t border-white/5 bg-white/[0.01]">
-                    {role?.isCustom && onDelete && (
-                        <Button
-                            onClick={handleDelete}
-                            disabled={saving || deleting || role.userCount > 0}
-                            variant="outline"
-                            size="sm"
-                            className="h-10 mr-auto bg-transparent border-red-500/30 text-red-300 hover:text-white hover:bg-red-500/20 rounded-none text-[10px] uppercase tracking-widest font-mono px-4"
-                            title={role.userCount > 0 ? 'Remove assigned users before deleting this role' : undefined}
-                        >
-                            <Trash2 className="w-3 h-3 mr-2" />
-                            {deleting ? 'Deleting...' : deleteArmed ? 'Confirm Delete' : 'Delete Role'}
-                        </Button>
-                    )}
-                    <Button
-                        onClick={onClose}
-                        disabled={saving || deleting}
-                        variant="outline"
-                        size="sm"
-                        className="h-10 bg-transparent border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-none text-[10px] uppercase tracking-widest font-mono px-6"
-                    >
-                        Abort
-                    </Button>
-                    <Button
-                        onClick={handleSave}
-                        disabled={!name.trim() || !displayName.trim() || saving || deleting}
-                        size="sm"
-                        className="h-10 bg-[#9df425] text-black hover:bg-[#8ce620] rounded-none text-[10px] uppercase tracking-widest font-bold px-8 transition-colors"
-                    >
-                        <Save className="w-3 h-3 mr-2" />
-                        {saving ? 'Synchronizing...' : role ? 'Apply Delta' : 'Provision Role'}
-                    </Button>
-                </div>
+  return (
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      <DialogContent>
+        <form onSubmit={save} noValidate className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>{role ? "Rolü düzenle" : "Yeni rol"}</DialogTitle>
+            <DialogDescription>
+              {role
+                ? `${role.userCount} kullanıcı bu role sahip.`
+                : "Yetkileri, rol oluşturulduktan sonra matristen verin."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Field
+            id="role-name"
+            label="Sistem adı"
+            error={showErrors ? nameError : null}
+          >
+            <Input
+              id="role-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              aria-invalid={Boolean(showErrors && nameError)}
+              aria-describedby={
+                showErrors && nameError ? "role-name-error" : undefined
+              }
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            id="role-display-name"
+            label="Görünen ad"
+            error={showErrors ? displayNameError : null}
+          >
+            <Input
+              id="role-display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              aria-invalid={Boolean(showErrors && displayNameError)}
+              aria-describedby={
+                showErrors && displayNameError
+                  ? "role-display-name-error"
+                  : undefined
+              }
+            />
+          </Field>
+          <Field id="role-description" label="Açıklama">
+            <Textarea
+              id="role-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </Field>
+
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            {canDelete ? (
+              <div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={remove}
+                  disabled={Boolean(busy) || deleteBlocked}
+                  aria-describedby={
+                    deleteBlocked ? "role-delete-reason" : undefined
+                  }
+                >
+                  {busy === "delete" ? "Siliniyor…" : "Rolü sil"}
+                </Button>
+                {deleteBlocked && (
+                  <p
+                    id="role-delete-reason"
+                    className="mt-1 text-xs text-muted-foreground"
+                  >
+                    Önce bu roldeki kullanıcıları başka bir role taşıyın.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={Boolean(busy)}
+              >
+                Vazgeç
+              </Button>
+              <Button type="submit" disabled={Boolean(busy)}>
+                {busy === "save"
+                  ? "Kaydediliyor…"
+                  : role
+                    ? "Değişiklikleri kaydet"
+                    : "Rolü oluştur"}
+              </Button>
             </div>
-        </div>
-    );
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({
+  id,
+  label,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="text-sm font-medium">
+        {label}
+      </label>
+      {children}
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }

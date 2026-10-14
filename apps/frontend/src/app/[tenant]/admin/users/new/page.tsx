@@ -1,253 +1,275 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { BccEditorialWrapper } from '@/components/brand/BccEditorialWrapper';
-import { UserManagementService, Role } from '@/services/user-management.service';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, Save, Loader2, UserPlus, ShieldCheck } from 'lucide-react';
+import { useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { BccEditorialWrapper } from "@/components/brand/BccEditorialWrapper";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ApiError } from "@/lib/api/http-client";
+import { toast } from "@/lib/notify";
+import { UserManagementService } from "@/services/user-management.service";
+import {
+  INVITE_FIELD_ORDER,
+  inviteErrorMessage,
+  validateInvite,
+  type InviteErrors,
+  type InviteField,
+  type InviteValues,
+} from "../_components/invite-form";
 
-export default function CreateUserPage() {
-    const { tenant } = useParams<{ tenant: string }>();
-    const router = useRouter();
-    const { toast } = useToast();
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+const EMPTY: InviteValues = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  roleId: "",
+  phone: "",
+  city: "",
+  country: "",
+};
+const LABELS: Record<InviteField, string> = {
+  firstName: "Ad",
+  lastName: "Soyad",
+  email: "E-posta",
+  roleId: "Rol",
+  phone: "Telefon",
+  city: "Şehir",
+  country: "Ülke",
+};
+const REQUIRED: ReadonlySet<InviteField> = new Set([
+  "firstName",
+  "lastName",
+  "email",
+  "roleId",
+]);
+const fieldId = (field: InviteField) => `invite-${field}`;
 
-    // Form State
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        city: '',
-        country: '',
-        bio: '',
-        isActive: true,
-        roleId: ''
-    });
+export default function InviteUserPage() {
+  const { tenant } = useParams<{ tenant: string }>();
+  const router = useRouter();
+  const roles = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => UserManagementService.getRoles(),
+  });
+  const [values, setValues] = useState<InviteValues>(EMPTY);
+  const [errors, setErrors] = useState<InviteErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const listHref = `/${tenant}/admin/users`;
 
-    useEffect(() => {
-        loadRoles();
-    }, []);
+  const update = (field: InviteField, value: string) => {
+    setValues((current) => ({ ...current, [field]: value }));
+    if (errors[field])
+      setErrors((current) => ({ ...current, [field]: undefined }));
+  };
 
-    const loadRoles = async () => {
-        try {
-            const data = await UserManagementService.getRoles();
-            setRoles(data);
-        } catch (error) {
-            console.error('Failed to load roles:', error);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (submitting) return;
+    const found = validateInvite(values);
+    setErrors(found);
+    setSubmitError(null);
+    const first = INVITE_FIELD_ORDER.find((field) => found[field]);
+    if (first) {
+      document.getElementById(fieldId(first))?.focus();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await UserManagementService.inviteUser({
+        ...values,
+        email: values.email.trim(),
+      });
+      toast.success("Davet gönderildi", {
+        description: `${values.email.trim()} adresine parola belirleme bağlantısı gitti.`,
+      });
+      router.push(listHref);
+    } catch (error) {
+      setSubmitError(
+        inviteErrorMessage(
+          error instanceof ApiError ? error.status : undefined,
+        ),
+      );
+      summaryRef.current?.focus();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const errorList = INVITE_FIELD_ORDER.filter((field) => errors[field]);
+
+  return (
+    <BccEditorialWrapper
+      headerTitle="Kullanıcı davet et"
+      headerSubtitle="Davet edilen kişi parolasını e-postadaki bağlantıdan belirler."
+      headerBadge="Yönetim"
+      headerAction={
+        <Button asChild variant="outline">
+          <Link href={listHref}>İptal</Link>
+        </Button>
+      }
+    >
+      <form
+        onSubmit={submit}
+        noValidate
+        className="mx-auto max-w-3xl space-y-6 pb-20"
+      >
+        {(errorList.length > 0 || submitError) && (
+          <div
+            ref={summaryRef}
+            tabIndex={-1}
+            role="alert"
+            className="border border-red-400/60 bg-red-500/10 p-4 text-sm text-white focus:outline-none"
+          >
+            {submitError ?? "Formda düzeltilmesi gereken alanlar var:"}
+            {errorList.length > 0 && (
+              <ul className="mt-2 list-disc pl-5">
+                {errorList.map((field) => (
+                  <li key={field}>
+                    <a className="underline" href={`#${fieldId(field)}`}>
+                      {LABELS[field]}: {errors[field]}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {(
+            [
+              "firstName",
+              "lastName",
+              "email",
+              "phone",
+              "city",
+              "country",
+            ] as const
+          ).map((field) => (
+            <TextField
+              key={field}
+              field={field}
+              value={values[field]}
+              error={errors[field]}
+              onChange={(value) => update(field, value)}
+              type={
+                field === "email" ? "email" : field === "phone" ? "tel" : "text"
+              }
+            />
+          ))}
+          <div className="space-y-2">
+            <label
+              htmlFor={fieldId("roleId")}
+              className="block text-sm font-medium text-white"
+            >
+              Rol <span aria-hidden>*</span>
+            </label>
+            <Select
+              value={values.roleId}
+              onValueChange={(value) => update("roleId", value)}
+              disabled={roles.isPending}
+            >
+              <SelectTrigger
+                id={fieldId("roleId")}
+                aria-invalid={Boolean(errors.roleId)}
+                aria-describedby={
+                  errors.roleId ? `${fieldId("roleId")}-error` : undefined
+                }
+                className="h-11 border-white/15 bg-black/40 text-white"
+              >
+                <SelectValue
+                  placeholder={
+                    roles.isPending ? "Roller yükleniyor…" : "Rol seçin"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(roles.data ?? []).map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.displayName || role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {roles.isError && (
+              <p className="text-sm text-red-300">
+                Roller yüklenemedi; sayfayı yenileyin.
+              </p>
+            )}
+            {errors.roleId && (
+              <p
+                id={`${fieldId("roleId")}-error`}
+                className="text-sm text-red-300"
+              >
+                {errors.roleId}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-3">
+          <Button asChild variant="outline">
+            <Link href={listHref}>İptal</Link>
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Gönderiliyor…" : "Davet gönder"}
+          </Button>
+        </div>
+      </form>
+    </BccEditorialWrapper>
+  );
+}
+
+interface TextFieldProps {
+  field: InviteField;
+  value: string;
+  error?: string;
+  type: "text" | "email" | "tel";
+  onChange: (value: string) => void;
+}
+
+function TextField({ field, value, error, type, onChange }: TextFieldProps) {
+  const id = fieldId(field);
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-white">
+        {LABELS[field]} {REQUIRED.has(field) && <span aria-hidden>*</span>}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        required={REQUIRED.has(field)}
+        autoComplete={
+          field === "email"
+            ? "email"
+            : field === "phone"
+              ? "tel"
+              : field === "firstName"
+                ? "given-name"
+                : field === "lastName"
+                  ? "family-name"
+                  : undefined
         }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!formData.email || !formData.firstName || !formData.lastName || !formData.roleId) {
-            toast({ title: 'Validation Error', description: 'Please fill in all required fields.', variant: 'destructive' });
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            await UserManagementService.inviteUser(formData);
-
-            toast({ title: 'Invitation Created', description: 'The user can choose a password from the invitation email.' });
-            router.push(`/${tenant}/admin/users`);
-        } catch (error: any) {
-            toast({
-                title: 'Creation Failed',
-                description: error.message || 'Could not create user identity.',
-                variant: 'destructive'
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <BccEditorialWrapper
-            headerTitle="Create Identity"
-            headerSubtitle="User Provisioning // Access Control // Security Audit"
-            headerBadge="Directory v1.0"
-            telemetryData={[
-                { label: "Operation", value: "WRITE", color: "#9df425" },
-                { label: "Security Level", value: "HIGH", color: "#ff8c00" }
-            ]}
-            headerAction={
-                <Button
-                    variant="outline"
-                    className="border-white/10 hover:bg-white/5 text-white/60"
-                    onClick={() => router.back()}
-                >
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Cancel
-                </Button>
-            }
-        >
-            <div className="max-w-4xl mx-auto pb-20">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Personal Information */}
-                    <div className="bg-[#0a0a0a]/40 border border-white/5 p-8 relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-white/10 group-hover:bg-[#9df425] transition-colors" />
-
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-10 h-10 rounded-none bg-white/5 flex items-center justify-center border border-white/10">
-                                <UserPlus className="h-5 w-5 text-[#9df425]" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white tracking-tight">Personal Information</h3>
-                                <p className="text-white/40 text-sm font-mono">PRIMARY IDENTITY FIELDS</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">First Name</Label>
-                                <Input
-                                    value={formData.firstName}
-                                    onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#9df425]/50 h-12 font-mono"
-                                    placeholder="e.g. Sarah"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Last Name</Label>
-                                <Input
-                                    value={formData.lastName}
-                                    onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#9df425]/50 h-12 font-mono"
-                                    placeholder="e.g. Connor"
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Email Address</Label>
-                                <Input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#9df425]/50 h-12 font-mono"
-                                    placeholder="sarah.connor@sky.net"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Phone Number</Label>
-                                <Input
-                                    value={formData.phone}
-                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#9df425]/50 h-12 font-mono"
-                                    placeholder="+1 555 0199"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Location & Details */}
-                    <div className="bg-[#0a0a0a]/40 border border-white/5 p-8 relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-white/10 group-hover:bg-[#00d0ff] transition-colors" />
-
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-10 h-10 rounded-none bg-white/5 flex items-center justify-center border border-white/10">
-                                <ShieldCheck className="h-5 w-5 text-[#00d0ff]" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white tracking-tight">Location & Details</h3>
-                                <p className="text-white/40 text-sm font-mono">SUPPLEMENTARY DATA</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">City</Label>
-                                <Input
-                                    value={formData.city}
-                                    onChange={e => setFormData({ ...formData, city: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#00d0ff]/50 h-12 font-mono"
-                                    placeholder="Los Angeles"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Country</Label>
-                                <Input
-                                    value={formData.country}
-                                    onChange={e => setFormData({ ...formData, country: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#00d0ff]/50 h-12 font-mono"
-                                    placeholder="United States"
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Biography</Label>
-                                <Input
-                                    value={formData.bio}
-                                    onChange={e => setFormData({ ...formData, bio: e.target.value })}
-                                    className="bg-black/40 border-white/10 focus:border-[#00d0ff]/50 h-12 font-mono"
-                                    placeholder="Brief user description..."
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Security & Access */}
-                    <div className="bg-[#0a0a0a]/40 border border-white/5 p-8 relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-white/10 group-hover:bg-[#ff8c00] transition-colors" />
-
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-10 h-10 rounded-none bg-white/5 flex items-center justify-center border border-white/10">
-                                <Save className="h-5 w-5 text-[#ff8c00]" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-white tracking-tight">Access Policy</h3>
-                                <p className="text-white/40 text-sm font-mono">ROLE AND INVITATION</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-6">
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase tracking-widest text-white/50">Role Assignment</Label>
-                                <Select onValueChange={val => setFormData({ ...formData, roleId: val })}>
-                                    <SelectTrigger className="bg-black/40 border-white/10 h-12 font-mono">
-                                        <SelectValue placeholder="Select a System Role" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[#0a0a0a] border-white/10">
-                                        {roles.map(role => (
-                                            <SelectItem key={role.id} value={role.id} className="font-mono focus:bg-white/10">
-                                                {role.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <p className="text-sm text-white/50">A 24-hour, single-use invitation will let the user verify their email and choose a password.</p>
-                        </div>
-                    </div>
-
-                    {/* Submit Action */}
-                    <div className="flex justify-end pt-4">
-                        <Button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="bg-[#9df425] hover:bg-[#8ce022] text-black font-bold h-12 px-8 uppercase tracking-widest text-sm"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Provisioning...
-                                </>
-                            ) : (
-                                <>
-                                    Send Invitation
-                                    <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </BccEditorialWrapper>
-    );
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-md border border-white/15 bg-black/40 px-3 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 aria-[invalid=true]:border-red-400"
+      />
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-red-300">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }

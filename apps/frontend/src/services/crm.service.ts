@@ -1,4 +1,4 @@
-import { httpClient } from '@/lib/api/http-client';
+import { httpClient } from "@/lib/api/http-client";
 
 export interface CrmCustomer {
   id: string;
@@ -62,11 +62,16 @@ interface CrmCustomerPageResponse {
 }
 
 class CrmService {
-  private baseUrl = '/crm';
+  private baseUrl = "/crm";
 
-  async getPage(page = 1, limit = 25): Promise<CrmCustomerPage> {
+  async getPage(page = 1, limit = 25, search = ""): Promise<CrmCustomerPage> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (search.trim()) params.set("search", search.trim());
     const response = await httpClient.get<CrmCustomerPageResponse>(
-      `${this.baseUrl}?page=${page}&limit=${limit}`,
+      `${this.baseUrl}?${params.toString()}`,
     );
     return {
       items: response.data,
@@ -88,11 +93,18 @@ class CrmService {
     return httpClient.postWrapped<CrmCustomer>(this.baseUrl, data);
   }
 
-  async bulkImport(customers: CreateCrmCustomerDto[]): Promise<BulkImportResult> {
-    return httpClient.postWrapped<BulkImportResult>(`${this.baseUrl}/import`, { customers });
+  async bulkImport(
+    customers: CreateCrmCustomerDto[],
+  ): Promise<BulkImportResult> {
+    return httpClient.postWrapped<BulkImportResult>(`${this.baseUrl}/import`, {
+      customers,
+    });
   }
 
-  async update(id: string, data: Partial<CreateCrmCustomerDto>): Promise<CrmCustomer> {
+  async update(
+    id: string,
+    data: Partial<CreateCrmCustomerDto>,
+  ): Promise<CrmCustomer> {
     return httpClient.putWrapped<CrmCustomer>(`${this.baseUrl}/${id}`, data);
   }
 

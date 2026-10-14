@@ -169,12 +169,21 @@ export function FormEditor({ tenantId, formId }: FormEditorProps) {
   };
 
   const archive = async () => {
-    if (!formId || !(await confirmDialog({ title: "Bu form arşivlensin mi?" })))
+    if (
+      !formId ||
+      !(await confirmDialog({
+        title: `“${name}” arşivlensin mi?`,
+        description:
+          "Arşivlenen form yeni gönderim almaz; gönderim kayıtları korunur.",
+        confirmText: "Arşivle",
+        destructive: true,
+      }))
+    )
       return;
     setSavingAction("archived");
     try {
       await formsService.archive(formId);
-      toast.success("Form arşivlendi");
+      toast.success(`“${name}” arşivlendi`);
       router.push(`/${tenantId}/admin/forms`);
     } catch {
       toast.error("Form arşivlenemedi");

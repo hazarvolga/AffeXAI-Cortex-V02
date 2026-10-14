@@ -1,290 +1,396 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { BccEditorialWrapper } from '@/components/brand/BccEditorialWrapper';
-import { BccHudTile } from '@/components/brand/BccHudTile';
-import { UserManagementService, User, UserStats } from '@/services/user-management.service';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
-    Search,
-    UserPlus,
-    MoreHorizontal,
-    Mail,
-    Shield,
-    Activity,
-    UserCheck,
-    UserX,
-    RefreshCw,
-    Filter
-} from 'lucide-react';
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { MoreHorizontal, UserPlus } from "lucide-react";
+import { BccEditorialWrapper } from "@/components/brand/BccEditorialWrapper";
+import { Button } from "@/components/ui/button";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useParams, useRouter } from 'next/navigation';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  EmptyState,
+  ErrorState,
+  NoResultsState,
+} from "@/components/patterns/page-states";
+import { SearchField } from "@/components/patterns/SearchField";
+import { useListQuery } from "@/hooks/use-list-query";
+import { usePermissions } from "@/hooks/usePermissions";
+import { clampPage, type ListQueryDefaults } from "@/lib/list/list-query";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { toast } from "@/lib/notify";
+import {
+  UserManagementService,
+  type User,
+} from "@/services/user-management.service";
+import { UserRoleDialog } from "./_components/UserRoleDialog";
+import {
+  USER_STATUS_LABEL,
+  userDisplayName,
+  userRoleLabel,
+} from "./_components/user-presentation";
+
+const LIST_DEFAULTS: ListQueryDefaults = {
+  pageSize: 25,
+  filters: { status: "all" },
+};
+const STATUS_FILTER: Record<string, boolean | undefined> = {
+  all: undefined,
+  active: true,
+  inactive: false,
+};
+const dateFormat = new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" });
 
 export default function UsersPage() {
-    const router = useRouter();
-    const { tenant } = useParams<{ tenant: string }>();
-    const [users, setUsers] = useState<User[]>([]);
-    const [stats, setStats] = useState<UserStats | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-    const { toast } = useToast();
-    const { isAdmin, isLoading: permissionsLoading } = usePermissions();
+  const { tenant } = useParams<{ tenant: string }>();
+  const { isAdmin, isLoading: permissionsLoading } = usePermissions();
+  const list = useListQuery(LIST_DEFAULTS);
+  const queryClient = useQueryClient();
+  const [roleTarget, setRoleTarget] = useState<User | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (permissionsLoading) return;
-        if (!isAdmin) {
-            setIsLoading(false);
-            return;
-        }
-        void loadData();
-        // loadData intentionally reruns only when resolved administrator authority changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin, permissionsLoading]);
+  const users = useQuery({
+    queryKey: [
+      "users",
+      tenant,
+      list.q,
+      list.filters.status,
+      list.page,
+      list.pageSize,
+    ],
+    queryFn: () =>
+      UserManagementService.getUsers({
+        search: list.q || undefined,
+        isActive: STATUS_FILTER[list.filters.status],
+        page: list.page,
+        limit: list.pageSize,
+      }),
+    enabled: isAdmin,
+    placeholderData: keepPreviousData,
+  });
+  const stats = useQuery({
+    queryKey: ["users", tenant, "stats"],
+    queryFn: () => UserManagementService.getStats(),
+    enabled: isAdmin,
+  });
 
-    const loadData = async () => {
-        setIsLoading(true);
-        try {
-            const [usersData, statsData] = await Promise.all([
-                UserManagementService.getUsers({ search: searchQuery }),
-                UserManagementService.getStats()
-            ]);
+  // After a delete or a narrower filter, stay on the last page that still has rows.
+  const total = users.data?.total ?? 0;
+  const validPage = clampPage(list.page, total, list.pageSize);
+  const { setPage } = list;
+  useEffect(() => {
+    if (users.data && validPage !== list.page) setPage(validPage);
+  }, [users.data, validPage, list.page, setPage]);
 
-            setUsers(usersData.items);
-            setStats(statsData);
-        } catch (error) {
-            console.error('Failed to load registry:', error);
-            toast({
-                title: 'Sync Error',
-                description: 'Failed to synchronize user registry.',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["users", tenant] }),
+    [queryClient, tenant],
+  );
 
-    const handleStatusChange = async (userId: string, action: 'activate' | 'deactivate') => {
-        try {
-            // Optimistic update
-            setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: action === 'activate' ? 'active' : 'disabled' } : u));
-            await UserManagementService.toggleUserStatus(userId);
-            toast({ title: 'Status Updated', description: `User ${action}d successfully.` });
-        } catch (e) {
-            loadData(); // Revert
-            toast({ title: 'Update Failed', variant: 'destructive' });
-        }
-    };
-
-    if (!permissionsLoading && !isAdmin) {
-        return (
-            <BccEditorialWrapper
-                headerTitle="User Registry"
-                headerSubtitle="Identity Management // Restricted"
-                headerBadge="Admin Only"
-            >
-                <div className="border border-white/10 bg-white/[0.02] p-8 text-sm text-white/60">
-                    User directory access is restricted to organization administrators.
-                </div>
-            </BccEditorialWrapper>
-        );
+  const changeStatus = async (user: User) => {
+    const deactivating = user.isActive;
+    const name = userDisplayName(user);
+    if (
+      deactivating &&
+      !(await confirmDialog({
+        title: `${name} pasifleştirilsin mi?`,
+        description:
+          "Kullanıcı oturum açamaz; kayıtları silinmez ve daha sonra yeniden etkinleştirilebilir.",
+        confirmText: "Pasifleştir",
+        destructive: true,
+      }))
+    ) {
+      return;
     }
+    setBusyId(user.id);
+    try {
+      await UserManagementService.toggleUserStatus(user.id);
+      toast.success(
+        deactivating ? `${name} pasifleştirildi` : `${name} etkinleştirildi`,
+      );
+      await refresh();
+    } catch {
+      toast.error("Durum değiştirilemedi", {
+        description: "Yetkinizi kontrol edip tekrar deneyin.",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
+  if (!permissionsLoading && !isAdmin) {
     return (
-        <BccEditorialWrapper
-            headerTitle="User Registry"
-            headerSubtitle="Identity Management // Role Assignment // Access Logs"
-            headerBadge="Directory v1.0"
-            telemetryData={[
-                { label: "Total Identities", value: String(stats?.total || users.length), suffix: "UIDs" },
-                { label: "Active Sessions", value: String(stats?.active || users.filter(u => u.status === 'active').length), color: "#9df425" },
-                { label: "Pending Invites", value: String(stats?.unverified ?? users.filter(u => u.status === 'invited').length), color: "#ff8c00" }
-            ]}
-            headerAction={
-                <Button onClick={() => router.push(`/${tenant}/admin/users/new`)} className="bg-[#9df425] text-black hover:bg-[#8ce022] uppercase font-bold tracking-widest text-xs">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Invite User
-                </Button>
-            }
-        >
-            <div className="space-y-6 pb-20">
-
-                {/* HUD Tiles */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <BccHudTile title="Directory Health" icon="activity" accentColor="#9df425">
-                        <div className="text-2xl font-bold font-mono tracking-tighter">OPTIMAL</div>
-                        <div className="text-[10px] text-white/40 font-mono mt-1">SYNC LATENCY: 12ms</div>
-                    </BccHudTile>
-                    <BccHudTile title="Admin Coverage" icon="shield" accentColor="#ff8c00">
-                        <div className="text-2xl font-bold font-mono tracking-tighter">
-                            {users.filter(u => u.role === 'admin' || u.role === 'superuser').length}
-                        </div>
-                        <div className="text-[10px] text-white/40 font-mono mt-1">PRIVILEGED ACCOUNTS</div>
-                    </BccHudTile>
-                </div>
-
-                {/* Filter Bar */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-[#0a0a0a]/40 border border-white/5 p-4 backdrop-blur-md">
-                    <div className="relative w-full sm:w-96">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
-                        <Input
-                            placeholder="Search by email, name, or UID..."
-                            className="pl-9 bg-black/40 border-white/10 text-white font-mono text-xs focus:border-[#9df425]"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && loadData()}
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="border-white/10 text-white/60 text-xs font-mono uppercase">
-                            <Filter className="mr-2 h-3 w-3" /> Filter
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => loadData()} className="border-white/10 text-white/60 text-xs font-mono uppercase">
-                            <RefreshCw className={`mr-2 h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Registry Table */}
-                <div className="border border-white/5 bg-white/[0.02] rounded-none overflow-hidden">
-                    <Table>
-                        <TableHeader className="bg-black/40">
-                            <TableRow className="border-white/5 hover:bg-transparent">
-                                <TableHead className="w-[300px] text-[10px] uppercase tracking-widest text-white/40 font-mono">User Identity</TableHead>
-                                <TableHead className="text-[10px] uppercase tracking-widest text-white/40 font-mono">Role / Access</TableHead>
-                                <TableHead className="text-[10px] uppercase tracking-widest text-white/40 font-mono">Status</TableHead>
-                                <TableHead className="text-[10px] uppercase tracking-widest text-white/40 font-mono">Last Active</TableHead>
-                                <TableHead className="text-right text-[10px] uppercase tracking-widest text-white/40 font-mono">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-white/30 font-mono text-xs">
-                                        Scanning Directory...
-                                    </TableCell>
-                                </TableRow>
-                            ) : users.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-white/30 font-mono text-xs">
-                                        No identities found matching query.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                users.map((user) => (
-                                    <TableRow key={user.id} className="border-white/5 hover:bg-white/[0.02] group transition-colors">
-
-                                        {/* Identity */}
-                                        <TableCell className="py-4">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-8 w-8 border border-white/10 rounded-sm">
-                                                    <AvatarImage src={user.avatarUrl} />
-                                                    <AvatarFallback className="bg-[#9df425] text-black font-bold text-xs rounded-sm">
-                                                        {user.firstName[0]}{user.lastName[0]}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-bold text-sm text-white">{user.firstName} {user.lastName}</div>
-                                                    <div className="font-mono text-xs text-white/40 flex items-center gap-1">
-                                                        <Mail className="h-3 w-3" /> {user.email}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-
-                                        {/* Role */}
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={`rounded-none border-opacity-30 py-1 font-mono text-[10px] uppercase tracking-widest
-                          ${user.role === 'superuser' ? 'border-[#ff8c00] text-[#ff8c00] bg-[#ff8c00]/5' :
-                                                        user.role === 'admin' ? 'border-[#9df425] text-[#9df425] bg-[#9df425]/5' :
-                                                            'border-blue-500 text-blue-500 bg-blue-500/5'}
-                        `}
-                                            >
-                                                {user.role}
-                                            </Badge>
-                                        </TableCell>
-
-                                        {/* Status */}
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-1.5 h-1.5 rounded-full 
-                          ${user.status === 'active' ? 'bg-green-500 animate-pulse' :
-                                                        user.status === 'invited' ? 'bg-yellow-500' : 'bg-red-500'}
-                        `} />
-                                                <span className="text-xs font-mono text-white/60 uppercase">{user.status}</span>
-                                            </div>
-                                        </TableCell>
-
-                                        {/* Last Active */}
-                                        <TableCell className="font-mono text-xs text-white/40">
-                                            {user.lastActive ? formatDistanceToNow(user.lastActive, { addSuffix: true }) : 'Never'}
-                                        </TableCell>
-
-                                        {/* Actions */}
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-white/10">
-                                                        <MoreHorizontal className="h-4 w-4 text-white/60" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="bg-[#0a0a0a] border-white/10 text-white w-48">
-                                                    <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-widest text-white/40">User Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem className="text-xs hover:bg-white/10 cursor-pointer">
-                                                        <Shield className="mr-2 h-3 w-3" /> Edit Role
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator className="bg-white/10" />
-                                                    {user.status === 'active' ? (
-                                                        <DropdownMenuItem
-                                                            className="text-xs text-red-500 hover:bg-red-500/10 cursor-pointer focus:text-red-500 focus:bg-red-500/10"
-                                                            onClick={() => handleStatusChange(user.id, 'deactivate')}
-                                                        >
-                                                            <UserX className="mr-2 h-3 w-3" /> Deactivate
-                                                        </DropdownMenuItem>
-                                                    ) : user.status === 'disabled' ? (
-                                                        <DropdownMenuItem
-                                                            className="text-xs text-green-500 hover:bg-green-500/10 cursor-pointer focus:text-green-500 focus:bg-green-500/10"
-                                                            onClick={() => handleStatusChange(user.id, 'activate')}
-                                                        >
-                                                            <UserCheck className="mr-2 h-3 w-3" /> Activate
-                                                        </DropdownMenuItem>
-                                                    ) : (
-                                                        <DropdownMenuItem disabled className="text-xs text-yellow-500/70">
-                                                            <Mail className="mr-2 h-3 w-3" /> Awaiting verification
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
-        </BccEditorialWrapper>
+      <BccEditorialWrapper
+        headerTitle="Kullanıcılar"
+        headerSubtitle="Erişim kısıtlı"
+        headerBadge="Yönetim"
+      >
+        <ErrorState
+          title="Bu sayfayı görüntüleme yetkiniz yok"
+          description="Kullanıcı listesi yalnız kuruluş yöneticilerine açık."
+          action={
+            <Button asChild variant="outline">
+              <Link href={`/${tenant}/admin`}>Genel bakışa dön</Link>
+            </Button>
+          }
+        />
+      </BccEditorialWrapper>
     );
+  }
+
+  const items = users.data?.items ?? [];
+  const lastPage = Math.max(1, Math.ceil(total / list.pageSize));
+  const filtered = Boolean(list.q) || list.filters.status !== "all";
+
+  return (
+    <BccEditorialWrapper
+      headerTitle="Kullanıcılar"
+      headerSubtitle="Çalışma alanı kullanıcıları, rolleri ve erişim durumu."
+      headerBadge="Yönetim"
+      telemetryData={
+        stats.data
+          ? [
+              { label: "Toplam", value: String(stats.data.total) },
+              { label: "Aktif", value: String(stats.data.active) },
+              {
+                label: "Doğrulama bekleyen",
+                value: String(stats.data.unverified),
+              },
+            ]
+          : []
+      }
+      headerAction={
+        <Button asChild>
+          <Link href={`/${tenant}/admin/users/new`}>
+            <UserPlus aria-hidden className="mr-2 h-4 w-4" />
+            Kullanıcı davet et
+          </Link>
+        </Button>
+      }
+    >
+      <div className="space-y-6 pb-20">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <SearchField
+            label="Kullanıcı ara"
+            placeholder="Ad veya e-posta"
+            value={list.q}
+            onCommit={list.setSearch}
+            resultSummary={users.data ? `${total} kullanıcı` : undefined}
+          />
+          <div className="w-full sm:w-48">
+            <label
+              htmlFor="user-status-filter"
+              className="mb-1 block text-xs font-medium text-white/75"
+            >
+              Durum
+            </label>
+            <Select
+              value={list.filters.status}
+              onValueChange={(value) => list.setFilter("status", value)}
+            >
+              <SelectTrigger
+                id="user-status-filter"
+                className="border-white/15 bg-black/40 text-white"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tümü</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Pasif</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {users.isPending ? (
+          <p role="status" className="py-12 text-center text-sm text-white/70">
+            Kullanıcılar yükleniyor…
+          </p>
+        ) : users.isError ? (
+          <ErrorState
+            title="Kullanıcılar yüklenemedi"
+            description="Bağlantınızı kontrol edip tekrar deneyin."
+            action={
+              <Button onClick={() => users.refetch()}>Tekrar dene</Button>
+            }
+          />
+        ) : items.length === 0 && filtered ? (
+          <NoResultsState
+            title="Aramanızla eşleşen kullanıcı yok"
+            action={
+              <Button
+                variant="outline"
+                onClick={() => {
+                  list.setSearch("");
+                  list.setFilter("status", "all");
+                }}
+              >
+                Filtreleri temizle
+              </Button>
+            }
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            title="Henüz kullanıcı yok"
+            description="Ekibinizi davet ederek başlayın."
+            action={
+              <Button asChild>
+                <Link href={`/${tenant}/admin/users/new`}>
+                  Kullanıcı davet et
+                </Link>
+              </Button>
+            }
+          />
+        ) : (
+          <UsersTable
+            users={items}
+            busyId={busyId}
+            onChangeRole={setRoleTarget}
+            onChangeStatus={changeStatus}
+          />
+        )}
+
+        {total > list.pageSize && (
+          <nav
+            aria-label="Sayfalama"
+            className="flex items-center justify-between gap-4 text-sm text-white/75"
+          >
+            <Button
+              variant="outline"
+              disabled={list.page <= 1}
+              onClick={() => list.setPage(list.page - 1)}
+            >
+              Önceki
+            </Button>
+            <span>
+              Sayfa {list.page} / {lastPage}
+            </span>
+            <Button
+              variant="outline"
+              disabled={list.page >= lastPage}
+              onClick={() => list.setPage(list.page + 1)}
+            >
+              Sonraki
+            </Button>
+          </nav>
+        )}
+      </div>
+
+      <UserRoleDialog
+        user={roleTarget}
+        onClose={() => setRoleTarget(null)}
+        onSaved={async () => {
+          setRoleTarget(null);
+          toast.success("Değişiklikler kaydedildi");
+          await refresh();
+        }}
+      />
+    </BccEditorialWrapper>
+  );
+}
+
+interface UsersTableProps {
+  users: User[];
+  busyId: string | null;
+  onChangeRole: (user: User) => void;
+  onChangeStatus: (user: User) => void;
+}
+
+function UsersTable({
+  users,
+  busyId,
+  onChangeRole,
+  onChangeStatus,
+}: UsersTableProps) {
+  return (
+    <div className="overflow-x-auto border border-white/10">
+      <table className="w-full text-left text-sm">
+        <caption className="sr-only">Kullanıcı listesi</caption>
+        <thead className="bg-black/40 text-xs uppercase tracking-wider text-white/70">
+          <tr>
+            <th scope="col" className="px-4 py-3">
+              Kullanıcı
+            </th>
+            <th scope="col" className="hidden px-4 py-3 md:table-cell">
+              Rol
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Durum
+            </th>
+            <th scope="col" className="hidden px-4 py-3 lg:table-cell">
+              Son giriş
+            </th>
+            <th scope="col" className="px-4 py-3 text-right">
+              <span className="sr-only">İşlemler</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => {
+            const name = userDisplayName(user);
+            return (
+              <tr key={user.id} className="border-t border-white/10">
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-white">{name}</div>
+                  <div className="break-all text-xs text-white/70">
+                    {user.email}
+                  </div>
+                </td>
+                <td className="hidden px-4 py-3 text-white/85 md:table-cell">
+                  {userRoleLabel(user)}
+                </td>
+                <td className="px-4 py-3 text-white/85">
+                  {USER_STATUS_LABEL[user.status]}
+                </td>
+                <td className="hidden px-4 py-3 text-white/70 lg:table-cell">
+                  {user.lastActive
+                    ? dateFormat.format(user.lastActive)
+                    : "Hiç giriş yapmadı"}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={busyId === user.id}
+                        aria-label={`${name} için işlemler`}
+                      >
+                        <MoreHorizontal aria-hidden className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onChangeRole(user)}>
+                        Rolü değiştir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onChangeStatus(user)}>
+                        {user.isActive ? "Pasifleştir" : "Etkinleştir"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }

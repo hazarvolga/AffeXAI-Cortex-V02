@@ -5,7 +5,8 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { LOGIN_COPY } from "@/lib/auth/login-copy";
 
 export const metadata: Metadata = {
-  title: "Ekip girişi · AffeXAI Cortex",
+  // Absolute: the tenant admin layout adds its own " · AffeXAI Cortex" template.
+  title: { absolute: "Ekip girişi · AffeXAI Cortex" },
   robots: { index: false, follow: false },
 };
 

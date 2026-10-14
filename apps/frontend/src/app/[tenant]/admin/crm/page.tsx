@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SearchField } from "@/components/patterns/SearchField";
+import { useListQuery } from "@/hooks/use-list-query";
+import type { ListQueryDefaults } from "@/lib/list/list-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Papa from "papaparse";
@@ -38,6 +41,7 @@ import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 const PAGE_SIZE = 25;
+const LIST_DEFAULTS: ListQueryDefaults = { pageSize: PAGE_SIZE, filters: {} };
 const emptyForm: CreateCrmCustomerDto = {
   companyName: "",
   email: "",
@@ -51,7 +55,7 @@ const emptyForm: CreateCrmCustomerDto = {
   isActive: true,
 };
 const fieldClass =
-  "rounded-none border-white/10 bg-white/[0.03] text-white placeholder:text-white/20 focus-visible:ring-[#ff8c00]/50";
+  "rounded-none border-white/10 bg-white/[0.03] text-white placeholder:text-white/70 focus-visible:ring-[#ff8c00]/50";
 const commandButton =
   "rounded-none border-[#ff8c00]/30 bg-[#ff8c00] text-black hover:bg-[#ff9f26] text-[10px] font-bold uppercase tracking-[0.18em]";
 const secondaryButton =
@@ -65,7 +69,9 @@ export default function CrmManagementPage() {
   const { tenant } = useParams<{ tenant: string }>();
   const { hasPermission, isSuperAdmin } = usePermissions();
   const canManage = isSuperAdmin || hasPermission(Permission.CRM_MANAGE);
-  const [page, setPage] = useState(1);
+  // Search and page live in the URL (UX-CONTRACT); a new workspace path starts clean.
+  const list = useListQuery(LIST_DEFAULTS);
+  const { page, setPage } = list;
   const [showEditor, setShowEditor] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,8 +79,8 @@ export default function CrmManagementPage() {
   const [formData, setFormData] = useState<CreateCrmCustomerDto>(emptyForm);
 
   const customersQuery = useQuery({
-    queryKey: ["crm-customers", tenant, page],
-    queryFn: () => crmService.getPage(page, PAGE_SIZE),
+    queryKey: ["crm-customers", tenant, page, list.q],
+    queryFn: () => crmService.getPage(page, PAGE_SIZE, list.q),
   });
   const statsQuery = useQuery({
     queryKey: ["crm-stats", tenant],
@@ -86,12 +92,6 @@ export default function CrmManagementPage() {
     1,
     Math.ceil((customerPage?.total ?? 0) / PAGE_SIZE),
   );
-  // Back to page 1 when the workspace changes (adjusted during render, not in an effect).
-  const [pageTenant, setPageTenant] = useState(tenant);
-  if (pageTenant !== tenant) {
-    setPageTenant(tenant);
-    setPage(1);
-  }
   useAsyncEffect(() => {
     if (customerPage && page > totalPages) setPage(totalPages);
   }, [customerPage, page, totalPages]);
@@ -310,7 +310,7 @@ export default function CrmManagementPage() {
               <span className="text-4xl font-light tabular-nums text-[#9df425]">
                 {metric(stats?.active)}
               </span>
-              <span className="mb-1 text-[9px] uppercase tracking-[0.2em] text-white/30">
+              <span className="mb-1 text-[9px] uppercase tracking-[0.2em] text-white/70">
                 online
               </span>
             </div>
@@ -320,7 +320,7 @@ export default function CrmManagementPage() {
             subtitle="Pasif ilişki kayıtları"
             icon="motion_photos_off"
           >
-            <div className="text-4xl font-light tabular-nums text-white/45">
+            <div className="text-4xl font-light tabular-nums text-white/70">
               {metric(stats?.inactive)}
             </div>
           </BccHudTile>
@@ -343,7 +343,7 @@ export default function CrmManagementPage() {
           }
           footer={
             <>
-              <span className="text-[9px] uppercase tracking-[0.18em] text-white/30">
+              <span className="text-[9px] uppercase tracking-[0.18em] text-white/70">
                 Sayfa {page} / {totalPages}
               </span>
               <div className="flex gap-2">
@@ -352,7 +352,7 @@ export default function CrmManagementPage() {
                   variant="outline"
                   className={secondaryButton}
                   disabled={page <= 1}
-                  onClick={() => setPage((value) => value - 1)}
+                  onClick={() => setPage(page - 1)}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
@@ -361,7 +361,7 @@ export default function CrmManagementPage() {
                   variant="outline"
                   className={secondaryButton}
                   disabled={page >= totalPages}
-                  onClick={() => setPage((value) => value + 1)}
+                  onClick={() => setPage(page + 1)}
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
@@ -369,8 +369,18 @@ export default function CrmManagementPage() {
             </>
           }
         >
+          <SearchField
+            className="mb-6"
+            label="Müşteri ara"
+            placeholder="Şirket, e-posta, yetkili veya müşteri no"
+            value={list.q}
+            onCommit={list.setSearch}
+            resultSummary={
+              customerPage ? `${customerPage.total} kayıt` : undefined
+            }
+          />
           {customersQuery.isLoading ? (
-            <div className="py-16 text-center text-[10px] uppercase tracking-[0.25em] text-white/35">
+            <div className="py-16 text-center text-[10px] uppercase tracking-[0.25em] text-white/70">
               Kayıt ağı yükleniyor…
             </div>
           ) : customersQuery.isError ? (
@@ -379,6 +389,29 @@ export default function CrmManagementPage() {
               className="border border-red-500/20 bg-red-500/5 px-5 py-8 text-center text-red-300"
             >
               Müşteri kayıtları yüklenemedi.
+              <Button
+                variant="outline"
+                className={`${secondaryButton} ml-3`}
+                onClick={() => customersQuery.refetch()}
+              >
+                Tekrar dene
+              </Button>
+            </div>
+          ) : customers.length === 0 && list.q ? (
+            <div
+              role="status"
+              className="border border-dashed border-white/10 px-6 py-16 text-center"
+            >
+              <p className="text-sm text-white/75">
+                “{list.q}” ile eşleşen müşteri yok.
+              </p>
+              <Button
+                variant="outline"
+                className={`${secondaryButton} mt-5`}
+                onClick={() => list.setSearch("")}
+              >
+                Aramayı temizle
+              </Button>
             </div>
           ) : customers.length === 0 ? (
             <div className="border border-dashed border-white/10 px-6 py-16 text-center">
@@ -397,7 +430,7 @@ export default function CrmManagementPage() {
               <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr className="border-b border-white/10 text-[9px] uppercase tracking-[0.2em] text-white/30">
+                    <tr className="border-b border-white/10 text-[9px] uppercase tracking-[0.2em] text-white/70">
                       <th className="px-3 py-4 font-medium">Firma / Kimlik</th>
                       <th className="px-3 py-4 font-medium">Temas</th>
                       <th className="px-3 py-4 font-medium">Müşteri No</th>
@@ -453,12 +486,12 @@ export default function CrmManagementPage() {
             <DialogTitle className="font-mono uppercase tracking-tight">
               CSV İçe Aktar
             </DialogTitle>
-            <DialogDescription className="text-white/40">
+            <DialogDescription className="text-white/70">
               İlk satırda companyName ve email başlıkları bulunmalıdır. Bir
               seferde en fazla 200 kayıt işlenir.
             </DialogDescription>
           </DialogHeader>
-          <pre className="overflow-x-auto border border-white/5 bg-white/[0.03] p-4 text-[10px] text-white/45">
+          <pre className="overflow-x-auto border border-white/5 bg-white/[0.03] p-4 text-[10px] text-white/70">
             companyName,email,customerNumber,contactPerson,phone,city,country
           </pre>
           <Textarea
@@ -501,20 +534,20 @@ function CustomerRow({
     <tr className="border-b border-white/5 transition-colors hover:bg-white/[0.025]">
       <td className="px-3 py-5">
         <div className="font-medium text-white">{customer.companyName}</div>
-        <div className="mt-1 text-[9px] uppercase tracking-widest text-white/25">
+        <div className="mt-1 text-[9px] uppercase tracking-widest text-white/70">
           {customer.id.slice(0, 8)}
         </div>
       </td>
       <td className="px-3 py-5">
         <div className="text-white/70">{customer.email}</div>
-        <div className="mt-1 text-[10px] text-white/30">
+        <div className="mt-1 text-[10px] text-white/70">
           {customer.contactPerson || customer.phone || "Temas atanmamış"}
         </div>
       </td>
-      <td className="px-3 py-5 text-white/45">
+      <td className="px-3 py-5 text-white/70">
         {customer.customerNumber || "—"}
       </td>
-      <td className="px-3 py-5 text-white/45">
+      <td className="px-3 py-5 text-white/70">
         {[customer.city, customer.country].filter(Boolean).join(" / ") || "—"}
       </td>
       <td className="px-3 py-5">
@@ -563,7 +596,7 @@ function CustomerCard({
           <h3 className="text-sm font-medium text-white">
             {customer.companyName}
           </h3>
-          <p className="mt-1 break-all text-[11px] text-white/45">
+          <p className="mt-1 break-all text-[11px] text-white/70">
             {customer.email}
           </p>
         </div>
@@ -571,7 +604,7 @@ function CustomerCard({
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-[10px]">
         <div>
-          <dt className="uppercase tracking-widest text-white/25">
+          <dt className="uppercase tracking-widest text-white/70">
             Müşteri No
           </dt>
           <dd className="mt-1 text-white/60">
@@ -579,7 +612,7 @@ function CustomerCard({
           </dd>
         </div>
         <div>
-          <dt className="uppercase tracking-widest text-white/25">Konum</dt>
+          <dt className="uppercase tracking-widest text-white/70">Konum</dt>
           <dd className="mt-1 text-white/60">
             {customer.city || customer.country || "—"}
           </dd>
@@ -613,7 +646,7 @@ function CustomerCard({
 function Status({ active }: { active: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 border px-2 py-1 text-[9px] uppercase tracking-[0.18em] ${active ? "border-[#9df425]/25 bg-[#9df425]/5 text-[#9df425]" : "border-white/10 bg-white/[0.03] text-white/35"}`}
+      className={`inline-flex items-center gap-2 border px-2 py-1 text-[9px] uppercase tracking-[0.18em] ${active ? "border-[#9df425]/25 bg-[#9df425]/5 text-[#9df425]" : "border-white/10 bg-white/[0.03] text-white/70"}`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${active ? "bg-[#9df425] shadow-[0_0_6px_#9df425]" : "bg-white/30"}`}
@@ -637,7 +670,7 @@ function IconCommand({
       title={label}
       variant="ghost"
       size="icon"
-      className="h-8 w-8 rounded-none border border-white/5 text-white/40 hover:border-[#ff8c00]/30 hover:bg-[#ff8c00]/10 hover:text-[#ff8c00]"
+      className="h-8 w-8 rounded-none border border-white/5 text-white/70 hover:border-[#ff8c00]/30 hover:bg-[#ff8c00]/10 hover:text-[#ff8c00]"
       onClick={onClick}
     >
       {children}
@@ -673,7 +706,7 @@ function CustomerDialog({
           <DialogTitle className="font-mono uppercase tracking-tight">
             {editing ? "Müşteri Kaydını Düzenle" : "Yeni Müşteri Kaydı"}
           </DialogTitle>
-          <DialogDescription className="text-white/40">
+          <DialogDescription className="text-white/70">
             Firma kimliğini ve doğrulanmış temas bilgilerini kaydedin.
           </DialogDescription>
         </DialogHeader>
@@ -730,7 +763,7 @@ function CustomerDialog({
           <div className="space-y-2 sm:col-span-2">
             <Label
               htmlFor="notes"
-              className="text-[10px] uppercase tracking-[0.16em] text-white/45"
+              className="text-[10px] uppercase tracking-[0.16em] text-white/70"
             >
               Notlar
             </Label>
@@ -787,7 +820,7 @@ function Field({
     <div className="space-y-2">
       <Label
         htmlFor={id}
-        className="text-[10px] uppercase tracking-[0.16em] text-white/45"
+        className="text-[10px] uppercase tracking-[0.16em] text-white/70"
       >
         {label}
       </Label>

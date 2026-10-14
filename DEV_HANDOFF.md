@@ -383,3 +383,15 @@ Açık: tenant admin kabuğunun axe ihlalleri (F3.4), legacy `/admin` ağacında
 - **Kabul testi:** `apps/frontend/scripts/acceptance/portal-routes.cjs` (`PORTAL_ACCEPTANCE_ISOLATED=1`, `ONLY=/portal/kb` ile tek rota, `PACE_MS` ile hız). Fixture müşteri rolü seed'deki gibi `events.view`, `certificates.view` izinlerine sahip.
 
 Açık: production'da `TRUST_PROXY_HOPS` ve throttle anahtarı (istemci IP'si Traefik + Next rewrite zincirinde korunuyor mu) altyapı tarafında doğrulanmalı. Rol panelleri ayrı rollerle denetlenmedi. `users.service.spec` ("should be defined") ve `users.controller.spec` (`PickType` mock) HEAD'de de kırık.
+
+## UI/UX F3.4 — tenant CRUD (kullanıcılar, roller, CRM, formlar, ayarlar) — 2026-10-14
+
+- **Kabuk:** `components/brand/BccEditorialWrapper.tsx` 59 tenant sayfasının ortak kabuğu. Atlama bağlantısı `#tenant-main-content`'e gider; `<main>` yalnız içerik alanını sarar (sidebar dışarıda); metin seçimi açık; çalışmayan ikonlar, UTC saati ve dekoratif yazılar kaldırıldı; içerik alanı klavyeyle odaklanabilir kaydırma bölgesi. Tenant bilgisi `useParams()`'tan geliyor. Bileşen API'si değişmedi.
+- **Başlık:** `src/app/[tenant]/admin/layout.tsx` server bileşeni, `[Sayfa] · AffeXAI Cortex` şablonu ve noindex. Yeni sayfa eklerken klasöre `layout.tsx` ile `metadata.title` verin. Kendi son ekini taşıyan başlıklar `title.absolute` kullanmalı (ör. ekip girişi).
+- **Liste pattern'i:** URL durumu için `useListQuery(DEFAULTS)` (DEFAULTS modül sabiti olmalı) + `SearchField`. Sayfa sınırlaması `clampPage`; arama/filtre değişince sayfa 1.
+- **Yıkıcı ve yetki değiştiren eylemler:** `confirmDialog` başlığı nesnenin adını taşır, kayıt pesimisttir, başarı toast'u yalnız API yanıtından sonra gelir.
+- **CRM araması:** `GET /crm?search=` (company, e-posta, yetkili, müşteri no; `crm-search.ts`). `meta.total` artık filtreli toplam.
+- **Kabul testi:** `apps/frontend/scripts/acceptance/tenant-crud.cjs` (`TENANT_CRUD_ACCEPTANCE_ISOLATED=1`). Harness'te tüm API çağrıları tek IP sayıldığı için adımlar arasında `PACE_MS` (varsayılan 2,5 sn) bekler.
+- **Test koşucusu:** köşeli parantezli yolları `sed 's/\[/[[]/g'` ile kaçırarak verin; aksi halde node:test bunları glob sayıp sessizce atlıyor.
+
+Açık: diğer tenant sayfalarının sayfa içi denetimi (F3.5–F3.7), light/dark ve zoom ekran görüntüsü kanıtı, kullanıcı silme ve toplu işlem backend sözleşmesi.
