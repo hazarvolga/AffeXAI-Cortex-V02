@@ -61,6 +61,7 @@ import {
   Archive,
 } from "lucide-react";
 import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 interface KnowledgeSource {
   id: string;
@@ -388,7 +389,12 @@ export default function KnowledgeSourcesPage() {
   };
 
   const deleteSource = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this knowledge source?"))
+    if (
+      !(await confirmDialog({
+        title: "Are you sure you want to delete this knowledge source?",
+        destructive: true,
+      }))
+    )
       return;
 
     try {

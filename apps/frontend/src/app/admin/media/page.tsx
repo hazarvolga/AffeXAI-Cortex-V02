@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useCallback, useRef } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Upload,
   Image as ImageIcon,
@@ -17,27 +23,42 @@ import {
   X,
   Plus,
   Edit,
-  Trash2
-} from 'lucide-react';
-import mediaService, { Media } from '@/lib/api/mediaService';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
+  Trash2,
+} from "lucide-react";
+import mediaService, { Media } from "@/lib/api/mediaService";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 export default function MediaManagementPage() {
@@ -45,8 +66,8 @@ export default function MediaManagementPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
   const [isDragging, setIsDragging] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -59,18 +80,18 @@ export default function MediaManagementPage() {
       const data = await mediaService.getAllMedia();
       setMediaItems(data);
     } catch (err) {
-      console.error('Error fetching media:', err);
+      console.error("Error fetching media:", err);
       toast({
         title: "Hata",
         description: "Medya dosyaları yüklenirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
+  useAsyncEffect(() => {
     fetchMedia();
   }, [fetchMedia]);
 
@@ -96,11 +117,12 @@ export default function MediaManagementPage() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       // Check if file is an image
-      if (!file.type.match('image.*')) {
+      if (!file.type.match("image.*")) {
         toast({
           title: "Geçersiz Dosya Türü",
-          description: "Sadece resim dosyaları yüklenebilir (JPG, PNG, GIF, SVG, WEBP).",
-          variant: "destructive"
+          description:
+            "Sadece resim dosyaları yüklenebilir (JPG, PNG, GIF, SVG, WEBP).",
+          variant: "destructive",
         });
         return;
       }
@@ -119,19 +141,19 @@ export default function MediaManagementPage() {
 
       toast({
         title: "Başarılı",
-        description: "Dosya başarıyla yüklendi."
+        description: "Dosya başarıyla yüklendi.",
       });
 
       // Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     } catch (err) {
-      console.error('Error uploading file:', err);
+      console.error("Error uploading file:", err);
       toast({
         title: "Hata",
         description: "Dosya yüklenirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setUploading(false);
@@ -139,7 +161,12 @@ export default function MediaManagementPage() {
   };
 
   const handleDelete = async (id: string, fileName: string) => {
-    if (!confirm(`"${fileName}" adlı dosyayı silmek istediğinize emin misiniz?`)) {
+    if (
+      !(await confirmDialog({
+        title: `"${fileName}" adlı dosyayı silmek istediğinize emin misiniz?`,
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
@@ -149,14 +176,14 @@ export default function MediaManagementPage() {
 
       toast({
         title: "Başarılı",
-        description: "Dosya başarıyla silindi."
+        description: "Dosya başarıyla silindi.",
       });
     } catch (err) {
-      console.error('Error deleting media:', err);
+      console.error("Error deleting media:", err);
       toast({
         title: "Hata",
         description: "Dosya silinirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -173,7 +200,7 @@ export default function MediaManagementPage() {
       await mediaService.updateMedia(selectedMedia.id, {
         title: selectedMedia.title || undefined,
         description: selectedMedia.description || undefined,
-        altText: selectedMedia.altText || undefined
+        altText: selectedMedia.altText || undefined,
       });
 
       fetchMedia(); // Refresh the media list
@@ -182,45 +209,48 @@ export default function MediaManagementPage() {
 
       toast({
         title: "Başarılı",
-        description: "Dosya bilgileri güncellendi."
+        description: "Dosya bilgileri güncellendi.",
       });
     } catch (err) {
-      console.error('Error updating media:', err);
+      console.error("Error updating media:", err);
       toast({
         title: "Hata",
         description: "Dosya bilgileri güncellenirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
-  const filteredMedia = mediaItems.filter(media => {
-    const matchesSearch = media.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (media.title && media.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (media.description && media.description.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredMedia = mediaItems.filter((media) => {
+    const matchesSearch =
+      media.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (media.title &&
+        media.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (media.description &&
+        media.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesType = filterType === 'all' || media.type === filterType;
+    const matchesType = filterType === "all" || media.type === filterType;
 
     return matchesSearch && matchesType;
   });
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const getMediaTypeIcon = (type: string) => {
     switch (type) {
-      case 'image':
+      case "image":
         return <ImageIcon className="h-4 w-4" />;
-      case 'document':
+      case "document":
         return <FileText className="h-4 w-4" />;
-      case 'video':
+      case "video":
         return <Video className="h-4 w-4" />;
-      case 'audio':
+      case "audio":
         return <Music className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
@@ -229,14 +259,14 @@ export default function MediaManagementPage() {
 
   const getMediaTypeLabel = (type: string) => {
     switch (type) {
-      case 'image':
-        return 'Resim';
-      case 'document':
-        return 'Belge';
-      case 'video':
-        return 'Video';
-      case 'audio':
-        return 'Ses';
+      case "image":
+        return "Resim";
+      case "document":
+        return "Belge";
+      case "video":
+        return "Video";
+      case "audio":
+        return "Ses";
       default:
         return type;
     }
@@ -247,10 +277,14 @@ export default function MediaManagementPage() {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Medya Yönetimi</h1>
-          <p className="text-muted-foreground">Tüm medya dosyalarınızı buradan yönetin.</p>
+          <p className="text-muted-foreground">
+            Tüm medya dosyalarınızı buradan yönetin.
+          </p>
         </div>
         <div className="flex items-center justify-center py-12">
-          <div className="text-muted-foreground">Medya dosyaları yükleniyor...</div>
+          <div className="text-muted-foreground">
+            Medya dosyaları yükleniyor...
+          </div>
         </div>
       </div>
     );
@@ -260,7 +294,9 @@ export default function MediaManagementPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Medya Yönetimi</h1>
-        <p className="text-muted-foreground">Tüm medya dosyalarınızı buradan yönetin.</p>
+        <p className="text-muted-foreground">
+          Tüm medya dosyalarınızı buradan yönetin.
+        </p>
       </div>
 
       {/* Upload Section */}
@@ -268,13 +304,17 @@ export default function MediaManagementPage() {
         <CardHeader>
           <CardTitle>Yeni Medya Yükle</CardTitle>
           <CardDescription>
-            Yeni medya dosyaları yükleyin. Desteklenen formatlar: JPG, PNG, GIF, SVG, WEBP (Maksimum 5MB)
+            Yeni medya dosyaları yükleyin. Desteklenen formatlar: JPG, PNG, GIF,
+            SVG, WEBP (Maksimum 5MB)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'
-              }`}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/10"
+                : "border-muted-foreground/25 hover:border-primary/50"
+            }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -282,7 +322,9 @@ export default function MediaManagementPage() {
           >
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">
-              {isDragging ? 'Dosyayı bırakın' : 'Dosya sürükleyip bırakın ya da tıklayın'}
+              {isDragging
+                ? "Dosyayı bırakın"
+                : "Dosya sürükleyip bırakın ya da tıklayın"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               JPG, PNG, GIF, SVG, WEBP (Maksimum 5MB)
@@ -311,13 +353,9 @@ export default function MediaManagementPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  size="sm"
-                >
+                <Button onClick={handleUpload} disabled={uploading} size="sm">
                   <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? 'Yükleniyor...' : 'Yükle'}
+                  {uploading ? "Yükleniyor..." : "Yükle"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -325,7 +363,7 @@ export default function MediaManagementPage() {
                   onClick={() => {
                     setSelectedFile(null);
                     if (fileInputRef.current) {
-                      fileInputRef.current.value = '';
+                      fileInputRef.current.value = "";
                     }
                   }}
                 >
@@ -377,7 +415,9 @@ export default function MediaManagementPage() {
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <ImageIcon className="h-12 w-12 text-muted-foreground" />
               <div className="text-center">
-                <h3 className="text-lg font-semibold">Henüz medya dosyası yok</h3>
+                <h3 className="text-lg font-semibold">
+                  Henüz medya dosyası yok
+                </h3>
                 <p className="text-muted-foreground">
                   Yeni medya dosyaları yükleyerek kütüphanenizi oluşturun.
                 </p>
@@ -399,7 +439,7 @@ export default function MediaManagementPage() {
                 {filteredMedia.map((media) => (
                   <TableRow key={media.id}>
                     <TableCell>
-                      {media.type === 'image' ? (
+                      {media.type === "image" ? (
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
                             src={`${getMediaBaseUrl()}${media.url}`}
@@ -417,18 +457,23 @@ export default function MediaManagementPage() {
                     <TableCell className="font-medium">
                       <div>{media.originalName}</div>
                       {media.title && (
-                        <div className="text-sm text-muted-foreground">{media.title}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {media.title}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="flex items-center gap-1">
+                      <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
                         {getMediaTypeIcon(media.type)}
                         {getMediaTypeLabel(media.type)}
                       </Badge>
                     </TableCell>
                     <TableCell>{formatFileSize(media.size)}</TableCell>
                     <TableCell>
-                      {new Date(media.createdAt).toLocaleDateString('tr-TR')}
+                      {new Date(media.createdAt).toLocaleDateString("tr-TR")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -442,7 +487,9 @@ export default function MediaManagementPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleDelete(media.id, media.originalName)}
+                          onClick={() =>
+                            handleDelete(media.id, media.originalName)
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -465,7 +512,7 @@ export default function MediaManagementPage() {
           {selectedMedia && (
             <div className="space-y-4">
               <div className="flex justify-center">
-                {selectedMedia.type === 'image' ? (
+                {selectedMedia.type === "image" ? (
                   <div className="relative h-32 w-32 rounded-md overflow-hidden">
                     <Image
                       src={`${getMediaBaseUrl()}${selectedMedia.url}`}
@@ -485,8 +532,13 @@ export default function MediaManagementPage() {
                 <Label htmlFor="title">Başlık</Label>
                 <Input
                   id="title"
-                  value={selectedMedia.title || ''}
-                  onChange={(e) => setSelectedMedia({ ...selectedMedia, title: e.target.value })}
+                  value={selectedMedia.title || ""}
+                  onChange={(e) =>
+                    setSelectedMedia({
+                      ...selectedMedia,
+                      title: e.target.value,
+                    })
+                  }
                 />
               </div>
 
@@ -494,8 +546,13 @@ export default function MediaManagementPage() {
                 <Label htmlFor="altText">Alternatif Metin</Label>
                 <Input
                   id="altText"
-                  value={selectedMedia.altText || ''}
-                  onChange={(e) => setSelectedMedia({ ...selectedMedia, altText: e.target.value })}
+                  value={selectedMedia.altText || ""}
+                  onChange={(e) =>
+                    setSelectedMedia({
+                      ...selectedMedia,
+                      altText: e.target.value,
+                    })
+                  }
                 />
               </div>
 
@@ -503,18 +560,24 @@ export default function MediaManagementPage() {
                 <Label htmlFor="description">Açıklama</Label>
                 <Textarea
                   id="description"
-                  value={selectedMedia.description || ''}
-                  onChange={(e) => setSelectedMedia({ ...selectedMedia, description: e.target.value })}
+                  value={selectedMedia.description || ""}
+                  onChange={(e) =>
+                    setSelectedMedia({
+                      ...selectedMedia,
+                      description: e.target.value,
+                    })
+                  }
                 />
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
                   İptal
                 </Button>
-                <Button onClick={handleSaveEdit}>
-                  Kaydet
-                </Button>
+                <Button onClick={handleSaveEdit}>Kaydet</Button>
               </div>
             </div>
           )}

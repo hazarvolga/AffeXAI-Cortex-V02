@@ -1,24 +1,32 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { 
-  Shield, 
-  FileText, 
-  Users, 
-  AlertTriangle, 
-  CheckCircle, 
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import {
+  Shield,
+  FileText,
+  Users,
+  AlertTriangle,
+  CheckCircle,
   Clock,
   Download,
   Trash2,
   Eye,
-  UserX
-} from 'lucide-react';
+  UserX,
+} from "lucide-react";
+import { toast as notify } from "@/lib/notify";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface ComplianceReport {
   reportDate: Date;
@@ -36,7 +44,7 @@ interface ComplianceReport {
     lastAnonymizationDate: Date;
   };
   riskAssessment: {
-    level: 'LOW' | 'MEDIUM' | 'HIGH';
+    level: "LOW" | "MEDIUM" | "HIGH";
     issues: string[];
     recommendations: string[];
   };
@@ -62,22 +70,23 @@ interface ConsentRecord {
 }
 
 export default function GdprComplianceDashboard() {
-  const [complianceReport, setComplianceReport] = useState<ComplianceReport | null>(null);
-  const [dataSubjectRequests, setDataSubjectRequests] = useState<DataSubjectRequest[]>([]);
+  const [complianceReport, setComplianceReport] =
+    useState<ComplianceReport | null>(null);
+  const [dataSubjectRequests, setDataSubjectRequests] = useState<
+    DataSubjectRequest[]
+  >([]);
   const [consentRecords, setConsentRecords] = useState<ConsentRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
-
-  useEffect(() => {
-    loadComplianceData();
-  }, []);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const loadComplianceData = async () => {
     try {
       setLoading(true);
-      
+
       // Load compliance report
-      const reportResponse = await fetch('/api/email-marketing/gdpr/compliance-report');
+      const reportResponse = await fetch(
+        "/api/email-marketing/gdpr/compliance-report",
+      );
       if (reportResponse.ok) {
         const report = await reportResponse.json();
         setComplianceReport(report.data);
@@ -86,95 +95,119 @@ export default function GdprComplianceDashboard() {
       // Load data subject requests (mock data for now)
       setDataSubjectRequests([
         {
-          id: '1',
-          email: 'user@example.com',
-          requestType: 'ACCESS',
-          requestDate: new Date('2024-01-15'),
-          status: 'COMPLETED',
-          completionDate: new Date('2024-01-16')
+          id: "1",
+          email: "user@example.com",
+          requestType: "ACCESS",
+          requestDate: new Date("2024-01-15"),
+          status: "COMPLETED",
+          completionDate: new Date("2024-01-16"),
         },
         {
-          id: '2',
-          email: 'another@example.com',
-          requestType: 'ERASURE',
-          requestDate: new Date('2024-01-20'),
-          status: 'PENDING'
-        }
+          id: "2",
+          email: "another@example.com",
+          requestType: "ERASURE",
+          requestDate: new Date("2024-01-20"),
+          status: "PENDING",
+        },
       ]);
 
       // Load consent records (mock data for now)
       setConsentRecords([
         {
-          id: '1',
-          email: 'user@example.com',
-          consentType: 'EMAIL_MARKETING',
-          consentStatus: 'GIVEN',
-          consentDate: new Date('2024-01-10'),
-          consentMethod: 'EXPLICIT_OPT_IN',
-          legalBasis: 'CONSENT'
-        }
+          id: "1",
+          email: "user@example.com",
+          consentType: "EMAIL_MARKETING",
+          consentStatus: "GIVEN",
+          consentDate: new Date("2024-01-10"),
+          consentMethod: "EXPLICIT_OPT_IN",
+          legalBasis: "CONSENT",
+        },
       ]);
-
     } catch (error) {
-      console.error('Failed to load compliance data:', error);
+      console.error("Failed to load compliance data:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  useAsyncEffect(() => {
+    loadComplianceData();
+  }, []);
+
   const handleDataRetentionCleanup = async () => {
     try {
-      const response = await fetch('/api/email-marketing/gdpr/data-retention/cleanup', {
-        method: 'POST'
-      });
+      const response = await fetch(
+        "/api/email-marketing/gdpr/data-retention/cleanup",
+        {
+          method: "POST",
+        },
+      );
 
       if (response.ok) {
         const result = await response.json();
-        alert(`Cleanup completed: ${result.data.deletedRecords} deleted, ${result.data.anonymizedRecords} anonymized`);
+        notify.success(
+          `Cleanup completed: ${result.data.deletedRecords} deleted, ${result.data.anonymizedRecords} anonymized`,
+        );
         loadComplianceData();
       }
     } catch (error) {
-      console.error('Failed to perform cleanup:', error);
-      alert('Cleanup failed. Please try again.');
+      console.error("Failed to perform cleanup:", error);
+      notify.error("Cleanup failed. Please try again.");
     }
   };
 
-  const handleDataSubjectRequest = async (email: string, requestType: string) => {
+  const handleDataSubjectRequest = async (
+    email: string,
+    requestType: string,
+  ) => {
     try {
-      const response = await fetch(`/api/email-marketing/gdpr/data-subject-request/${requestType.toLowerCase()}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const response = await fetch(
+        `/api/email-marketing/gdpr/data-subject-request/${requestType.toLowerCase()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
 
       if (response.ok) {
         const result = await response.json();
-        alert(`${requestType} request processed successfully`);
+        notify.success(`${requestType} request processed successfully`);
         loadComplianceData();
       }
     } catch (error) {
       console.error(`Failed to process ${requestType} request:`, error);
-      alert(`${requestType} request failed. Please try again.`);
+      notify.error(`${requestType} request failed. Please try again.`);
     }
   };
 
   const getRiskLevelColor = (level: string) => {
     switch (level) {
-      case 'LOW': return 'text-green-600 bg-green-100';
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100';
-      case 'HIGH': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case "LOW":
+        return "text-green-600 bg-green-100";
+      case "MEDIUM":
+        return "text-yellow-600 bg-yellow-100";
+      case "HIGH":
+        return "text-red-600 bg-red-100";
+      default:
+        return "text-gray-600 bg-gray-100";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return 'text-green-600 bg-green-100';
-      case 'PENDING': return 'text-yellow-600 bg-yellow-100';
-      case 'IN_PROGRESS': return 'text-blue-600 bg-blue-100';
-      case 'REJECTED': return 'text-red-600 bg-red-100';
-      case 'EXPIRED': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case "COMPLETED":
+        return "text-green-600 bg-green-100";
+      case "PENDING":
+        return "text-yellow-600 bg-yellow-100";
+      case "IN_PROGRESS":
+        return "text-blue-600 bg-blue-100";
+      case "REJECTED":
+        return "text-red-600 bg-red-100";
+      case "EXPIRED":
+        return "text-gray-600 bg-gray-100";
+      default:
+        return "text-gray-600 bg-gray-100";
     }
   };
 
@@ -194,7 +227,9 @@ export default function GdprComplianceDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">GDPR Compliance Dashboard</h1>
-          <p className="text-gray-600">Monitor and manage data protection compliance</p>
+          <p className="text-gray-600">
+            Monitor and manage data protection compliance
+          </p>
         </div>
         <Button onClick={loadComplianceData} variant="outline">
           Refresh Data
@@ -216,11 +251,15 @@ export default function GdprComplianceDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Subscribers</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total Subscribers
+                    </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{complianceReport.totalSubscribers.toLocaleString()}</div>
+                    <div className="text-2xl font-bold">
+                      {complianceReport.totalSubscribers.toLocaleString()}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {complianceReport.consentedSubscribers} with valid consent
                     </p>
@@ -229,15 +268,26 @@ export default function GdprComplianceDashboard() {
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Consent Rate</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Consent Rate
+                    </CardTitle>
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {Math.round((complianceReport.consentedSubscribers / complianceReport.totalSubscribers) * 100)}%
+                      {Math.round(
+                        (complianceReport.consentedSubscribers /
+                          complianceReport.totalSubscribers) *
+                          100,
+                      )}
+                      %
                     </div>
-                    <Progress 
-                      value={(complianceReport.consentedSubscribers / complianceReport.totalSubscribers) * 100} 
+                    <Progress
+                      value={
+                        (complianceReport.consentedSubscribers /
+                          complianceReport.totalSubscribers) *
+                        100
+                      }
                       className="mt-2"
                     />
                   </CardContent>
@@ -245,11 +295,15 @@ export default function GdprComplianceDashboard() {
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Pending Requests
+                    </CardTitle>
                     <Clock className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{complianceReport.pendingRequests}</div>
+                    <div className="text-2xl font-bold">
+                      {complianceReport.pendingRequests}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {complianceReport.completedRequests} completed
                     </p>
@@ -258,15 +312,22 @@ export default function GdprComplianceDashboard() {
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Risk Level</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Risk Level
+                    </CardTitle>
                     <Shield className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <Badge className={getRiskLevelColor(complianceReport.riskAssessment.level)}>
+                    <Badge
+                      className={getRiskLevelColor(
+                        complianceReport.riskAssessment.level,
+                      )}
+                    >
                       {complianceReport.riskAssessment.level}
                     </Badge>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {complianceReport.riskAssessment.issues.length} issues identified
+                      {complianceReport.riskAssessment.issues.length} issues
+                      identified
                     </p>
                   </CardContent>
                 </Card>
@@ -280,9 +341,13 @@ export default function GdprComplianceDashboard() {
                     <div className="space-y-2">
                       <p className="font-medium">Compliance Issues Detected:</p>
                       <ul className="list-disc list-inside space-y-1">
-                        {complianceReport.riskAssessment.issues.map((issue, index) => (
-                          <li key={index} className="text-sm">{issue}</li>
-                        ))}
+                        {complianceReport.riskAssessment.issues.map(
+                          (issue, index) => (
+                            <li key={index} className="text-sm">
+                              {issue}
+                            </li>
+                          ),
+                        )}
                       </ul>
                     </div>
                   </AlertDescription>
@@ -307,7 +372,10 @@ export default function GdprComplianceDashboard() {
                   <div className="flex items-center justify-between">
                     <span>Scheduled Deletions</span>
                     <Badge variant="outline">
-                      {complianceReport.dataRetentionCompliance.scheduledDeletions}
+                      {
+                        complianceReport.dataRetentionCompliance
+                          .scheduledDeletions
+                      }
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
@@ -333,7 +401,10 @@ export default function GdprComplianceDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {dataSubjectRequests.map((request) => (
-                  <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div
+                    key={request.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">{request.email}</span>
@@ -345,7 +416,11 @@ export default function GdprComplianceDashboard() {
                       <p className="text-sm text-gray-600">
                         Requested: {request.requestDate.toLocaleDateString()}
                         {request.completionDate && (
-                          <span> • Completed: {request.completionDate.toLocaleDateString()}</span>
+                          <span>
+                            {" "}
+                            • Completed:{" "}
+                            {request.completionDate.toLocaleDateString()}
+                          </span>
                         )}
                       </p>
                     </div>
@@ -354,7 +429,7 @@ export default function GdprComplianceDashboard() {
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      {request.status === 'PENDING' && (
+                      {request.status === "PENDING" && (
                         <Button size="sm" variant="outline">
                           Process
                         </Button>
@@ -378,17 +453,27 @@ export default function GdprComplianceDashboard() {
             <CardContent>
               <div className="space-y-4">
                 {consentRecords.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">{record.email}</span>
                         <Badge variant="outline">{record.consentType}</Badge>
-                        <Badge className={record.consentStatus === 'GIVEN' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                        <Badge
+                          className={
+                            record.consentStatus === "GIVEN"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }
+                        >
                           {record.consentStatus}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600">
-                        {record.consentMethod} • {record.legalBasis} • {record.consentDate.toLocaleDateString()}
+                        {record.consentMethod} • {record.legalBasis} •{" "}
+                        {record.consentDate.toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex space-x-2">
@@ -396,7 +481,7 @@ export default function GdprComplianceDashboard() {
                         <Eye className="h-4 w-4 mr-1" />
                         Details
                       </Button>
-                      {record.consentStatus === 'GIVEN' && (
+                      {record.consentStatus === "GIVEN" && (
                         <Button size="sm" variant="outline">
                           Withdraw
                         </Button>
@@ -424,7 +509,8 @@ export default function GdprComplianceDashboard() {
                   Run Data Retention Cleanup
                 </Button>
                 <p className="text-sm text-gray-600">
-                  This will delete or anonymize expired records according to your retention policies.
+                  This will delete or anonymize expired records according to
+                  your retention policies.
                 </p>
               </CardContent>
             </Card>
@@ -469,34 +555,46 @@ export default function GdprComplianceDashboard() {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => {
-                      const email = (document.getElementById('manual-request-email') as HTMLInputElement)?.value;
-                      if (email) handleDataSubjectRequest(email, 'ACCESS');
+                      const email = (
+                        document.getElementById(
+                          "manual-request-email",
+                        ) as HTMLInputElement
+                      )?.value;
+                      if (email) handleDataSubjectRequest(email, "ACCESS");
                     }}
                   >
                     <Eye className="h-4 w-4 mr-1" />
                     Access Request
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => {
-                      const email = (document.getElementById('manual-request-email') as HTMLInputElement)?.value;
-                      if (email) handleDataSubjectRequest(email, 'ERASURE');
+                      const email = (
+                        document.getElementById(
+                          "manual-request-email",
+                        ) as HTMLInputElement
+                      )?.value;
+                      if (email) handleDataSubjectRequest(email, "ERASURE");
                     }}
                   >
                     <UserX className="h-4 w-4 mr-1" />
                     Erasure Request
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => {
-                      const email = (document.getElementById('manual-request-email') as HTMLInputElement)?.value;
-                      if (email) handleDataSubjectRequest(email, 'PORTABILITY');
+                      const email = (
+                        document.getElementById(
+                          "manual-request-email",
+                        ) as HTMLInputElement
+                      )?.value;
+                      if (email) handleDataSubjectRequest(email, "PORTABILITY");
                     }}
                   >
                     <Download className="h-4 w-4 mr-1" />

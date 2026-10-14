@@ -350,3 +350,13 @@ Açık:
 Not: pre-commit hook dokunulan her dosyayı lint'liyor. F3 dilimlerinde eski dosyalardaki hatalar dosya dokunuldukça düzeltiliyor. Scratchpad araçları (`fix-entities.cjs`, `move-effects.cjs`, `async-effects.cjs`) ESLint JSON çıktısıyla mekanik düzeltmeleri yapıyor.
 
 Açık: eski public CMS kabuğunun token seti (`publicLightTokensProduction` adına rağmen koyu değerler taşıyor) beyaz header'da kontrast hatası veriyor; F3.6'da ele alınacak.
+
+## UI/UX F3.1 — tarayıcı diyaloglarının kaldırılması — 2026-10-14
+
+- **Dönüşüm:** 42 dosyada `alert` → `notify.error/success/info`, `confirm` → `await confirmDialog({ title, destructive })`, `prompt` → `await promptDialog({ title, label, defaultValue })`. Çağıran fonksiyonlar async yapıldı. Kalan eşleşmeler kabul edilen istisnalar: `confirm-subscription` sayfasındaki fonksiyon adı, `dialog-queue` metotları, `ai/flows/support-ticket-analysis.ts` içindeki Genkit `prompt()`.
+- **Kabul testi:** `apps/frontend/scripts/acceptance/crm-confirm-dialog.cjs` izole G0 stack'inde (`:19003` frontend, `:19006` backend) bir tenant + `organization_admin` + müşteri seed'liyor; Escape'in kaydı değiştirmediğini, "Pasifleştir"in API'den kalıcı olduğunu, ilk odağın "Vazgeç"te olduğunu doğruluyor; herhangi bir native dialog açılırsa düşüyor. Giriş keşfi dakikada 10 istekle sınırlı; testi dakikada bir kereden sık koşma.
+- **Token:** light tema `--destructive` 0 84% 60% → 0 72% 45%. Eski değer beyaz metinle AA'yı geçmiyordu (yıkıcı düğmeler).
+- **Lint borcu:** dokunulan eski dosyalardaki hatalar düzeltildi (entity kaçışları, effect'lerin bildirimlerin altına taşınması, yükleyicilerde `useAsyncEffect`, türetilmiş sıfırlamalar için "render sırasında state ayarlama": CRM sayfa numarası, rich-text-editor liste durumu).
+- **Test koşucusu notu:** `pnpm exec tsx --test` ile koşan node:test dosyaları yeşil. 22 dosya Jest API'si (`describe`, `jest`, `@testing-library/react`) kullanıyor ve bu koşucuda yüklenmiyor; durum HEAD'de de aynı. Ayrı bir test altyapısı işi olarak açık.
+
+Açık: diğer ekranlardaki onayların `destructive` işareti dönüştürücünün tahmini (silme/kaldırma = yıkıcı). F3.4/F3.5 E2E'lerinde ekran ekran doğrulanacak.

@@ -1,17 +1,29 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import {
   Settings,
   Save,
@@ -32,11 +44,19 @@ import {
   Smartphone,
   Tablet,
   Eye,
-  EyeOff
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Progress } from '@/components/ui/progress';
+  EyeOff,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import Link from "next/link";
 
 interface ConfigSection {
   key: string;
@@ -50,7 +70,14 @@ interface ConfigSetting {
   key: string;
   label: string;
   description: string;
-  type: 'number' | 'boolean' | 'string' | 'select' | 'range' | 'textarea' | 'multiselect';
+  type:
+    | "number"
+    | "boolean"
+    | "string"
+    | "select"
+    | "range"
+    | "textarea"
+    | "multiselect";
   value: any;
   defaultValue: any;
   options?: { value: string; label: string }[];
@@ -71,10 +98,14 @@ export default function ConfigurationManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState<string | null>(null); // Track which section is being reset
   const [hasChanges, setHasChanges] = useState(false);
-  const [changedSettings, setChangedSettings] = useState<Set<string>>(new Set());
+  const [changedSettings, setChangedSettings] = useState<Set<string>>(
+    new Set(),
+  );
   const [originalValues, setOriginalValues] = useState<Record<string, any>>({});
-  const [activeTab, setActiveTab] = useState('thresholds');
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState("thresholds");
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
   const [aiProviderInfo, setAiProviderInfo] = useState<{
     currentProvider: string;
     currentModel: string;
@@ -84,9 +115,15 @@ export default function ConfigurationManagementPage() {
   } | null>(null);
   const [saveProgress, setSaveProgress] = useState(0);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [screenSize, setScreenSize] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'offline'>('good');
+  const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">(
+    "desktop",
+  );
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
+  const [connectionQuality, setConnectionQuality] = useState<
+    "good" | "poor" | "offline"
+  >("good");
   const { toast } = useToast();
 
   // Screen size detection
@@ -94,104 +131,102 @@ export default function ConfigurationManagementPage() {
     const handleResize = () => {
       const width = window.innerWidth;
       if (width < 768) {
-        setScreenSize('mobile');
+        setScreenSize("mobile");
       } else if (width < 1024) {
-        setScreenSize('tablet');
+        setScreenSize("tablet");
       } else {
-        setScreenSize('desktop');
+        setScreenSize("desktop");
       }
     };
 
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Network connectivity detection
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setConnectionQuality('good');
+      setConnectionQuality("good");
       toast({
-        title: 'Bağlantı Yeniden Kuruldu',
-        description: 'İnternet bağlantınız geri geldi.',
-        variant: 'default',
-        duration: 3000
+        title: "Bağlantı Yeniden Kuruldu",
+        description: "İnternet bağlantınız geri geldi.",
+        variant: "default",
+        duration: 3000,
       });
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      setConnectionQuality('offline');
+      setConnectionQuality("offline");
       toast({
-        title: 'Bağlantı Kesildi',
-        description: 'İnternet bağlantınız kesildi. Değişiklikler kaydedilmeyebilir.',
-        variant: 'destructive',
-        duration: 5000
+        title: "Bağlantı Kesildi",
+        description:
+          "İnternet bağlantınız kesildi. Değişiklikler kaydedilmeyebilir.",
+        variant: "destructive",
+        duration: 5000,
       });
     };
 
     // Connection quality detection
     const checkConnectionQuality = async () => {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        setConnectionQuality('offline');
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setConnectionQuality("offline");
         return;
       }
 
       try {
         const start = Date.now();
-        await fetch('/api/ping', {
-          method: 'HEAD',
-          cache: 'no-cache',
-          signal: AbortSignal.timeout(5000)
+        await fetch("/api/ping", {
+          method: "HEAD",
+          cache: "no-cache",
+          signal: AbortSignal.timeout(5000),
         });
         const duration = Date.now() - start;
 
-        setConnectionQuality(duration > 2000 ? 'poor' : 'good');
+        setConnectionQuality(duration > 2000 ? "poor" : "good");
       } catch {
-        setConnectionQuality('poor');
+        setConnectionQuality("poor");
       }
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Check connection quality periodically
     const qualityInterval = setInterval(checkConnectionQuality, 30000);
     checkConnectionQuality(); // Initial check
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
       clearInterval(qualityInterval);
     };
   }, [toast]);
-
-  useEffect(() => {
-    loadConfiguration();
-    loadAiProviderInfo();
-  }, []);
 
   // Unsaved changes warning
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasChanges) {
         e.preventDefault();
-        e.returnValue = 'Kaydedilmemiş değişiklikleriniz var. Sayfadan ayrılmak istediğinizden emin misiniz?';
+        e.returnValue =
+          "Kaydedilmemiş değişiklikleriniz var. Sayfadan ayrılmak istediğinizden emin misiniz?";
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasChanges]);
 
   const loadAiProviderInfo = async () => {
     try {
-      const { FaqLearningService } = await import('@/services/faq-learning.service');
+      const { FaqLearningService } =
+        await import("@/services/faq-learning.service");
       const data = await FaqLearningService.getAiProviderInfo();
       setAiProviderInfo(data);
     } catch (error) {
-      console.error('Failed to load AI provider info:', error);
+      console.error("Failed to load AI provider info:", error);
     }
   };
 
@@ -199,19 +234,20 @@ export default function ConfigurationManagementPage() {
     setIsLoading(true);
 
     try {
-      const { FaqLearningService } = await import('@/services/faq-learning.service');
+      const { FaqLearningService } =
+        await import("@/services/faq-learning.service");
 
       // Add timeout for network requests
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+        setTimeout(() => reject(new Error("Request timeout")), 10000),
       );
 
       const configPromise = FaqLearningService.getConfig();
-      const data = await Promise.race([configPromise, timeoutPromise]) as any;
+      const data = (await Promise.race([configPromise, timeoutPromise])) as any;
 
       // Validate response structure
       if (!data || !Array.isArray(data.configurations)) {
-        throw new Error('Invalid response format');
+        throw new Error("Invalid response format");
       }
 
       // Transform API data to config sections
@@ -219,15 +255,15 @@ export default function ConfigurationManagementPage() {
 
       // Validate that we have at least some configurations
       if (sections.length === 0) {
-        throw new Error('No configurations found');
+        throw new Error("No configurations found");
       }
 
       setConfigSections(sections);
 
       // Store original values for change tracking
       const originalVals: Record<string, any> = {};
-      sections.forEach(section => {
-        section.settings.forEach(setting => {
+      sections.forEach((section) => {
+        section.settings.forEach((setting) => {
           originalVals[`${section.key}-${setting.key}`] = setting.value;
         });
       });
@@ -241,34 +277,34 @@ export default function ConfigurationManagementPage() {
       // Success toast for retry scenarios
       if (retryCount > 0) {
         toast({
-          title: 'Başarılı',
-          description: 'Ayarlar başarıyla yüklendi.',
-          variant: 'default'
+          title: "Başarılı",
+          description: "Ayarlar başarıyla yüklendi.",
+          variant: "default",
         });
       }
-
     } catch (error) {
-      console.error('Failed to load configuration:', error);
+      console.error("Failed to load configuration:", error);
 
       // Enhanced error handling with retry logic
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      const isNetworkError = errorMessage.includes('timeout') ||
-        errorMessage.includes('fetch') ||
-        errorMessage.includes('network');
+      const errorMessage =
+        error instanceof Error ? error.message : "Bilinmeyen hata";
+      const isNetworkError =
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("fetch") ||
+        errorMessage.includes("network");
 
       // Show empty state
       setConfigSections([]);
 
       // Enhanced error toast with retry option
       toast({
-        title: isNetworkError ? 'Bağlantı Hatası' : 'Yükleme Hatası',
+        title: isNetworkError ? "Bağlantı Hatası" : "Yükleme Hatası",
         description: (
           <div className="space-y-2">
             <p>
               {isNetworkError
-                ? 'İnternet bağlantınızı kontrol edin ve tekrar deneyin.'
-                : `Ayarlar yüklenemedi: ${errorMessage}`
-              }
+                ? "İnternet bağlantınızı kontrol edin ve tekrar deneyin."
+                : `Ayarlar yüklenemedi: ${errorMessage}`}
             </p>
             {retryCount < 3 && (
               <button
@@ -280,99 +316,118 @@ export default function ConfigurationManagementPage() {
             )}
           </div>
         ),
-        variant: 'destructive',
-        duration: retryCount < 3 ? 10000 : 5000
+        variant: "destructive",
+        duration: retryCount < 3 ? 10000 : 5000,
       });
 
       // Auto-retry for network errors (max 3 times)
       if (isNetworkError && retryCount < 2) {
-        setTimeout(() => {
-          loadConfiguration(retryCount + 1);
-        }, 2000 * (retryCount + 1)); // Exponential backoff
+        setTimeout(
+          () => {
+            loadConfiguration(retryCount + 1);
+          },
+          2000 * (retryCount + 1),
+        ); // Exponential backoff
       }
-
     } finally {
       setIsLoading(false);
     }
   };
 
+  useAsyncEffect(() => {
+    loadConfiguration();
+    loadAiProviderInfo();
+  }, []);
+
   const transformToConfigSections = (configs: any[]): ConfigSection[] => {
     // Group configurations by category
-    const grouped = configs.reduce((acc, config) => {
-      const category = config.category || 'other';
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push({
-        key: config.key,
-        label: formatLabel(config.key),
-        description: config.description || '',
-        type: config.type || inferType(config.value),
-        value: config.value,
-        defaultValue: config.value,
-        min: config.min,
-        max: config.max,
-        step: config.step,
-        unit: config.unit,
-        options: config.options,
-        validation: config.validation
-      });
-      return acc;
-    }, {} as Record<string, ConfigSetting[]>);
+    const grouped = configs.reduce(
+      (acc, config) => {
+        const category = config.category || "other";
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+        acc[category].push({
+          key: config.key,
+          label: formatLabel(config.key),
+          description: config.description || "",
+          type: config.type || inferType(config.value),
+          value: config.value,
+          defaultValue: config.value,
+          min: config.min,
+          max: config.max,
+          step: config.step,
+          unit: config.unit,
+          options: config.options,
+          validation: config.validation,
+        });
+        return acc;
+      },
+      {} as Record<string, ConfigSetting[]>,
+    );
 
     // Ensure all 6 categories exist with proper order
-    const orderedCategories = ['thresholds', 'recognition', 'processing', 'quality', 'sources', 'categories', 'ai', 'advanced'];
+    const orderedCategories = [
+      "thresholds",
+      "recognition",
+      "processing",
+      "quality",
+      "sources",
+      "categories",
+      "ai",
+      "advanced",
+    ];
 
     return orderedCategories
-      .filter(category => grouped[category] && grouped[category].length > 0)
-      .map(category => ({
+      .filter((category) => grouped[category] && grouped[category].length > 0)
+      .map((category) => ({
         key: category,
         title: formatCategoryTitle(category),
         description: getCategoryDescription(category),
         icon: getCategoryIcon(category),
-        settings: grouped[category]
+        settings: grouped[category],
       }));
   };
 
   const formatLabel = (key: string): string => {
     return key
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
+      .replace(/([A-Z])/g, " $1")
+      .replace(/^./, (str) => str.toUpperCase())
       .trim();
   };
 
-  const inferType = (value: any): ConfigSetting['type'] => {
-    if (typeof value === 'boolean') return 'boolean';
-    if (typeof value === 'number') return 'number';
-    return 'string';
+  const inferType = (value: any): ConfigSetting["type"] => {
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "number") return "number";
+    return "string";
   };
 
   const formatCategoryTitle = (category: string): string => {
     const titles: Record<string, string> = {
-      thresholds: 'Güven Eşikleri',
-      recognition: 'Pattern Tanıma',
-      processing: 'İşleme Ayarları',
-      quality: 'Kalite Kontrol',
-      sources: 'Veri Kaynakları',
-      categories: 'Kategori Yönetimi',
-      ai: 'AI Modeli',
-      advanced: 'Gelişmiş Ayarlar'
+      thresholds: "Güven Eşikleri",
+      recognition: "Pattern Tanıma",
+      processing: "İşleme Ayarları",
+      quality: "Kalite Kontrol",
+      sources: "Veri Kaynakları",
+      categories: "Kategori Yönetimi",
+      ai: "AI Modeli",
+      advanced: "Gelişmiş Ayarlar",
     };
     return titles[category] || category;
   };
 
   const getCategoryDescription = (category: string): string => {
     const descriptions: Record<string, string> = {
-      thresholds: 'FAQ onay ve yayınlama için güven skorları',
-      recognition: 'Pattern tanıma ve benzerlik eşikleri',
-      processing: 'Batch işleme ve gerçek zamanlı işleme ayarları',
-      quality: 'Kalite kontrol ve doğrulama kuralları',
-      sources: 'Chat ve ticket veri kaynağı ayarları',
-      categories: 'Otomatik kategori atama ve yönetim',
-      ai: 'AI model parametreleri (sadece temperature ve maxTokens)',
-      advanced: 'Gelişmiş sistem ayarları ve veri saklama'
+      thresholds: "FAQ onay ve yayınlama için güven skorları",
+      recognition: "Pattern tanıma ve benzerlik eşikleri",
+      processing: "Batch işleme ve gerçek zamanlı işleme ayarları",
+      quality: "Kalite kontrol ve doğrulama kuralları",
+      sources: "Chat ve ticket veri kaynağı ayarları",
+      categories: "Otomatik kategori atama ve yönetim",
+      ai: "AI model parametreleri (sadece temperature ve maxTokens)",
+      advanced: "Gelişmiş sistem ayarları ve veri saklama",
     };
-    return descriptions[category] || '';
+    return descriptions[category] || "";
   };
 
   const getCategoryIcon = (category: string): React.ReactNode => {
@@ -384,21 +439,21 @@ export default function ConfigurationManagementPage() {
       sources: <Filter className="h-5 w-5" />,
       categories: <Calendar className="h-5 w-5" />,
       ai: <Brain className="h-5 w-5" />,
-      advanced: <Settings className="h-5 w-5" />
+      advanced: <Settings className="h-5 w-5" />,
     };
     return icons[category] || <Settings className="h-5 w-5" />;
   };
 
-
-
   const handleSave = async () => {
     // Check for validation errors
-    const hasValidationErrors = Object.values(validationErrors).some(error => error !== '');
+    const hasValidationErrors = Object.values(validationErrors).some(
+      (error) => error !== "",
+    );
     if (hasValidationErrors) {
       toast({
-        title: 'Doğrulama Hatası',
-        description: 'Lütfen tüm hataları düzeltin ve tekrar deneyin.',
-        variant: 'destructive'
+        title: "Doğrulama Hatası",
+        description: "Lütfen tüm hataları düzeltin ve tekrar deneyin.",
+        variant: "destructive",
       });
       return;
     }
@@ -407,25 +462,29 @@ export default function ConfigurationManagementPage() {
     setSaveProgress(0);
 
     // Show loading toast with progress
-    const totalConfigs = configSections.reduce((total, section) => total + section.settings.length, 0);
+    const totalConfigs = configSections.reduce(
+      (total, section) => total + section.settings.length,
+      0,
+    );
     const loadingToast = toast({
-      title: 'Kaydediliyor...',
+      title: "Kaydediliyor...",
       description: (
         <div className="space-y-2">
           <p>{totalConfigs} ayar kaydediliyor</p>
           <Progress value={saveProgress} className="w-full" />
         </div>
       ),
-      duration: 0
+      duration: 0,
     });
 
     // Simulate progress updates
     const progressInterval = setInterval(() => {
-      setSaveProgress(prev => Math.min(prev + 10, 90));
+      setSaveProgress((prev) => Math.min(prev + 10, 90));
     }, 100);
 
     try {
-      const { FaqLearningService } = await import('@/services/faq-learning.service');
+      const { FaqLearningService } =
+        await import("@/services/faq-learning.service");
 
       // Prepare all configurations for bulk update
       const allConfigs: Array<{
@@ -441,12 +500,12 @@ export default function ConfigurationManagementPage() {
             configKey: setting.key,
             configValue: setting.value,
             description: setting.description,
-            category: section.key
+            category: section.key,
           });
         }
       }
 
-      console.log('💾 Saving configurations:', allConfigs.length, 'items');
+      console.log("💾 Saving configurations:", allConfigs.length, "items");
 
       // Bulk save all configurations
       const result = await FaqLearningService.bulkUpdateConfig(allConfigs);
@@ -466,72 +525,79 @@ export default function ConfigurationManagementPage() {
 
         // Update original values to current values to track future changes
         const newOriginalValues: Record<string, any> = {};
-        configSections.forEach(section => {
-          section.settings.forEach(setting => {
+        configSections.forEach((section) => {
+          section.settings.forEach((setting) => {
             newOriginalValues[`${section.key}-${setting.key}`] = setting.value;
           });
         });
         setOriginalValues(newOriginalValues);
 
         // Update default values to current values to track future changes
-        setConfigSections(prev =>
-          prev.map(section => ({
+        setConfigSections((prev) =>
+          prev.map((section) => ({
             ...section,
-            settings: section.settings.map(setting => ({
+            settings: section.settings.map((setting) => ({
               ...setting,
-              defaultValue: setting.value
-            }))
-          }))
+              defaultValue: setting.value,
+            })),
+          })),
         );
 
         // Show detailed success message
         if (result.results && Array.isArray(result.results)) {
-          const successfulCount = result.results.filter((r: any) => r.success).length;
-          const failedCount = result.results.filter((r: any) => !r.success).length;
+          const successfulCount = result.results.filter(
+            (r: any) => r.success,
+          ).length;
+          const failedCount = result.results.filter(
+            (r: any) => !r.success,
+          ).length;
 
           if (failedCount > 0) {
             const failedConfigs = result.results
               .filter((r: any) => !r.success)
               .map((r: any) => r.configKey)
-              .join(', ');
+              .join(", ");
 
             toast({
-              title: 'Kısmi Başarı',
+              title: "Kısmi Başarı",
               description: `${successfulCount} ayar kaydedildi, ${failedCount} ayar başarısız oldu: ${failedConfigs}`,
-              variant: 'destructive'
+              variant: "destructive",
             });
           } else {
             toast({
-              title: 'Başarılı',
+              title: "Başarılı",
               description: `Tüm ${allConfigs.length} ayar başarıyla kaydedildi`,
-              variant: 'default'
+              variant: "default",
             });
           }
         } else {
           toast({
-            title: 'Başarılı',
+            title: "Başarılı",
             description: `${allConfigs.length} ayar başarıyla kaydedildi`,
-            variant: 'default'
+            variant: "default",
           });
         }
       } else {
-        throw new Error(result.message || 'Bulk update failed');
+        throw new Error(result.message || "Bulk update failed");
       }
-
     } catch (error) {
       // Clear progress and dismiss loading toast
       clearInterval(progressInterval);
       setSaveProgress(0);
       loadingToast.dismiss?.();
 
-      console.error('Failed to save configuration:', error);
+      console.error("Failed to save configuration:", error);
 
       // Enhanced error toast with retry option
       toast({
-        title: 'Kaydetme Hatası',
+        title: "Kaydetme Hatası",
         description: (
           <div className="space-y-2">
-            <p>{error instanceof Error ? error.message : 'Ayarlar kaydedilemedi.'}</p>
+            <p>
+              {error instanceof Error
+                ? error.message
+                : "Ayarlar kaydedilemedi."}
+            </p>
             <button
               onClick={() => handleSave()}
               className="text-sm underline hover:no-underline"
@@ -540,8 +606,8 @@ export default function ConfigurationManagementPage() {
             </button>
           </div>
         ),
-        variant: 'destructive',
-        duration: 10000 // Longer duration for error messages
+        variant: "destructive",
+        duration: 10000, // Longer duration for error messages
       });
     } finally {
       setIsSaving(false);
@@ -550,19 +616,21 @@ export default function ConfigurationManagementPage() {
   };
 
   const handleReset = async (sectionKey: string) => {
-    const section = configSections.find(s => s.key === sectionKey);
+    const section = configSections.find((s) => s.key === sectionKey);
     if (!section) return;
 
     const settingsCount = section.settings.length;
     const sectionTitle = section.title;
 
     // Enhanced confirmation dialog with more details
-    const hasUnsavedChanges = section.settings.some(setting => setting.value !== setting.defaultValue);
+    const hasUnsavedChanges = section.settings.some(
+      (setting) => setting.value !== setting.defaultValue,
+    );
     const confirmMessage = hasUnsavedChanges
       ? `"${sectionTitle}" kategorisindeki ${settingsCount} ayarı varsayılan değerlere sıfırlamak istediğinizden emin misiniz?\n\n⚠️ Bu kategoride kaydedilmemiş değişiklikleriniz var!\n\nBu işlem:\n• Sadece bu kategorideki ayarları etkiler\n• Diğer kategorilerdeki değişiklikler korunur\n• Geri alınamaz`
       : `"${sectionTitle}" kategorisindeki ${settingsCount} ayarı varsayılan değerlere sıfırlamak istediğinizden emin misiniz?\n\nBu işlem:\n• Sadece bu kategorideki ayarları etkiler\n• Diğer kategorilerdeki değişiklikler korunur\n• Geri alınamaz`;
 
-    if (!confirm(confirmMessage)) {
+    if (!(await confirmDialog({ title: confirmMessage }))) {
       return;
     }
 
@@ -570,15 +638,18 @@ export default function ConfigurationManagementPage() {
 
     // Show loading toast
     const loadingToast = toast({
-      title: 'Sıfırlanıyor...',
+      title: "Sıfırlanıyor...",
       description: `"${sectionTitle}" kategorisi varsayılan değerlere sıfırlanıyor`,
-      duration: 0
+      duration: 0,
     });
 
     try {
-      const { FaqLearningService } = await import('@/services/faq-learning.service');
+      const { FaqLearningService } =
+        await import("@/services/faq-learning.service");
 
-      console.log(`🔄 Resetting section: ${sectionKey} (${settingsCount} settings)`);
+      console.log(
+        `🔄 Resetting section: ${sectionKey} (${settingsCount} settings)`,
+      );
 
       const result = await FaqLearningService.resetConfigSection(sectionKey);
 
@@ -590,25 +661,31 @@ export default function ConfigurationManagementPage() {
         const defaultConfigs = await getDefaultConfigsForSection(sectionKey);
 
         // Update only this section's settings to default values
-        setConfigSections(prev =>
-          prev.map(prevSection =>
+        setConfigSections((prev) =>
+          prev.map((prevSection) =>
             prevSection.key === sectionKey
               ? {
-                ...prevSection,
-                settings: prevSection.settings.map(setting => {
-                  const defaultConfig = defaultConfigs.find(dc => dc.key === setting.key);
-                  return defaultConfig
-                    ? { ...setting, value: defaultConfig.value, defaultValue: defaultConfig.value }
-                    : setting;
-                })
-              }
-              : prevSection
-          )
+                  ...prevSection,
+                  settings: prevSection.settings.map((setting) => {
+                    const defaultConfig = defaultConfigs.find(
+                      (dc) => dc.key === setting.key,
+                    );
+                    return defaultConfig
+                      ? {
+                          ...setting,
+                          value: defaultConfig.value,
+                          defaultValue: defaultConfig.value,
+                        }
+                      : setting;
+                  }),
+                }
+              : prevSection,
+          ),
         );
 
         // Clear validation errors for this section
         const newValidationErrors = { ...validationErrors };
-        Object.keys(newValidationErrors).forEach(key => {
+        Object.keys(newValidationErrors).forEach((key) => {
           if (key.startsWith(`${sectionKey}-`)) {
             delete newValidationErrors[key];
           }
@@ -617,21 +694,24 @@ export default function ConfigurationManagementPage() {
 
         // Update original values for the reset section
         const newOriginalValues = { ...originalValues };
-        const resetSection = configSections.find(s => s.key === sectionKey);
+        const resetSection = configSections.find((s) => s.key === sectionKey);
         if (resetSection) {
-          resetSection.settings.forEach(setting => {
-            const defaultConfig = defaultConfigs.find(dc => dc.key === setting.key);
+          resetSection.settings.forEach((setting) => {
+            const defaultConfig = defaultConfigs.find(
+              (dc) => dc.key === setting.key,
+            );
             if (defaultConfig) {
-              newOriginalValues[`${sectionKey}-${setting.key}`] = defaultConfig.value;
+              newOriginalValues[`${sectionKey}-${setting.key}`] =
+                defaultConfig.value;
             }
           });
         }
         setOriginalValues(newOriginalValues);
 
         // Remove this section's changes from changed settings
-        setChangedSettings(prev => {
+        setChangedSettings((prev) => {
           const newSet = new Set(prev);
-          Array.from(prev).forEach(settingId => {
+          Array.from(prev).forEach((settingId) => {
             if (settingId.startsWith(`${sectionKey}-`)) {
               newSet.delete(settingId);
             }
@@ -640,30 +720,28 @@ export default function ConfigurationManagementPage() {
         });
 
         // Check if we still have changes in other sections
-        const stillHasChanges = Array.from(changedSettings).some(settingId =>
-          !settingId.startsWith(`${sectionKey}-`)
+        const stillHasChanges = Array.from(changedSettings).some(
+          (settingId) => !settingId.startsWith(`${sectionKey}-`),
         );
         setHasChanges(stillHasChanges);
 
         toast({
-          title: 'Başarılı',
+          title: "Başarılı",
           description: `"${sectionTitle}" kategorisindeki ${settingsCount} ayar varsayılan değerlere sıfırlandı`,
-          variant: 'default'
+          variant: "default",
         });
-
       } else {
-        throw new Error(result.message || 'Reset failed');
+        throw new Error(result.message || "Reset failed");
       }
-
     } catch (error) {
       // Dismiss loading toast
       loadingToast.dismiss?.();
 
-      console.error('Failed to reset configuration:', error);
+      console.error("Failed to reset configuration:", error);
       toast({
-        title: 'Sıfırlama Hatası',
-        description: `"${sectionTitle}" kategorisi sıfırlanamadı: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
-        variant: 'destructive'
+        title: "Sıfırlama Hatası",
+        description: `"${sectionTitle}" kategorisi sıfırlanamadı: ${error instanceof Error ? error.message : "Bilinmeyen hata"}`,
+        variant: "destructive",
       });
     } finally {
       setIsResetting(null);
@@ -674,48 +752,49 @@ export default function ConfigurationManagementPage() {
   const getDefaultConfigsForSection = async (sectionKey: string) => {
     // This would normally come from the API, but for now we'll use the same defaults as backend
     const defaults: Record<string, Array<{ key: string; value: any }>> = {
-      'thresholds': [
-        { key: 'minConfidenceForReview', value: 60 },
-        { key: 'minConfidenceForAutoPublish', value: 85 }
+      thresholds: [
+        { key: "minConfidenceForReview", value: 60 },
+        { key: "minConfidenceForAutoPublish", value: 85 },
       ],
-      'recognition': [
-        { key: 'minPatternFrequency', value: 3 },
-        { key: 'similarityThreshold', value: 0.8 }
+      recognition: [
+        { key: "minPatternFrequency", value: 3 },
+        { key: "similarityThreshold", value: 0.8 },
       ],
-      'processing': [
-        { key: 'batchSize', value: 100 },
-        { key: 'processingInterval', value: 3600 },
-        { key: 'enableRealTimeProcessing', value: false },
-        { key: 'enableAutoPublishing', value: false },
-        { key: 'maxDailyProcessingLimit', value: 1000 }
+      processing: [
+        { key: "batchSize", value: 100 },
+        { key: "processingInterval", value: 3600 },
+        { key: "enableRealTimeProcessing", value: false },
+        { key: "enableAutoPublishing", value: false },
+        { key: "maxDailyProcessingLimit", value: 1000 },
       ],
-      'quality': [
-        { key: 'minQuestionLength', value: 10 },
-        { key: 'maxQuestionLength', value: 500 },
-        { key: 'minAnswerLength', value: 20 }
+      quality: [
+        { key: "minQuestionLength", value: 10 },
+        { key: "maxQuestionLength", value: 500 },
+        { key: "minAnswerLength", value: 20 },
       ],
-      'sources': [
-        { key: 'chatSessionMinDuration', value: 300 },
-        { key: 'ticketMinResolutionTime', value: 1800 },
-        { key: 'requiredSatisfactionScore', value: 4 }
+      sources: [
+        { key: "chatSessionMinDuration", value: 300 },
+        { key: "ticketMinResolutionTime", value: 1800 },
+        { key: "requiredSatisfactionScore", value: 4 },
       ],
-      'categories': [
-        { key: 'excludedCategories', value: [] },
-        { key: 'autoCategorizationEnabled', value: true }
+      categories: [
+        { key: "excludedCategories", value: [] },
+        { key: "autoCategorizationEnabled", value: true },
       ],
-      'ai': [
-        { key: 'temperature', value: 0.7 },
-        { key: 'maxTokens', value: 1000 }
+      ai: [
+        { key: "temperature", value: 0.7 },
+        { key: "maxTokens", value: 1000 },
       ],
-      'advanced': [
-        { key: 'retentionPeriodDays', value: 365 }
-      ]
+      advanced: [{ key: "retentionPeriodDays", value: 365 }],
     };
 
     return defaults[sectionKey] || [];
   };
 
-  const validateSetting = (setting: ConfigSetting, value: any): string | null => {
+  const validateSetting = (
+    setting: ConfigSetting,
+    value: any,
+  ): string | null => {
     // Handle null/undefined values
     if (value === null || value === undefined) {
       if (setting.validation?.required) {
@@ -726,12 +805,12 @@ export default function ConfigurationManagementPage() {
 
     // Type validation with enhanced error messages
     switch (setting.type) {
-      case 'number':
-      case 'range':
+      case "number":
+      case "range":
         // Handle string inputs that should be numbers
-        const numValue = typeof value === 'string' ? parseFloat(value) : value;
+        const numValue = typeof value === "string" ? parseFloat(value) : value;
 
-        if (typeof numValue !== 'number' || isNaN(numValue)) {
+        if (typeof numValue !== "number" || isNaN(numValue)) {
           return `${setting.label} geçerli bir sayı olmalıdır`;
         }
 
@@ -742,43 +821,46 @@ export default function ConfigurationManagementPage() {
 
         // Range validation with context
         if (setting.min !== undefined && numValue < setting.min) {
-          const unit = setting.unit || '';
+          const unit = setting.unit || "";
           return `${setting.label} en az ${setting.min}${unit} olmalıdır`;
         }
         if (setting.max !== undefined && numValue > setting.max) {
-          const unit = setting.unit || '';
+          const unit = setting.unit || "";
           return `${setting.label} en fazla ${setting.max}${unit} olmalıdır`;
         }
 
         // Special validation for percentage values
-        if (setting.unit === '%' && (numValue < 0 || numValue > 100)) {
+        if (setting.unit === "%" && (numValue < 0 || numValue > 100)) {
           return `${setting.label} 0-100 arasında olmalıdır`;
         }
 
         // Special validation for confidence scores
-        if (setting.key.includes('Confidence') && (numValue < 0 || numValue > 100)) {
+        if (
+          setting.key.includes("Confidence") &&
+          (numValue < 0 || numValue > 100)
+        ) {
           return `Güven skoru 0-100 arasında olmalıdır`;
         }
 
         // Special validation for temperature (AI setting)
-        if (setting.key === 'temperature' && (numValue < 0 || numValue > 2)) {
+        if (setting.key === "temperature" && (numValue < 0 || numValue > 2)) {
           return `Sıcaklık değeri 0-2 arasında olmalıdır`;
         }
 
         break;
 
-      case 'boolean':
-        if (typeof value !== 'boolean') {
+      case "boolean":
+        if (typeof value !== "boolean") {
           return `${setting.label} doğru/yanlış değeri olmalıdır`;
         }
         break;
 
-      case 'string':
-      case 'textarea':
-        if (typeof value !== 'string') {
+      case "string":
+      case "textarea":
+        if (typeof value !== "string") {
           return `${setting.label} metin olmalıdır`;
         }
-        if (setting.validation?.required && value.trim() === '') {
+        if (setting.validation?.required && value.trim() === "") {
           return `${setting.label} zorunludur`;
         }
         if (setting.validation?.min && value.length < setting.validation.min) {
@@ -789,18 +871,24 @@ export default function ConfigurationManagementPage() {
         }
         break;
 
-      case 'multiselect':
+      case "multiselect":
         if (!Array.isArray(value)) {
           return `${setting.label} bir liste olmalıdır`;
         }
         // Validate that all selected values are valid options
-        if (setting.options && value.some(v => !setting.options?.find(opt => opt.value === v))) {
+        if (
+          setting.options &&
+          value.some((v) => !setting.options?.find((opt) => opt.value === v))
+        ) {
           return `${setting.label} geçersiz seçenekler içeriyor`;
         }
         break;
 
-      case 'select':
-        if (setting.options && !setting.options.find(opt => opt.value === value)) {
+      case "select":
+        if (
+          setting.options &&
+          !setting.options.find((opt) => opt.value === value)
+        ) {
           return `${setting.label} geçerli bir seçenek olmalıdır`;
         }
         break;
@@ -809,13 +897,17 @@ export default function ConfigurationManagementPage() {
     return null;
   };
 
-  const updateSettingValue = (sectionKey: string, settingKey: string, value: any) => {
+  const updateSettingValue = (
+    sectionKey: string,
+    settingKey: string,
+    value: any,
+  ) => {
     const settingId = `${sectionKey}-${settingKey}`;
 
     try {
       // Find the setting for validation
-      const section = configSections.find(s => s.key === sectionKey);
-      const setting = section?.settings.find(s => s.key === settingKey);
+      const section = configSections.find((s) => s.key === sectionKey);
+      const setting = section?.settings.find((s) => s.key === settingKey);
 
       if (!setting) {
         console.error(`Setting not found: ${settingId}`);
@@ -826,11 +918,12 @@ export default function ConfigurationManagementPage() {
       let normalizedValue = value;
 
       switch (setting.type) {
-        case 'number':
-        case 'range':
+        case "number":
+        case "range":
           // Handle string inputs and edge cases
-          if (typeof value === 'string') {
-            normalizedValue = value === '' ? setting.min || 0 : parseFloat(value);
+          if (typeof value === "string") {
+            normalizedValue =
+              value === "" ? setting.min || 0 : parseFloat(value);
           }
           // Clamp value to valid range to prevent invalid states
           if (setting.min !== undefined) {
@@ -841,22 +934,23 @@ export default function ConfigurationManagementPage() {
           }
           // Round to step if specified
           if (setting.step && setting.step !== 0) {
-            normalizedValue = Math.round(normalizedValue / setting.step) * setting.step;
+            normalizedValue =
+              Math.round(normalizedValue / setting.step) * setting.step;
           }
           break;
 
-        case 'string':
-        case 'textarea':
+        case "string":
+        case "textarea":
           // Ensure string type and trim whitespace
-          normalizedValue = String(value || '').trim();
+          normalizedValue = String(value || "").trim();
           break;
 
-        case 'multiselect':
+        case "multiselect":
           // Ensure array type and remove duplicates
           normalizedValue = Array.isArray(value) ? [...new Set(value)] : [];
           break;
 
-        case 'boolean':
+        case "boolean":
           // Ensure boolean type
           normalizedValue = Boolean(value);
           break;
@@ -864,26 +958,26 @@ export default function ConfigurationManagementPage() {
 
       // Validate the normalized value
       const error = validateSetting(setting, normalizedValue);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        [settingId]: error || ''
+        [settingId]: error || "",
       }));
 
       // Update the setting value with error boundary
-      setConfigSections(prev => {
+      setConfigSections((prev) => {
         try {
-          return prev.map(section =>
+          return prev.map((section) =>
             section.key === sectionKey
               ? {
-                ...section,
-                settings: section.settings.map(s =>
-                  s.key === settingKey ? { ...s, value: normalizedValue } : s
-                )
-              }
-              : section
+                  ...section,
+                  settings: section.settings.map((s) =>
+                    s.key === settingKey ? { ...s, value: normalizedValue } : s,
+                  ),
+                }
+              : section,
           );
         } catch (updateError) {
-          console.error('Error updating config sections:', updateError);
+          console.error("Error updating config sections:", updateError);
           return prev; // Return previous state on error
         }
       });
@@ -891,9 +985,10 @@ export default function ConfigurationManagementPage() {
       // Track changes with error handling
       try {
         const originalValue = originalValues[settingId];
-        const hasChanged = JSON.stringify(normalizedValue) !== JSON.stringify(originalValue);
+        const hasChanged =
+          JSON.stringify(normalizedValue) !== JSON.stringify(originalValue);
 
-        setChangedSettings(prev => {
+        setChangedSettings((prev) => {
           const newSet = new Set(prev);
           if (hasChanged) {
             newSet.add(settingId);
@@ -904,7 +999,7 @@ export default function ConfigurationManagementPage() {
         });
 
         // Update global hasChanges state
-        setHasChanges(prev => {
+        setHasChanges((prev) => {
           const newChangedSettings = new Set(changedSettings);
           if (hasChanged) {
             newChangedSettings.add(settingId);
@@ -913,41 +1008,45 @@ export default function ConfigurationManagementPage() {
           }
           return newChangedSettings.size > 0;
         });
-
       } catch (trackingError) {
-        console.error('Error tracking changes:', trackingError);
+        console.error("Error tracking changes:", trackingError);
       }
-
     } catch (error) {
-      console.error('Error updating setting value:', error);
+      console.error("Error updating setting value:", error);
 
       // Show user-friendly error message
       toast({
-        title: 'Güncelleme Hatası',
+        title: "Güncelleme Hatası",
         description: `${settingKey} güncellenirken bir hata oluştu.`,
-        variant: 'destructive',
-        duration: 3000
+        variant: "destructive",
+        duration: 3000,
       });
     }
   };
 
   // Function to restore original values (cancel changes)
-  const handleCancelChanges = () => {
-    if (!confirm('Tüm değişiklikleri iptal etmek istediğinizden emin misiniz?\n\nBu işlem tüm kaydedilmemiş değişiklikleri geri alır.')) {
+  const handleCancelChanges = async () => {
+    if (
+      !(await confirmDialog({
+        title:
+          "Tüm değişiklikleri iptal etmek istediğinizden emin misiniz?\n\nBu işlem tüm kaydedilmemiş değişiklikleri geri alır.",
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
     // Restore original values
-    setConfigSections(prev =>
-      prev.map(section => ({
+    setConfigSections((prev) =>
+      prev.map((section) => ({
         ...section,
-        settings: section.settings.map(setting => {
+        settings: section.settings.map((setting) => {
           const originalValue = originalValues[`${section.key}-${setting.key}`];
           return originalValue !== undefined
             ? { ...setting, value: originalValue }
             : setting;
-        })
-      }))
+        }),
+      })),
     );
 
     // Reset change tracking
@@ -956,13 +1055,16 @@ export default function ConfigurationManagementPage() {
     setValidationErrors({});
 
     toast({
-      title: 'Değişiklikler İptal Edildi',
-      description: 'Tüm ayarlar orijinal değerlerine geri döndürüldü',
-      variant: 'default'
+      title: "Değişiklikler İptal Edildi",
+      description: "Tüm ayarlar orijinal değerlerine geri döndürüldü",
+      variant: "default",
     });
   };
 
-  const renderSettingInput = (section: ConfigSection, setting: ConfigSetting) => {
+  const renderSettingInput = (
+    section: ConfigSection,
+    setting: ConfigSetting,
+  ) => {
     const inputId = `${section.key}-${setting.key}`;
     const errorKey = `${section.key}-${setting.key}`;
     const hasError = validationErrors[errorKey];
@@ -971,22 +1073,24 @@ export default function ConfigurationManagementPage() {
     const getTooltipContent = () => {
       let content = setting.description;
       if (setting.min !== undefined && setting.max !== undefined) {
-        content += ` (${setting.min} - ${setting.max}${setting.unit || ''})`;
+        content += ` (${setting.min} - ${setting.max}${setting.unit || ""})`;
       }
-      if (setting.type === 'range' && setting.step) {
+      if (setting.type === "range" && setting.step) {
         content += ` Adım: ${setting.step}`;
       }
       return content;
     };
 
     switch (setting.type) {
-      case 'boolean':
+      case "boolean":
         return (
           <div className="flex items-center gap-2">
             <Switch
               id={inputId}
               checked={setting.value}
-              onCheckedChange={(checked) => updateSettingValue(section.key, setting.key, checked)}
+              onCheckedChange={(checked) =>
+                updateSettingValue(section.key, setting.key, checked)
+              }
               aria-label={setting.label}
             />
             <TooltipProvider>
@@ -1002,13 +1106,14 @@ export default function ConfigurationManagementPage() {
           </div>
         );
 
-      case 'range':
+      case "range":
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-primary">
-                  {setting.value}{setting.unit || ''}
+                  {setting.value}
+                  {setting.unit || ""}
                 </span>
                 <TooltipProvider>
                   <Tooltip>
@@ -1021,11 +1126,17 @@ export default function ConfigurationManagementPage() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              {screenSize === 'mobile' && (
+              {screenSize === "mobile" && (
                 <Input
                   type="number"
                   value={setting.value}
-                  onChange={(e) => updateSettingValue(section.key, setting.key, Number(e.target.value))}
+                  onChange={(e) =>
+                    updateSettingValue(
+                      section.key,
+                      setting.key,
+                      Number(e.target.value),
+                    )
+                  }
                   min={setting.min}
                   max={setting.max}
                   step={setting.step}
@@ -1039,22 +1150,32 @@ export default function ConfigurationManagementPage() {
               max={setting.max}
               step={setting.step}
               value={[setting.value]}
-              onValueChange={([value]) => updateSettingValue(section.key, setting.key, value)}
+              onValueChange={([value]) =>
+                updateSettingValue(section.key, setting.key, value)
+              }
               className="w-full"
               aria-label={setting.label}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{setting.min}{setting.unit || ''}</span>
-              <span>{setting.max}{setting.unit || ''}</span>
+              <span>
+                {setting.min}
+                {setting.unit || ""}
+              </span>
+              <span>
+                {setting.max}
+                {setting.unit || ""}
+              </span>
             </div>
           </div>
         );
 
-      case 'select':
+      case "select":
         return (
           <Select
             value={setting.value}
-            onValueChange={(value) => updateSettingValue(section.key, setting.key, value)}
+            onValueChange={(value) =>
+              updateSettingValue(section.key, setting.key, value)
+            }
           >
             <SelectTrigger id={inputId}>
               <SelectValue />
@@ -1069,23 +1190,27 @@ export default function ConfigurationManagementPage() {
           </Select>
         );
 
-      case 'textarea':
+      case "textarea":
         return (
           <div className="space-y-1">
             <Textarea
               id={inputId}
               value={setting.value}
-              onChange={(e) => updateSettingValue(section.key, setting.key, e.target.value)}
+              onChange={(e) =>
+                updateSettingValue(section.key, setting.key, e.target.value)
+              }
               rows={4}
-              className={hasError ? 'border-red-500 focus:border-red-500' : ''}
+              className={hasError ? "border-red-500 focus:border-red-500" : ""}
             />
             {hasError && (
-              <p className="text-sm text-red-500">{validationErrors[errorKey]}</p>
+              <p className="text-sm text-red-500">
+                {validationErrors[errorKey]}
+              </p>
             )}
           </div>
         );
 
-      case 'number':
+      case "number":
         return (
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -1093,15 +1218,23 @@ export default function ConfigurationManagementPage() {
                 id={inputId}
                 type="number"
                 value={setting.value}
-                onChange={(e) => updateSettingValue(section.key, setting.key, Number(e.target.value))}
+                onChange={(e) =>
+                  updateSettingValue(
+                    section.key,
+                    setting.key,
+                    Number(e.target.value),
+                  )
+                }
                 min={setting.min}
                 max={setting.max}
                 step={setting.step}
-                className={`${screenSize === 'mobile' ? 'max-w-full' : 'max-w-[200px]'} ${hasError ? 'border-red-500 focus:border-red-500' : ''}`}
+                className={`${screenSize === "mobile" ? "max-w-full" : "max-w-[200px]"} ${hasError ? "border-red-500 focus:border-red-500" : ""}`}
                 aria-label={setting.label}
               />
               {setting.unit && (
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{setting.unit}</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {setting.unit}
+                </span>
               )}
               <TooltipProvider>
                 <Tooltip>
@@ -1115,30 +1248,41 @@ export default function ConfigurationManagementPage() {
               </TooltipProvider>
             </div>
             {hasError && (
-              <p className="text-sm text-red-500">{validationErrors[errorKey]}</p>
+              <p className="text-sm text-red-500">
+                {validationErrors[errorKey]}
+              </p>
             )}
           </div>
         );
 
-      case 'multiselect':
+      case "multiselect":
         return (
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2 mb-2">
-              {setting.value && Array.isArray(setting.value) && setting.value.map((selectedValue: string) => (
-                <Badge key={selectedValue} variant="secondary" className="flex items-center gap-1">
-                  {setting.options?.find(opt => opt.value === selectedValue)?.label || selectedValue}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newValue = setting.value.filter((v: string) => v !== selectedValue);
-                      updateSettingValue(section.key, setting.key, newValue);
-                    }}
-                    className="ml-1 text-xs hover:text-red-500"
+              {setting.value &&
+                Array.isArray(setting.value) &&
+                setting.value.map((selectedValue: string) => (
+                  <Badge
+                    key={selectedValue}
+                    variant="secondary"
+                    className="flex items-center gap-1"
                   >
-                    ×
-                  </button>
-                </Badge>
-              ))}
+                    {setting.options?.find((opt) => opt.value === selectedValue)
+                      ?.label || selectedValue}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newValue = setting.value.filter(
+                          (v: string) => v !== selectedValue,
+                        );
+                        updateSettingValue(section.key, setting.key, newValue);
+                      }}
+                      className="ml-1 text-xs hover:text-red-500"
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
             </div>
             <Select
               value=""
@@ -1153,11 +1297,13 @@ export default function ConfigurationManagementPage() {
                 <SelectValue placeholder="Kategori seçin..." />
               </SelectTrigger>
               <SelectContent>
-                {setting.options?.filter(option => !setting.value?.includes(option.value)).map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                {setting.options
+                  ?.filter((option) => !setting.value?.includes(option.value))
+                  .map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -1170,11 +1316,15 @@ export default function ConfigurationManagementPage() {
               id={inputId}
               type="text"
               value={setting.value}
-              onChange={(e) => updateSettingValue(section.key, setting.key, e.target.value)}
-              className={hasError ? 'border-red-500 focus:border-red-500' : ''}
+              onChange={(e) =>
+                updateSettingValue(section.key, setting.key, e.target.value)
+              }
+              className={hasError ? "border-red-500 focus:border-red-500" : ""}
             />
             {hasError && (
-              <p className="text-sm text-red-500">{validationErrors[errorKey]}</p>
+              <p className="text-sm text-red-500">
+                {validationErrors[errorKey]}
+              </p>
             )}
           </div>
         );
@@ -1205,22 +1355,43 @@ export default function ConfigurationManagementPage() {
             {/* Connection status indicator */}
             <div className="flex items-center gap-2">
               <Badge
-                variant={connectionQuality === 'offline' ? 'destructive' : connectionQuality === 'poor' ? 'secondary' : 'default'}
+                variant={
+                  connectionQuality === "offline"
+                    ? "destructive"
+                    : connectionQuality === "poor"
+                      ? "secondary"
+                      : "default"
+                }
                 className="text-xs"
               >
-                <div className={`w-2 h-2 rounded-full mr-1 ${connectionQuality === 'offline' ? 'bg-red-500' :
-                    connectionQuality === 'poor' ? 'bg-yellow-500' : 'bg-green-500'
-                  }`} />
-                {connectionQuality === 'offline' ? 'Çevrimdışı' :
-                  connectionQuality === 'poor' ? 'Yavaş Bağlantı' : 'Çevrimiçi'}
+                <div
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    connectionQuality === "offline"
+                      ? "bg-red-500"
+                      : connectionQuality === "poor"
+                        ? "bg-yellow-500"
+                        : "bg-green-500"
+                  }`}
+                />
+                {connectionQuality === "offline"
+                  ? "Çevrimdışı"
+                  : connectionQuality === "poor"
+                    ? "Yavaş Bağlantı"
+                    : "Çevrimiçi"}
               </Badge>
 
               {/* Screen size indicator for debugging */}
-              {process.env.NODE_ENV === 'development' && (
+              {process.env.NODE_ENV === "development" && (
                 <Badge variant="outline" className="text-xs">
-                  {screenSize === 'mobile' && <Smartphone className="h-3 w-3 mr-1" />}
-                  {screenSize === 'tablet' && <Tablet className="h-3 w-3 mr-1" />}
-                  {screenSize === 'desktop' && <Monitor className="h-3 w-3 mr-1" />}
+                  {screenSize === "mobile" && (
+                    <Smartphone className="h-3 w-3 mr-1" />
+                  )}
+                  {screenSize === "tablet" && (
+                    <Tablet className="h-3 w-3 mr-1" />
+                  )}
+                  {screenSize === "desktop" && (
+                    <Monitor className="h-3 w-3 mr-1" />
+                  )}
                   {screenSize}
                 </Badge>
               )}
@@ -1236,24 +1407,24 @@ export default function ConfigurationManagementPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              size={screenSize === 'mobile' ? 'sm' : 'default'}
+              size={screenSize === "mobile" ? "sm" : "default"}
               onClick={() => loadConfiguration()}
               disabled={isLoading}
               className="flex-1 sm:flex-none"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              {screenSize === 'mobile' ? 'Yenile' : 'Yenile'}
+              {screenSize === "mobile" ? "Yenile" : "Yenile"}
             </Button>
             {hasChanges && (
               <Button
                 variant="outline"
-                size={screenSize === 'mobile' ? 'sm' : 'default'}
+                size={screenSize === "mobile" ? "sm" : "default"}
                 onClick={handleCancelChanges}
                 disabled={isSaving}
                 className="flex-1 sm:flex-none"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                {screenSize === 'mobile' ? 'İptal' : 'Değişiklikleri İptal Et'}
+                {screenSize === "mobile" ? "İptal" : "Değişiklikleri İptal Et"}
               </Button>
             )}
           </div>
@@ -1264,20 +1435,22 @@ export default function ConfigurationManagementPage() {
               !hasChanges ||
               isSaving ||
               !isOnline ||
-              Object.values(validationErrors).some(error => error !== '')
+              Object.values(validationErrors).some((error) => error !== "")
             }
-            className={`${hasChanges ? 'bg-primary hover:bg-primary/90' : ''} w-full sm:w-auto`}
-            size={screenSize === 'mobile' ? 'sm' : 'default'}
+            className={`${hasChanges ? "bg-primary hover:bg-primary/90" : ""} w-full sm:w-auto`}
+            size={screenSize === "mobile" ? "sm" : "default"}
           >
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {screenSize === 'mobile' ? 'Kaydediliyor...' : `Kaydediliyor... (${changedSettings.size} değişiklik)`}
+                {screenSize === "mobile"
+                  ? "Kaydediliyor..."
+                  : `Kaydediliyor... (${changedSettings.size} değişiklik)`}
               </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                {screenSize === 'mobile' ? 'Kaydet' : 'Tüm Ayarları Kaydet'}
+                {screenSize === "mobile" ? "Kaydet" : "Tüm Ayarları Kaydet"}
                 {hasChanges && (
                   <Badge variant="secondary" className="ml-2">
                     {changedSettings.size}
@@ -1295,13 +1468,14 @@ export default function ConfigurationManagementPage() {
           <AlertTriangle className="h-4 w-4 text-red-600" />
           <AlertTitle className="text-red-800">Bağlantı Yok</AlertTitle>
           <AlertDescription className="text-red-800">
-            İnternet bağlantınız kesildi. Değişiklikler kaydedilemeyecek. Lütfen bağlantınızı kontrol edin.
+            İnternet bağlantınız kesildi. Değişiklikler kaydedilemeyecek. Lütfen
+            bağlantınızı kontrol edin.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Poor Connection Warning */}
-      {isOnline && connectionQuality === 'poor' && (
+      {isOnline && connectionQuality === "poor" && (
         <Alert className="border-yellow-200 bg-yellow-50">
           <Clock className="h-4 w-4 text-yellow-600" />
           <AlertTitle className="text-yellow-800">Yavaş Bağlantı</AlertTitle>
@@ -1315,22 +1489,35 @@ export default function ConfigurationManagementPage() {
       {hasChanges && (
         <Alert className="border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
-          <AlertTitle className="text-orange-900">Kaydedilmemiş Değişiklikler</AlertTitle>
+          <AlertTitle className="text-orange-900">
+            Kaydedilmemiş Değişiklikler
+          </AlertTitle>
           <AlertDescription className="text-orange-800 space-y-2">
             <p>
-              {changedSettings.size} ayarda değişiklik yaptınız. Değişiklikleri kaydetmeyi unutmayın.
+              {changedSettings.size} ayarda değişiklik yaptınız. Değişiklikleri
+              kaydetmeyi unutmayın.
             </p>
             <div className="flex flex-wrap gap-1 mt-2">
-              {Array.from(changedSettings).slice(0, 5).map(settingId => {
-                const [sectionKey, settingKey] = settingId.split('-');
-                const section = configSections.find(s => s.key === sectionKey);
-                const setting = section?.settings.find(s => s.key === settingKey);
-                return setting ? (
-                  <Badge key={settingId} variant="outline" className="text-xs">
-                    {setting.label}
-                  </Badge>
-                ) : null;
-              })}
+              {Array.from(changedSettings)
+                .slice(0, 5)
+                .map((settingId) => {
+                  const [sectionKey, settingKey] = settingId.split("-");
+                  const section = configSections.find(
+                    (s) => s.key === sectionKey,
+                  );
+                  const setting = section?.settings.find(
+                    (s) => s.key === settingKey,
+                  );
+                  return setting ? (
+                    <Badge
+                      key={settingId}
+                      variant="outline"
+                      className="text-xs"
+                    >
+                      {setting.label}
+                    </Badge>
+                  ) : null;
+                })}
               {changedSettings.size > 5 && (
                 <Badge variant="outline" className="text-xs">
                   +{changedSettings.size - 5} daha
@@ -1348,7 +1535,8 @@ export default function ConfigurationManagementPage() {
             <Settings className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Ayar Bulunamadı</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Henüz hiç ayar yapılandırılmamış. Backend'den ayarlar yüklenemedi.
+              Henüz hiç ayar yapılandırılmamış. Backend&apos;den ayarlar
+              yüklenemedi.
             </p>
             <Button onClick={() => loadConfiguration()}>
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -1360,20 +1548,27 @@ export default function ConfigurationManagementPage() {
 
       {/* Tabs */}
       {configSections.length > 0 && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
           {/* Responsive tab layout */}
           <div className="space-y-2">
-            <TabsList className={`
-              ${screenSize === 'mobile'
-                ? 'grid grid-cols-2 gap-1 h-auto p-1'
-                : screenSize === 'tablet'
-                  ? 'grid grid-cols-4 gap-1'
-                  : 'grid grid-cols-8 gap-1'
+            <TabsList
+              className={`
+              ${
+                screenSize === "mobile"
+                  ? "grid grid-cols-2 gap-1 h-auto p-1"
+                  : screenSize === "tablet"
+                    ? "grid grid-cols-4 gap-1"
+                    : "grid grid-cols-8 gap-1"
               } w-full
-            `}>
+            `}
+            >
               {configSections.map((section) => {
-                const sectionHasChanges = section.settings.some(setting =>
-                  changedSettings.has(`${section.key}-${setting.key}`)
+                const sectionHasChanges = section.settings.some((setting) =>
+                  changedSettings.has(`${section.key}-${setting.key}`),
                 );
                 return (
                   <TabsTrigger
@@ -1381,13 +1576,21 @@ export default function ConfigurationManagementPage() {
                     value={section.key}
                     className={`
                       flex items-center gap-1 sm:gap-2 relative text-xs sm:text-sm
-                      ${screenSize === 'mobile' ? 'flex-col p-2 h-auto min-h-[60px]' : 'flex-row'}
+                      ${screenSize === "mobile" ? "flex-col p-2 h-auto min-h-[60px]" : "flex-row"}
                     `}
                   >
                     <div className="flex items-center gap-1">
                       {section.icon}
-                      <span className={screenSize === 'mobile' ? 'text-center leading-tight' : 'hidden sm:inline'}>
-                        {screenSize === 'mobile' ? section.title.split(' ')[0] : section.title}
+                      <span
+                        className={
+                          screenSize === "mobile"
+                            ? "text-center leading-tight"
+                            : "hidden sm:inline"
+                        }
+                      >
+                        {screenSize === "mobile"
+                          ? section.title.split(" ")[0]
+                          : section.title}
                       </span>
                     </div>
                     {sectionHasChanges && (
@@ -1399,7 +1602,7 @@ export default function ConfigurationManagementPage() {
             </TabsList>
 
             {/* Advanced settings toggle for mobile */}
-            {screenSize === 'mobile' && (
+            {screenSize === "mobile" && (
               <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4" />
@@ -1414,8 +1617,12 @@ export default function ConfigurationManagementPage() {
           </div>
 
           {configSections.map((section) => (
-            <TabsContent key={section.key} value={section.key} className="space-y-4">
-              {section.key === 'ai' ? (
+            <TabsContent
+              key={section.key}
+              value={section.key}
+              className="space-y-4"
+            >
+              {section.key === "ai" ? (
                 // Special AI Model Tab
                 <div className="space-y-4">
                   {/* AI Provider Info Card */}
@@ -1434,9 +1641,17 @@ export default function ConfigurationManagementPage() {
                         <>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label className="text-sm font-medium">Sağlayıcı</Label>
+                              <Label className="text-sm font-medium">
+                                Sağlayıcı
+                              </Label>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge variant={aiProviderInfo.available ? "default" : "destructive"}>
+                                <Badge
+                                  variant={
+                                    aiProviderInfo.available
+                                      ? "default"
+                                      : "destructive"
+                                  }
+                                >
                                   {aiProviderInfo.currentProvider.toUpperCase()}
                                 </Badge>
                                 {aiProviderInfo.available ? (
@@ -1447,7 +1662,9 @@ export default function ConfigurationManagementPage() {
                               </div>
                             </div>
                             <div>
-                              <Label className="text-sm font-medium">Model</Label>
+                              <Label className="text-sm font-medium">
+                                Model
+                              </Label>
                               <div className="mt-1 font-mono text-sm">
                                 {aiProviderInfo.currentModel}
                               </div>
@@ -1456,14 +1673,15 @@ export default function ConfigurationManagementPage() {
                           <Alert>
                             <Info className="h-4 w-4" />
                             <AlertDescription>
-                              AI sağlayıcısını ve modelini değiştirmek için{' '}
-                              <a
+                              AI sağlayıcısını ve modelini değiştirmek için{" "}
+                              <Link
                                 href="/admin/ai-settings"
                                 className="underline hover:text-primary"
                               >
                                 Global AI Ayarları
-                              </a>
-                              'na gidin. Burada sadece model parametrelerini ayarlayabilirsiniz.
+                              </Link>
+                              &apos;na gidin. Burada sadece model
+                              parametrelerini ayarlayabilirsiniz.
                             </AlertDescription>
                           </Alert>
                         </>
@@ -1500,16 +1718,27 @@ export default function ConfigurationManagementPage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {section.settings.map((setting) => (
-                        <div key={setting.key} className="space-y-3 pb-6 border-b last:border-0 last:pb-0">
+                        <div
+                          key={setting.key}
+                          className="space-y-3 pb-6 border-b last:border-0 last:pb-0"
+                        >
                           <div className="flex items-start justify-between">
                             <div className="space-y-1 flex-1">
-                              <Label htmlFor={`${section.key}-${setting.key}`} className="text-base font-medium flex items-center gap-2">
+                              <Label
+                                htmlFor={`${section.key}-${setting.key}`}
+                                className="text-base font-medium flex items-center gap-2"
+                              >
                                 {setting.label}
                                 {setting.validation?.required && (
                                   <span className="text-red-500 ml-1">*</span>
                                 )}
-                                {changedSettings.has(`${section.key}-${setting.key}`) && (
-                                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Değiştirildi" />
+                                {changedSettings.has(
+                                  `${section.key}-${setting.key}`,
+                                ) && (
+                                  <div
+                                    className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"
+                                    title="Değiştirildi"
+                                  />
                                 )}
                               </Label>
                               <p className="text-sm text-muted-foreground">
@@ -1517,16 +1746,24 @@ export default function ConfigurationManagementPage() {
                               </p>
                             </div>
                             <div className="flex items-center gap-2 ml-2">
-                              {changedSettings.has(`${section.key}-${setting.key}`) && (
-                                <Badge variant="outline" className="border-orange-500 text-orange-700 bg-orange-50">
+                              {changedSettings.has(
+                                `${section.key}-${setting.key}`,
+                              ) && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-orange-500 text-orange-700 bg-orange-50"
+                                >
                                   Değiştirildi
                                 </Badge>
                               )}
-                              {setting.value !== setting.defaultValue && !changedSettings.has(`${section.key}-${setting.key}`) && (
-                                <Badge variant="secondary">
-                                  Varsayılan Değil
-                                </Badge>
-                              )}
+                              {setting.value !== setting.defaultValue &&
+                                !changedSettings.has(
+                                  `${section.key}-${setting.key}`,
+                                ) && (
+                                  <Badge variant="secondary">
+                                    Varsayılan Değil
+                                  </Badge>
+                                )}
                             </div>
                           </div>
                           {renderSettingInput(section, setting)}
@@ -1553,93 +1790,129 @@ export default function ConfigurationManagementPage() {
                         onClick={() => handleReset(section.key)}
                         disabled={isResetting === section.key}
                       >
-                        <RefreshCw className={`mr-2 h-3 w-3 ${isResetting === section.key ? 'animate-spin' : ''}`} />
-                        {isResetting === section.key ? 'Sıfırlanıyor...' : 'Varsayılana Dön'}
+                        <RefreshCw
+                          className={`mr-2 h-3 w-3 ${isResetting === section.key ? "animate-spin" : ""}`}
+                        />
+                        {isResetting === section.key
+                          ? "Sıfırlanıyor..."
+                          : "Varsayılana Dön"}
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {section.settings.map((setting) => {
-                      // Hide advanced settings on mobile unless toggle is on
-                      if (screenSize === 'mobile' && !showAdvancedSettings &&
-                        ['advanced', 'categories'].includes(section.key)) {
-                        return null;
-                      }
+                    {section.settings
+                      .map((setting) => {
+                        // Hide advanced settings on mobile unless toggle is on
+                        if (
+                          screenSize === "mobile" &&
+                          !showAdvancedSettings &&
+                          ["advanced", "categories"].includes(section.key)
+                        ) {
+                          return null;
+                        }
 
-                      return (
-                        <div key={setting.key} className={`
+                        return (
+                          <div
+                            key={setting.key}
+                            className={`
                         space-y-3 pb-6 border-b last:border-0 last:pb-0
-                        ${screenSize === 'mobile' ? 'pb-4' : 'pb-6'}
-                      `}>
-                          <div className={`
+                        ${screenSize === "mobile" ? "pb-4" : "pb-6"}
+                      `}
+                          >
+                            <div
+                              className={`
                           flex items-start justify-between gap-4
-                          ${screenSize === 'mobile' ? 'flex-col gap-2' : 'flex-row'}
-                        `}>
-                            <div className="space-y-1 flex-1 min-w-0">
-                              <Label
-                                htmlFor={`${section.key}-${setting.key}`}
-                                className={`
-                                font-medium flex items-center gap-2 flex-wrap
-                                ${screenSize === 'mobile' ? 'text-sm' : 'text-base'}
-                              `}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {setting.label}
-                                  {setting.validation?.required && (
-                                    <span className="text-red-500">*</span>
-                                  )}
-                                  {changedSettings.has(`${section.key}-${setting.key}`) && (
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Değiştirildi" />
-                                  )}
-                                </span>
-                              </Label>
-                              <p className={`
-                              text-muted-foreground break-words
-                              ${screenSize === 'mobile' ? 'text-xs' : 'text-sm'}
-                            `}>
-                                {setting.description}
-                              </p>
-                            </div>
-
-                            {/* Status badges - responsive layout */}
-                            <div className={`
-                            flex items-center gap-2 flex-shrink-0
-                            ${screenSize === 'mobile' ? 'self-start' : 'ml-2'}
-                          `}>
-                              {changedSettings.has(`${section.key}-${setting.key}`) && (
-                                <Badge
-                                  variant="outline"
+                          ${screenSize === "mobile" ? "flex-col gap-2" : "flex-row"}
+                        `}
+                            >
+                              <div className="space-y-1 flex-1 min-w-0">
+                                <Label
+                                  htmlFor={`${section.key}-${setting.key}`}
                                   className={`
+                                font-medium flex items-center gap-2 flex-wrap
+                                ${screenSize === "mobile" ? "text-sm" : "text-base"}
+                              `}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {setting.label}
+                                    {setting.validation?.required && (
+                                      <span className="text-red-500">*</span>
+                                    )}
+                                    {changedSettings.has(
+                                      `${section.key}-${setting.key}`,
+                                    ) && (
+                                      <div
+                                        className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"
+                                        title="Değiştirildi"
+                                      />
+                                    )}
+                                  </span>
+                                </Label>
+                                <p
+                                  className={`
+                              text-muted-foreground break-words
+                              ${screenSize === "mobile" ? "text-xs" : "text-sm"}
+                            `}
+                                >
+                                  {setting.description}
+                                </p>
+                              </div>
+
+                              {/* Status badges - responsive layout */}
+                              <div
+                                className={`
+                            flex items-center gap-2 flex-shrink-0
+                            ${screenSize === "mobile" ? "self-start" : "ml-2"}
+                          `}
+                              >
+                                {changedSettings.has(
+                                  `${section.key}-${setting.key}`,
+                                ) && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`
                                   border-orange-500 text-orange-700 bg-orange-50
-                                  ${screenSize === 'mobile' ? 'text-xs px-2 py-1' : ''}
+                                  ${screenSize === "mobile" ? "text-xs px-2 py-1" : ""}
                                 `}
-                                >
-                                  {screenSize === 'mobile' ? 'Değişti' : 'Değiştirildi'}
-                                </Badge>
+                                  >
+                                    {screenSize === "mobile"
+                                      ? "Değişti"
+                                      : "Değiştirildi"}
+                                  </Badge>
+                                )}
+                                {setting.value !== setting.defaultValue &&
+                                  !changedSettings.has(
+                                    `${section.key}-${setting.key}`,
+                                  ) && (
+                                    <Badge
+                                      variant="secondary"
+                                      className={
+                                        screenSize === "mobile"
+                                          ? "text-xs px-2 py-1"
+                                          : ""
+                                      }
+                                    >
+                                      {screenSize === "mobile"
+                                        ? "Özel"
+                                        : "Varsayılan Değil"}
+                                    </Badge>
+                                  )}
+                              </div>
+                            </div>
+
+                            {/* Input container with loading state */}
+                            <div className="relative">
+                              {isSaving && (
+                                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-md flex items-center justify-center z-10">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                </div>
                               )}
-                              {setting.value !== setting.defaultValue && !changedSettings.has(`${section.key}-${setting.key}`) && (
-                                <Badge
-                                  variant="secondary"
-                                  className={screenSize === 'mobile' ? 'text-xs px-2 py-1' : ''}
-                                >
-                                  {screenSize === 'mobile' ? 'Özel' : 'Varsayılan Değil'}
-                                </Badge>
-                              )}
+                              {renderSettingInput(section, setting)}
                             </div>
                           </div>
-
-                          {/* Input container with loading state */}
-                          <div className="relative">
-                            {isSaving && (
-                              <div className="absolute inset-0 bg-background/50 backdrop-blur-sm rounded-md flex items-center justify-center z-10">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              </div>
-                            )}
-                            {renderSettingInput(section, setting)}
-                          </div>
-                        </div>
-                      );
-                    }).filter(Boolean)}
+                        );
+                      })
+                      .filter(Boolean)}
                   </CardContent>
                 </Card>
               )}
@@ -1659,16 +1932,22 @@ export default function ConfigurationManagementPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              <strong>Güven Eşikleri:</strong> FAQ'ların otomatik onaylanması veya incelemeye gönderilmesi için kullanılır.
+              <strong>Güven Eşikleri:</strong> FAQ&apos;ların otomatik
+              onaylanması veya incelemeye gönderilmesi için kullanılır.
             </p>
             <p>
-              <strong>İşleme Ayarları:</strong> Batch boyutu ve gerçek zamanlı işleme seçeneklerini kontrol eder.
+              <strong>İşleme Ayarları:</strong> Batch boyutu ve gerçek zamanlı
+              işleme seçeneklerini kontrol eder.
             </p>
             <p>
-              <strong>Varsayılan Değerler:</strong> Her kategori için "Varsayılana Dön" butonunu kullanarak varsayılan değerlere dönebilirsiniz.
+              <strong>Varsayılan Değerler:</strong> Her kategori için
+              &quot;Varsayılana Dön&quot; butonunu kullanarak varsayılan
+              değerlere dönebilirsiniz.
             </p>
             <p>
-              <strong>Değişiklikler:</strong> Tüm değişiklikler "Tüm Ayarları Kaydet" butonuna basılana kadar geçici olarak saklanır.
+              <strong>Değişiklikler:</strong> Tüm değişiklikler &quot;Tüm
+              Ayarları Kaydet&quot; butonuna basılana kadar geçici olarak
+              saklanır.
             </p>
           </CardContent>
         </Card>

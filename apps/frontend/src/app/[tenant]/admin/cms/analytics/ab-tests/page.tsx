@@ -1,25 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { ABTestList } from '@/components/cms/analytics/ab-test-list';
-import { ABTestFormDialog } from '@/components/cms/analytics/ab-test-form-dialog';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useState, useEffect } from "react";
+import { ABTestList } from "@/components/cms/analytics/ab-test-list";
+import { ABTestFormDialog } from "@/components/cms/analytics/ab-test-form-dialog";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { FlaskConical, Plus, RefreshCw } from 'lucide-react';
-import { cmsAnalyticsService } from '@/lib/api/cmsAnalyticsService';
-import type { ABTest, ABTestStatus, CreateABTestDto } from '@/lib/api/cmsAnalyticsService';
+} from "@/components/ui/select";
+import { FlaskConical, Plus, RefreshCw } from "lucide-react";
+import { cmsAnalyticsService } from "@/lib/api/cmsAnalyticsService";
+import type {
+  ABTest,
+  ABTestStatus,
+  CreateABTestDto,
+} from "@/lib/api/cmsAnalyticsService";
+import { toast as notify } from "@/lib/notify";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 export default function ABTestsPage() {
   const [tests, setTests] = useState<ABTest[]>([]);
   const [filteredTests, setFilteredTests] = useState<ABTest[]>([]);
-  const [statusFilter, setStatusFilter] = useState<ABTestStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ABTestStatus | "all">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -35,23 +42,23 @@ export default function ABTestsPage() {
       setTests(data);
       applyFilter(data, statusFilter);
     } catch (err) {
-      console.error('AB tests fetch error:', err);
-      setError('A/B testleri yüklenirken bir hata oluştu.');
+      console.error("AB tests fetch error:", err);
+      setError("A/B testleri yüklenirken bir hata oluştu.");
       setTests([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const applyFilter = (testList: ABTest[], status: ABTestStatus | 'all') => {
-    if (status === 'all') {
+  const applyFilter = (testList: ABTest[], status: ABTestStatus | "all") => {
+    if (status === "all") {
       setFilteredTests(testList);
     } else {
       setFilteredTests(testList.filter((t) => t.status === status));
     }
   };
 
-  useEffect(() => {
+  useAsyncEffect(() => {
     fetchTests();
   }, []);
 
@@ -67,8 +74,8 @@ export default function ABTestsPage() {
       setEditingTest(null);
       fetchTests();
     } catch (err) {
-      console.error('Create AB test error:', err);
-      alert('Test oluşturulurken bir hata oluştu.');
+      console.error("Create AB test error:", err);
+      notify.error("Test oluşturulurken bir hata oluştu.");
     } finally {
       setIsSubmitting(false);
     }
@@ -79,8 +86,8 @@ export default function ABTestsPage() {
       await cmsAnalyticsService.startABTest(id);
       fetchTests();
     } catch (err) {
-      console.error('Start AB test error:', err);
-      alert('Test başlatılırken bir hata oluştu.');
+      console.error("Start AB test error:", err);
+      notify.error("Test başlatılırken bir hata oluştu.");
     }
   };
 
@@ -89,8 +96,8 @@ export default function ABTestsPage() {
       await cmsAnalyticsService.pauseABTest(id);
       fetchTests();
     } catch (err) {
-      console.error('Pause AB test error:', err);
-      alert('Test duraklatılırken bir hata oluştu.');
+      console.error("Pause AB test error:", err);
+      notify.error("Test duraklatılırken bir hata oluştu.");
     }
   };
 
@@ -99,8 +106,8 @@ export default function ABTestsPage() {
       await cmsAnalyticsService.completeABTest(id, winnerId);
       fetchTests();
     } catch (err) {
-      console.error('Complete AB test error:', err);
-      alert('Test tamamlanırken bir hata oluştu.');
+      console.error("Complete AB test error:", err);
+      notify.error("Test tamamlanırken bir hata oluştu.");
     }
   };
 
@@ -110,14 +117,20 @@ export default function ABTestsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bu testi silmek istediğinizden emin misiniz?')) return;
+    if (
+      !(await confirmDialog({
+        title: "Bu testi silmek istediğinizden emin misiniz?",
+        destructive: true,
+      }))
+    )
+      return;
 
     try {
       await cmsAnalyticsService.deleteABTest(id);
       fetchTests();
     } catch (err) {
-      console.error('Delete AB test error:', err);
-      alert('Test silinirken bir hata oluştu.');
+      console.error("Delete AB test error:", err);
+      notify.error("Test silinirken bir hata oluştu.");
     }
   };
 
@@ -130,9 +143,9 @@ export default function ABTestsPage() {
 
   const stats = {
     total: tests.length,
-    running: tests.filter((t) => t.status === 'running').length,
-    completed: tests.filter((t) => t.status === 'completed').length,
-    draft: tests.filter((t) => t.status === 'draft').length,
+    running: tests.filter((t) => t.status === "running").length,
+    completed: tests.filter((t) => t.status === "completed").length,
+    draft: tests.filter((t) => t.status === "draft").length,
   };
 
   return (
@@ -145,7 +158,7 @@ export default function ABTestsPage() {
             A/B Test Yönetimi
           </h1>
           <p className="text-muted-foreground mt-1">
-            Component variant'larını test edin ve optimize edin
+            Component variant&apos;larını test edin ve optimize edin
           </p>
         </div>
 
@@ -156,7 +169,9 @@ export default function ABTestsPage() {
             onClick={fetchTests}
             disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+            />
             Yenile
           </Button>
           <Button size="sm" onClick={() => setIsDialogOpen(true)}>
@@ -174,11 +189,15 @@ export default function ABTestsPage() {
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-sm text-muted-foreground">Çalışıyor</div>
-          <div className="text-2xl font-bold text-green-600">{stats.running}</div>
+          <div className="text-2xl font-bold text-green-600">
+            {stats.running}
+          </div>
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-sm text-muted-foreground">Tamamlandı</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {stats.completed}
+          </div>
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-sm text-muted-foreground">Taslak</div>
@@ -191,7 +210,9 @@ export default function ABTestsPage() {
         <span className="text-sm text-muted-foreground">Filtrele:</span>
         <Select
           value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as ABTestStatus | 'all')}
+          onValueChange={(value) =>
+            setStatusFilter(value as ABTestStatus | "all")
+          }
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue />
@@ -201,7 +222,9 @@ export default function ABTestsPage() {
             <SelectItem value="draft">Taslak ({stats.draft})</SelectItem>
             <SelectItem value="running">Çalışıyor ({stats.running})</SelectItem>
             <SelectItem value="paused">Duraklatıldı</SelectItem>
-            <SelectItem value="completed">Tamamlandı ({stats.completed})</SelectItem>
+            <SelectItem value="completed">
+              Tamamlandı ({stats.completed})
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -239,28 +262,34 @@ export default function ABTestsPage() {
           <h3 className="font-semibold">🧪 A/B Testing Nasıl Çalışır?</h3>
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
             <li>
-              <strong>"Yeni Test" butonuna tıklayın</strong> ve test detaylarını girin
+              <strong>&quot;Yeni Test&quot; butonuna tıklayın</strong> ve test
+              detaylarını girin
             </li>
             <li>
-              <strong>Variant'ları yapılandırın:</strong> En az 2 variant oluşturun (Control + A, B...)
+              <strong>Variant&apos;ları yapılandırın:</strong> En az 2 variant
+              oluşturun (Control + A, B...)
             </li>
             <li>
               <strong>Trafik dağılımını ayarlayın:</strong> Toplam %100 olmalı
             </li>
             <li>
-              <strong>Test periyodunu belirleyin:</strong> Başlangıç ve bitiş tarihleri
+              <strong>Test periyodunu belirleyin:</strong> Başlangıç ve bitiş
+              tarihleri
             </li>
             <li>
-              <strong>Testi başlatın:</strong> "Başlat" butonuna tıklayın
+              <strong>Testi başlatın:</strong> &quot;Başlat&quot; butonuna
+              tıklayın
             </li>
             <li>
-              <strong>Sonuçları izleyin:</strong> Güven seviyesi %95'e ulaştığında kazanan otomatik belirlenir
+              <strong>Sonuçları izleyin:</strong> Güven seviyesi %95&apos;e
+              ulaştığında kazanan otomatik belirlenir
             </li>
           </ol>
 
           <div className="pt-3 border-t">
             <p className="text-xs text-muted-foreground">
-              💡 <strong>İpucu:</strong> En az 1000 görüntülenme ve %95 güven seviyesi için bekleyin
+              💡 <strong>İpucu:</strong> En az 1000 görüntülenme ve %95 güven
+              seviyesi için bekleyin
             </p>
           </div>
         </div>

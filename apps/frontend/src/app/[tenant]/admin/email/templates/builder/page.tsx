@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { EmailBuilderCanvas } from '@/components/email-builder/email-builder-canvas';
-import { BlockLibrarySidebar } from '@/components/email-builder/block-library-sidebar';
-import { PropertiesPanel } from '@/components/email-builder/properties-panel';
-import { EmailPreview } from '@/components/email-builder/email-preview';
-import { EmailTemplatesService } from '@/services/email-templates.service';
-import { Button } from '@/components/ui/button';
-import { Save, Eye, Code, Smartphone, Monitor } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { EmailBuilderCanvas } from "@/components/email-builder/email-builder-canvas";
+import { BlockLibrarySidebar } from "@/components/email-builder/block-library-sidebar";
+import { PropertiesPanel } from "@/components/email-builder/properties-panel";
+import { EmailPreview } from "@/components/email-builder/email-preview";
+import { EmailTemplatesService } from "@/services/email-templates.service";
+import { Button } from "@/components/ui/button";
+import { Save, Eye, Code, Smartphone, Monitor } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { promptDialog } from "@/lib/dialogs/dialog-queue";
 
 interface Block {
   id: string;
@@ -44,14 +45,16 @@ export default function EmailBuilderPage() {
   const [emailStructure, setEmailStructure] = useState<EmailStructure>({
     rows: [],
     settings: {
-      backgroundColor: '#f5f5f5',
-      contentWidth: '600px',
+      backgroundColor: "#f5f5f5",
+      contentWidth: "600px",
       fonts: [],
     },
   });
 
   const [selectedBlock, setSelectedBlock] = useState(null);
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
+    "desktop",
+  );
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -59,29 +62,36 @@ export default function EmailBuilderPage() {
     try {
       setSaving(true);
 
-      const name = prompt('Template adı:', 'Yeni Email Şablonu');
+      const name = await promptDialog({
+        title: "Template adı:",
+        label: "Template adı:",
+        defaultValue: "Yeni Email Şablonu",
+      });
       if (!name) return;
 
-      const description = prompt('Açıklama (isteğe bağlı):');
+      const description = await promptDialog({
+        title: "Açıklama (isteğe bağlı):",
+        label: "Açıklama (isteğe bağlı):",
+      });
 
       const result = await EmailTemplatesService.createTemplate({
         name,
         description: description || undefined,
         structure: emailStructure,
-        type: 'CUSTOM',
+        type: "CUSTOM",
         isActive: true,
       });
 
       toast({
-        title: 'Başarılı!',
+        title: "Başarılı!",
         description: `Template "${result.name}" başarıyla kaydedildi.`,
       });
     } catch (error: any) {
-      console.error('Save error:', error);
+      console.error("Save error:", error);
       toast({
-        title: 'Hata',
-        description: error.message || 'Template kaydedilemedi.',
-        variant: 'destructive',
+        title: "Hata",
+        description: error.message || "Template kaydedilemedi.",
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -96,17 +106,17 @@ export default function EmailBuilderPage() {
           <h1 className="text-xl font-semibold">Email Builder</h1>
           <div className="flex items-center gap-2">
             <Button
-              variant={previewMode === 'desktop' ? 'default' : 'outline'}
+              variant={previewMode === "desktop" ? "default" : "outline"}
               size="sm"
-              onClick={() => setPreviewMode('desktop')}
+              onClick={() => setPreviewMode("desktop")}
             >
               <Monitor className="h-4 w-4 mr-2" />
               Desktop
             </Button>
             <Button
-              variant={previewMode === 'mobile' ? 'default' : 'outline'}
+              variant={previewMode === "mobile" ? "default" : "outline"}
               size="sm"
-              onClick={() => setPreviewMode('mobile')}
+              onClick={() => setPreviewMode("mobile")}
             >
               <Smartphone className="h-4 w-4 mr-2" />
               Mobile
@@ -115,9 +125,13 @@ export default function EmailBuilderPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
             <Eye className="h-4 w-4 mr-2" />
-            {showPreview ? 'Hide' : 'Show'} Preview
+            {showPreview ? "Hide" : "Show"} Preview
           </Button>
           <Button variant="outline" size="sm">
             <Code className="h-4 w-4 mr-2" />
@@ -125,7 +139,7 @@ export default function EmailBuilderPage() {
           </Button>
           <Button size="sm" onClick={handleSaveTemplate} disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </div>
       </div>
@@ -136,7 +150,7 @@ export default function EmailBuilderPage() {
         <BlockLibrarySidebar
           onBlockSelect={(block) => {
             // Add block to canvas
-            console.log('Block selected:', block);
+            console.log("Block selected:", block);
           }}
         />
 
@@ -157,17 +171,14 @@ export default function EmailBuilderPage() {
             block={selectedBlock}
             onBlockUpdate={(updatedBlock) => {
               // Update block properties
-              console.log('Block updated:', updatedBlock);
+              console.log("Block updated:", updatedBlock);
             }}
           />
         )}
 
         {/* Live Preview */}
         {showPreview && (
-          <EmailPreview
-            structure={emailStructure}
-            previewMode={previewMode}
-          />
+          <EmailPreview structure={emailStructure} previewMode={previewMode} />
         )}
       </div>
     </div>

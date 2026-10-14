@@ -1,25 +1,33 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Download, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertCircle, 
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Download,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
   Clock,
   FileText,
   Calendar,
   X,
   Trash2,
-  Eye
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ExportJob, ExportJobStatus } from '@/lib/api/bulkExportService';
-import bulkExportService from '@/lib/api/bulkExportService';
+  Eye,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ExportJob, ExportJobStatus } from "@/lib/api/bulkExportService";
+import bulkExportService from "@/lib/api/bulkExportService";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface ExportHistoryProps {
   onViewJob?: (job: ExportJob) => void;
@@ -30,7 +38,9 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
   const [jobs, setJobs] = useState<ExportJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [downloadingJobs, setDownloadingJobs] = useState<Set<string>>(new Set());
+  const [downloadingJobs, setDownloadingJobs] = useState<Set<string>>(
+    new Set(),
+  );
   const [deletingJobs, setDeletingJobs] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
@@ -39,42 +49,47 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
   const loadJobs = async (page: number = 1) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await bulkExportService.getExportJobs(page, 10);
-      
+
       if (page === 1) {
         setJobs(response.jobs);
       } else {
-        setJobs(prev => [...prev, ...response.jobs]);
+        setJobs((prev) => [...prev, ...response.jobs]);
       }
-      
+
       setTotalJobs(response.total);
-      setHasMore(response.jobs.length === 10 && jobs.length + response.jobs.length < response.total);
+      setHasMore(
+        response.jobs.length === 10 &&
+          jobs.length + response.jobs.length < response.total,
+      );
       setCurrentPage(page);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dışa aktarma geçmişi yüklenemedi');
+      setError(
+        err instanceof Error ? err.message : "Dışa aktarma geçmişi yüklenemedi",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
+  useAsyncEffect(() => {
     loadJobs();
   }, []);
 
   const handleDownload = async (job: ExportJob) => {
     if (job.status !== ExportJobStatus.COMPLETED) return;
-    
+
     const isExpired = !!job.expiresAt && new Date() > new Date(job.expiresAt);
     if (isExpired) return;
-    
-    setDownloadingJobs(prev => new Set(prev).add(job.id));
-    
+
+    setDownloadingJobs((prev) => new Set(prev).add(job.id));
+
     try {
       const blob = await bulkExportService.downloadExport(job.id);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = job.fileName;
       document.body.appendChild(a);
@@ -82,9 +97,9 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error("Download failed:", err);
     } finally {
-      setDownloadingJobs(prev => {
+      setDownloadingJobs((prev) => {
         const newSet = new Set(prev);
         newSet.delete(job.id);
         return newSet;
@@ -93,18 +108,24 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
   };
 
   const handleDelete = async (job: ExportJob) => {
-    if (!confirm('Bu dışa aktarma işini silmek istediğinizden emin misiniz?')) return;
-    
-    setDeletingJobs(prev => new Set(prev).add(job.id));
-    
+    if (
+      !(await confirmDialog({
+        title: "Bu dışa aktarma işini silmek istediğinizden emin misiniz?",
+        destructive: true,
+      }))
+    )
+      return;
+
+    setDeletingJobs((prev) => new Set(prev).add(job.id));
+
     try {
       await bulkExportService.cancelExport(job.id);
-      setJobs(prev => prev.filter(j => j.id !== job.id));
-      setTotalJobs(prev => prev - 1);
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setTotalJobs((prev) => prev - 1);
     } catch (err) {
-      console.error('Delete failed:', err);
+      console.error("Delete failed:", err);
     } finally {
-      setDeletingJobs(prev => {
+      setDeletingJobs((prev) => {
         const newSet = new Set(prev);
         newSet.delete(job.id);
         return newSet;
@@ -115,11 +136,23 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
   const getStatusBadge = (status: ExportJobStatus) => {
     switch (status) {
       case ExportJobStatus.PENDING:
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Beklemede</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            Beklemede
+          </Badge>
+        );
       case ExportJobStatus.PROCESSING:
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">İşleniyor</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            İşleniyor
+          </Badge>
+        );
       case ExportJobStatus.COMPLETED:
-        return <Badge variant="secondary" className="bg-green-100 text-green-800">Tamamlandı</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            Tamamlandı
+          </Badge>
+        );
       case ExportJobStatus.FAILED:
         return <Badge variant="destructive">Başarısız</Badge>;
       default:
@@ -143,22 +176,22 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
   };
 
   const formatFileSize = (bytes: number | null | undefined) => {
-    if (!bytes) return 'Bilinmiyor';
-    
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (!bytes) return "Bilinmiyor";
+
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const formatDate = (date: Date | string | undefined) => {
-    if (!date) return 'Bilinmiyor';
+    if (!date) return "Bilinmiyor";
     const d = new Date(date);
-    return d.toLocaleString('tr-TR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return d.toLocaleString("tr-TR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -222,7 +255,7 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
       </div>
 
       <div className="space-y-4">
-        {jobs.map(job => (
+        {jobs.map((job) => (
           <Card key={job.id}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -241,12 +274,14 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-primary">{job.totalRecords}</div>
+                  <div className="text-lg font-semibold text-primary">
+                    {job.totalRecords}
+                  </div>
                   <div className="text-xs text-muted-foreground">Kayıt</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-semibold text-blue-600">
-                    {job.options?.fields.length ?? 'Bilinmiyor'}
+                    {job.options?.fields.length ?? "Bilinmiyor"}
                   </div>
                   <div className="text-xs text-muted-foreground">Alan</div>
                 </div>
@@ -258,14 +293,17 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
                 </div>
                 <div className="text-center">
                   <Badge variant="outline" className="uppercase text-xs">
-                    {job.options?.format ?? 'Bilinmiyor'}
+                    {job.options?.format ?? "Bilinmiyor"}
                   </Badge>
-                  <div className="text-xs text-muted-foreground mt-1">Format</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Format
+                  </div>
                 </div>
               </div>
 
               {/* Progress bar for processing jobs */}
-              {(job.status === ExportJobStatus.PROCESSING || job.status === ExportJobStatus.PENDING) && (
+              {(job.status === ExportJobStatus.PROCESSING ||
+                job.status === ExportJobStatus.PENDING) && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium">İlerleme</span>
@@ -274,7 +312,7 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
                     </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-1.5">
-                    <div 
+                    <div
                       className="bg-primary h-1.5 rounded-full transition-all duration-300"
                       style={{ width: `${job.progressPercentage}%` }}
                     />
@@ -285,14 +323,15 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
               {/* Expiration warning */}
               {job.status === ExportJobStatus.COMPLETED && (
                 <div className="mb-4">
-                  <div className={cn(
-                    "text-xs",
-                    isExpired(job) ? "text-red-600" : "text-muted-foreground"
-                  )}>
-                    {isExpired(job) 
+                  <div
+                    className={cn(
+                      "text-xs",
+                      isExpired(job) ? "text-red-600" : "text-muted-foreground",
+                    )}
+                  >
+                    {isExpired(job)
                       ? `Süresi doldu: ${formatDate(job.expiresAt)}`
-                      : `Son geçerlilik: ${formatDate(job.expiresAt)}`
-                    }
+                      : `Son geçerlilik: ${formatDate(job.expiresAt)}`}
                   </div>
                 </div>
               )}
@@ -301,7 +340,9 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
               {job.error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">{job.error}</AlertDescription>
+                  <AlertDescription className="text-sm">
+                    {job.error}
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -309,8 +350,8 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
               <div className="flex items-center justify-between">
                 <div className="flex gap-2">
                   {onViewJob && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => onViewJob(job)}
                     >
@@ -319,30 +360,31 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
                     </Button>
                   )}
                 </div>
-                
+
                 <div className="flex gap-2">
-                  {job.status === ExportJobStatus.COMPLETED && !isExpired(job) && (
-                    <Button 
-                      size="sm"
-                      onClick={() => handleDownload(job)}
-                      disabled={downloadingJobs.has(job.id)}
-                    >
-                      {downloadingJobs.has(job.id) ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                          İndiriliyor
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4 mr-1" />
-                          İndir
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  
-                  <Button 
-                    variant="outline" 
+                  {job.status === ExportJobStatus.COMPLETED &&
+                    !isExpired(job) && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(job)}
+                        disabled={downloadingJobs.has(job.id)}
+                      >
+                        {downloadingJobs.has(job.id) ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                            İndiriliyor
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-1" />
+                            İndir
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => handleDelete(job)}
                     disabled={deletingJobs.has(job.id)}
@@ -363,8 +405,8 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
       {/* Load more button */}
       {hasMore && (
         <div className="text-center">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => loadJobs(currentPage + 1)}
             disabled={isLoading}
           >
@@ -374,7 +416,7 @@ export function ExportHistory({ onViewJob, onNewExport }: ExportHistoryProps) {
                 Yükleniyor...
               </>
             ) : (
-              'Daha Fazla Yükle'
+              "Daha Fazla Yükle"
             )}
           </Button>
         </div>

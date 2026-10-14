@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,20 +8,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
-import type { ABTest, ABTestStatus, CreateABTestDto } from '@/lib/api/cmsAnalyticsService';
+} from "@/components/ui/select";
+import { Plus, Trash2 } from "lucide-react";
+import type {
+  ABTest,
+  ABTestStatus,
+  CreateABTestDto,
+} from "@/lib/api/cmsAnalyticsService";
+import { toast as notify } from "@/lib/notify";
 
 interface ABTestFormDialogProps {
   open: boolean;
@@ -46,41 +51,47 @@ export function ABTestFormDialog({
   isSubmitting,
 }: ABTestFormDialogProps) {
   const [formData, setFormData] = useState({
-    name: editingTest?.name || '',
-    description: editingTest?.description || '',
-    componentId: editingTest?.componentId || '',
-    componentType: editingTest?.componentType || '',
-    status: (editingTest?.status || 'draft') as ABTestStatus,
+    name: editingTest?.name || "",
+    description: editingTest?.description || "",
+    componentId: editingTest?.componentId || "",
+    componentType: editingTest?.componentType || "",
+    status: (editingTest?.status || "draft") as ABTestStatus,
     periodStart: editingTest?.periodStart
       ? new Date(editingTest.periodStart).toISOString().slice(0, 16)
-      : '',
+      : "",
     periodEnd: editingTest?.periodEnd
       ? new Date(editingTest.periodEnd).toISOString().slice(0, 16)
-      : '',
-    conversionGoal: editingTest?.conversionGoal || '',
+      : "",
+    conversionGoal: editingTest?.conversionGoal || "",
   });
 
   const [variants, setVariants] = useState<VariantForm[]>(
     editingTest?.variants.map((v) => ({
       name: v.name,
-      description: v.description || '',
+      description: v.description || "",
       trafficAllocation: v.trafficAllocation,
       config: JSON.stringify(v.componentConfig, null, 2),
     })) || [
-      { name: 'Control', description: '', trafficAllocation: 50, config: '{}' },
-      { name: 'Variant A', description: '', trafficAllocation: 50, config: '{}' },
-    ]
+      { name: "Control", description: "", trafficAllocation: 50, config: "{}" },
+      {
+        name: "Variant A",
+        description: "",
+        trafficAllocation: 50,
+        config: "{}",
+      },
+    ],
   );
 
   const addVariant = () => {
-    const remainingTraffic = 100 - variants.reduce((sum, v) => sum + v.trafficAllocation, 0);
+    const remainingTraffic =
+      100 - variants.reduce((sum, v) => sum + v.trafficAllocation, 0);
     setVariants([
       ...variants,
       {
         name: `Variant ${String.fromCharCode(65 + variants.length - 1)}`,
-        description: '',
+        description: "",
         trafficAllocation: Math.max(0, remainingTraffic),
-        config: '{}',
+        config: "{}",
       },
     ]);
   };
@@ -90,16 +101,23 @@ export function ABTestFormDialog({
     setVariants(variants.filter((_, i) => i !== index));
   };
 
-  const updateVariant = (index: number, field: keyof VariantForm, value: string | number) => {
+  const updateVariant = (
+    index: number,
+    field: keyof VariantForm,
+    value: string | number,
+  ) => {
     const updated = [...variants];
     updated[index] = { ...updated[index], [field]: value };
     setVariants(updated);
   };
 
   const handleSubmit = () => {
-    const totalAllocation = variants.reduce((sum, v) => sum + v.trafficAllocation, 0);
+    const totalAllocation = variants.reduce(
+      (sum, v) => sum + v.trafficAllocation,
+      0,
+    );
     if (totalAllocation !== 100) {
-      alert('Trafik dağılımı toplamı %100 olmalıdır!');
+      notify.error("Trafik dağılımı toplamı %100 olmalıdır!");
       return;
     }
 
@@ -123,21 +141,25 @@ export function ABTestFormDialog({
 
       onSubmit(dto);
     } catch (error) {
-      alert('Variant config JSON formatında geçersiz!');
+      notify.error("Variant config JSON formatında geçersiz!");
     }
   };
 
-  const totalAllocation = variants.reduce((sum, v) => sum + v.trafficAllocation, 0);
+  const totalAllocation = variants.reduce(
+    (sum, v) => sum + v.trafficAllocation,
+    0,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {editingTest ? 'A/B Testi Düzenle' : 'Yeni A/B Testi Oluştur'}
+            {editingTest ? "A/B Testi Düzenle" : "Yeni A/B Testi Oluştur"}
           </DialogTitle>
           <DialogDescription>
-            Component variant'larını test edin ve en iyi performansı belirleyin
+            Component variant&apos;larını test edin ve en iyi performansı
+            belirleyin
           </DialogDescription>
         </DialogHeader>
 
@@ -149,7 +171,9 @@ export function ABTestFormDialog({
               <Input
                 id="test-name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="örn: Hero Button Color Test"
               />
             </div>
@@ -172,7 +196,9 @@ export function ABTestFormDialog({
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="Test hakkında notlar..."
               rows={2}
             />
@@ -185,7 +211,9 @@ export function ABTestFormDialog({
               <Input
                 id="component-id"
                 value={formData.componentId}
-                onChange={(e) => setFormData({ ...formData, componentId: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, componentId: e.target.value })
+                }
                 placeholder="örn: hero-cta-button"
               />
             </div>
@@ -211,7 +239,9 @@ export function ABTestFormDialog({
                 id="period-start"
                 type="datetime-local"
                 value={formData.periodStart}
-                onChange={(e) => setFormData({ ...formData, periodStart: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, periodStart: e.target.value })
+                }
               />
             </div>
 
@@ -221,7 +251,9 @@ export function ABTestFormDialog({
                 id="period-end"
                 type="datetime-local"
                 value={formData.periodEnd}
-                onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, periodEnd: e.target.value })
+                }
               />
             </div>
           </div>
@@ -229,7 +261,7 @@ export function ABTestFormDialog({
           {/* Variants */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Variant'lar ({variants.length})</Label>
+              <Label>Variant&apos;lar ({variants.length})</Label>
               <Button
                 type="button"
                 size="sm"
@@ -243,9 +275,11 @@ export function ABTestFormDialog({
             </div>
 
             <div className="text-sm text-muted-foreground mb-2">
-              Toplam Trafik: {totalAllocation}%{' '}
+              Toplam Trafik: {totalAllocation}%{" "}
               {totalAllocation !== 100 && (
-                <span className="text-destructive font-medium">(100% olmalı!)</span>
+                <span className="text-destructive font-medium">
+                  (100% olmalı!)
+                </span>
               )}
             </div>
 
@@ -270,7 +304,9 @@ export function ABTestFormDialog({
                     <Label>Variant Adı</Label>
                     <Input
                       value={variant.name}
-                      onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                      onChange={(e) =>
+                        updateVariant(index, "name", e.target.value)
+                      }
                       placeholder="Control, A, B..."
                     />
                   </div>
@@ -283,7 +319,11 @@ export function ABTestFormDialog({
                       max="100"
                       value={variant.trafficAllocation}
                       onChange={(e) =>
-                        updateVariant(index, 'trafficAllocation', parseInt(e.target.value) || 0)
+                        updateVariant(
+                          index,
+                          "trafficAllocation",
+                          parseInt(e.target.value) || 0,
+                        )
                       }
                     />
                   </div>
@@ -292,7 +332,9 @@ export function ABTestFormDialog({
                     <Label>Açıklama</Label>
                     <Input
                       value={variant.description}
-                      onChange={(e) => updateVariant(index, 'description', e.target.value)}
+                      onChange={(e) =>
+                        updateVariant(index, "description", e.target.value)
+                      }
                       placeholder="Opsiyonel..."
                     />
                   </div>
@@ -302,7 +344,9 @@ export function ABTestFormDialog({
                   <Label>Config (JSON)</Label>
                   <Textarea
                     value={variant.config}
-                    onChange={(e) => updateVariant(index, 'config', e.target.value)}
+                    onChange={(e) =>
+                      updateVariant(index, "config", e.target.value)
+                    }
                     placeholder='{"color": "blue", "size": "large"}'
                     rows={3}
                     className="font-mono text-xs"
@@ -314,11 +358,19 @@ export function ABTestFormDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
             İptal
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Kaydediliyor...' : editingTest ? 'Güncelle' : 'Oluştur'}
+            {isSubmitting
+              ? "Kaydediliyor..."
+              : editingTest
+                ? "Güncelle"
+                : "Oluştur"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,24 +1,36 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useAuth } from '@/lib/auth';
-import { httpClient } from '@/lib/api/http-client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  GripVertical, 
-  Save, 
-  X, 
+import React, { useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { httpClient } from "@/lib/api/http-client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  GripVertical,
+  Save,
+  X,
   AlertCircle,
   Settings,
   Type,
@@ -26,14 +38,16 @@ import {
   Calendar,
   ToggleLeft,
   List,
-  CheckSquare
-} from 'lucide-react';
-import { useCustomFields, CustomField } from '@/hooks/useCustomFields';
+  CheckSquare,
+} from "lucide-react";
+import { useCustomFields, CustomField } from "@/hooks/useCustomFields";
+import { toast as notify } from "@/lib/notify";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 interface CustomFieldFormData {
   name: string;
   label: string;
-  type: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT' | 'MULTI_SELECT';
+  type: "TEXT" | "NUMBER" | "DATE" | "BOOLEAN" | "SELECT" | "MULTI_SELECT";
   description: string;
   required: boolean;
   options: string[];
@@ -53,48 +67,56 @@ const fieldTypeIcons = {
   DATE: Calendar,
   BOOLEAN: ToggleLeft,
   SELECT: List,
-  MULTI_SELECT: CheckSquare
+  MULTI_SELECT: CheckSquare,
 };
 
 const fieldTypeLabels = {
-  TEXT: 'Metin',
-  NUMBER: 'Sayı',
-  DATE: 'Tarih',
-  BOOLEAN: 'Evet/Hayır',
-  SELECT: 'Seçim Listesi',
-  MULTI_SELECT: 'Çoklu Seçim'
+  TEXT: "Metin",
+  NUMBER: "Sayı",
+  DATE: "Tarih",
+  BOOLEAN: "Evet/Hayır",
+  SELECT: "Seçim Listesi",
+  MULTI_SELECT: "Çoklu Seçim",
 };
 
 export default function CustomFieldsManager() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { customFields, loading, error, createCustomField, updateCustomField, deleteCustomField, reorderCustomFields } = useCustomFields();
+  const {
+    customFields,
+    loading,
+    error,
+    createCustomField,
+    updateCustomField,
+    deleteCustomField,
+    reorderCustomFields,
+  } = useCustomFields();
   const [isCreating, setIsCreating] = useState(false);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [formData, setFormData] = useState<CustomFieldFormData>({
-    name: '',
-    label: '',
-    type: 'TEXT',
-    description: '',
+    name: "",
+    label: "",
+    type: "TEXT",
+    description: "",
     required: false,
     options: [],
-    defaultValue: '',
-    placeholder: '',
-    validation: {}
+    defaultValue: "",
+    placeholder: "",
+    validation: {},
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      label: '',
-      type: 'TEXT',
-      description: '',
+      name: "",
+      label: "",
+      type: "TEXT",
+      description: "",
       required: false,
       options: [],
-      defaultValue: '',
-      placeholder: '',
-      validation: {}
+      defaultValue: "",
+      placeholder: "",
+      validation: {},
     });
     setFormError(null);
   };
@@ -110,12 +132,12 @@ export default function CustomFieldsManager() {
       name: field.name,
       label: field.label,
       type: field.type,
-      description: field.description || '',
+      description: field.description || "",
       required: field.required,
       options: field.options || [],
-      defaultValue: field.defaultValue || '',
-      placeholder: field.placeholder || '',
-      validation: field.validation || {}
+      defaultValue: field.defaultValue || "",
+      placeholder: field.placeholder || "",
+      validation: field.validation || {},
     });
     setEditingField(field);
     setIsCreating(true);
@@ -129,34 +151,36 @@ export default function CustomFieldsManager() {
 
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
-      setFormError('Alan adı gereklidir');
+      setFormError("Alan adı gereklidir");
       return false;
     }
 
     if (!formData.label.trim()) {
-      setFormError('Alan etiketi gereklidir');
+      setFormError("Alan etiketi gereklidir");
       return false;
     }
 
     // Validate field name format (alphanumeric and underscore only)
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(formData.name)) {
-      setFormError('Alan adı sadece harf, rakam ve alt çizgi içerebilir ve harf ile başlamalıdır');
+      setFormError(
+        "Alan adı sadece harf, rakam ve alt çizgi içerebilir ve harf ile başlamalıdır",
+      );
       return false;
     }
 
     // Check for duplicate names (excluding current field when editing)
-    const existingField = customFields.find(field => 
-      field.name === formData.name && field.id !== editingField?.id
+    const existingField = customFields.find(
+      (field) => field.name === formData.name && field.id !== editingField?.id,
     );
     if (existingField) {
-      setFormError('Bu alan adı zaten kullanılıyor');
+      setFormError("Bu alan adı zaten kullanılıyor");
       return false;
     }
 
     // Validate options for SELECT types
-    if (['SELECT', 'MULTI_SELECT'].includes(formData.type)) {
+    if (["SELECT", "MULTI_SELECT"].includes(formData.type)) {
       if (formData.options.length === 0) {
-        setFormError('Seçim listesi türleri için en az bir seçenek gereklidir');
+        setFormError("Seçim listesi türleri için en az bir seçenek gereklidir");
         return false;
       }
     }
@@ -176,30 +200,42 @@ export default function CustomFieldsManager() {
       } else {
         await createCustomField(formData);
       }
-      
+
       handleCancel();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Bilinmeyen hata oluştu');
+      setFormError(
+        err instanceof Error ? err.message : "Bilinmeyen hata oluştu",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (field: CustomField) => {
-    if (!confirm(`"${field.label}" alanını silmek istediğinizden emin misiniz?`)) {
+    if (
+      !(await confirmDialog({
+        title: `"${field.label}" alanını silmek istediğinizden emin misiniz?`,
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
     try {
       await deleteCustomField(field.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Silme işlemi başarısız');
+      notify.error(
+        err instanceof Error ? err.message : "Silme işlemi başarısız",
+      );
     }
   };
 
   const handleOptionsChange = (value: string) => {
-    const options = value.split('\n').filter(opt => opt.trim()).map(opt => opt.trim());
-    setFormData(prev => ({ ...prev, options }));
+    const options = value
+      .split("\n")
+      .filter((opt) => opt.trim())
+      .map((opt) => opt.trim());
+    setFormData((prev) => ({ ...prev, options }));
   };
 
   const renderFieldForm = () => (
@@ -207,7 +243,7 @@ export default function CustomFieldsManager() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings className="h-5 w-5" />
-          {editingField ? 'Özel Alan Düzenle' : 'Yeni Özel Alan'}
+          {editingField ? "Özel Alan Düzenle" : "Yeni Özel Alan"}
         </CardTitle>
         <CardDescription>
           Aboneleriniz için özel veri alanları tanımlayın
@@ -220,7 +256,9 @@ export default function CustomFieldsManager() {
             <Input
               id="field-name"
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, name: e.target.value }))
+              }
               placeholder="ornek_alan"
               disabled={isSubmitting}
             />
@@ -234,7 +272,9 @@ export default function CustomFieldsManager() {
             <Input
               id="field-label"
               value={formData.label}
-              onChange={(e) => setFormData(prev => ({ ...prev, label: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, label: e.target.value }))
+              }
               placeholder="Örnek Alan"
               disabled={isSubmitting}
             />
@@ -245,7 +285,9 @@ export default function CustomFieldsManager() {
           <Label htmlFor="field-type">Alan Türü</Label>
           <Select
             value={formData.type}
-            onValueChange={(value: any) => setFormData(prev => ({ ...prev, type: value }))}
+            onValueChange={(value: any) =>
+              setFormData((prev) => ({ ...prev, type: value }))
+            }
             disabled={isSubmitting}
           >
             <SelectTrigger>
@@ -253,7 +295,8 @@ export default function CustomFieldsManager() {
             </SelectTrigger>
             <SelectContent>
               {Object.entries(fieldTypeLabels).map(([value, label]) => {
-                const Icon = fieldTypeIcons[value as keyof typeof fieldTypeIcons];
+                const Icon =
+                  fieldTypeIcons[value as keyof typeof fieldTypeIcons];
                 return (
                   <SelectItem key={value} value={value}>
                     <div className="flex items-center gap-2">
@@ -272,18 +315,20 @@ export default function CustomFieldsManager() {
           <Textarea
             id="field-description"
             value={formData.description}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, description: e.target.value }))
+            }
             placeholder="Bu alan hakkında açıklama..."
             disabled={isSubmitting}
           />
         </div>
 
-        {['SELECT', 'MULTI_SELECT'].includes(formData.type) && (
+        {["SELECT", "MULTI_SELECT"].includes(formData.type) && (
           <div>
             <Label htmlFor="field-options">Seçenekler *</Label>
             <Textarea
               id="field-options"
-              value={formData.options.join('\n')}
+              value={formData.options.join("\n")}
               onChange={(e) => handleOptionsChange(e.target.value)}
               placeholder="Her satıra bir seçenek yazın"
               disabled={isSubmitting}
@@ -300,7 +345,12 @@ export default function CustomFieldsManager() {
             <Input
               id="field-placeholder"
               value={formData.placeholder}
-              onChange={(e) => setFormData(prev => ({ ...prev, placeholder: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  placeholder: e.target.value,
+                }))
+              }
               placeholder="Kullanıcıya gösterilecek ipucu"
               disabled={isSubmitting}
             />
@@ -311,7 +361,12 @@ export default function CustomFieldsManager() {
             <Input
               id="field-default"
               value={formData.defaultValue}
-              onChange={(e) => setFormData(prev => ({ ...prev, defaultValue: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  defaultValue: e.target.value,
+                }))
+              }
               placeholder="Varsayılan değer"
               disabled={isSubmitting}
             />
@@ -322,7 +377,9 @@ export default function CustomFieldsManager() {
           <Checkbox
             id="field-required"
             checked={formData.required}
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, required: checked as boolean }))}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({ ...prev, required: checked as boolean }))
+            }
             disabled={isSubmitting}
           />
           <Label htmlFor="field-required">Zorunlu alan</Label>
@@ -338,9 +395,13 @@ export default function CustomFieldsManager() {
         <div className="flex gap-2 pt-4">
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             <Save className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+            {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
           </Button>
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
             <X className="h-4 w-4 mr-2" />
             İptal
           </Button>
@@ -364,36 +425,52 @@ export default function CustomFieldsManager() {
   if (!isAuthenticated) {
     // Debug info
     const debugInfo = {
-      localStorage_auth_token: typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null,
-      localStorage_aluplan_access_token: typeof window !== 'undefined' ? localStorage.getItem('aluplan_access_token') : null,
-      localStorage_keys: typeof window !== 'undefined' ? Object.keys(localStorage) : [],
+      localStorage_auth_token:
+        typeof window !== "undefined"
+          ? localStorage.getItem("auth_token")
+          : null,
+      localStorage_aluplan_access_token:
+        typeof window !== "undefined"
+          ? localStorage.getItem("aluplan_access_token")
+          : null,
+      localStorage_keys:
+        typeof window !== "undefined" ? Object.keys(localStorage) : [],
       httpClient_token: httpClient.getAuthToken(),
     };
-    
-    console.log('🔐 Debug - Auth state:', debugInfo);
-    
+
+    console.log("🔐 Debug - Auth state:", debugInfo);
+
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Giriş Gerekli</h3>
-          <p className="text-muted-foreground mb-4">Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.</p>
-          
+          <p className="text-muted-foreground mb-4">
+            Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.
+          </p>
+
           {/* Debug info */}
           <div className="text-xs text-left bg-gray-100 p-2 rounded mb-4 max-w-md">
-            <strong>Debug Info:</strong><br/>
-            localStorage auth_token: {debugInfo.localStorage_auth_token ? 'EXISTS' : 'MISSING'}<br/>
-            localStorage aluplan_access_token: {debugInfo.localStorage_aluplan_access_token ? 'EXISTS' : 'MISSING'}<br/>
-            httpClient token: {debugInfo.httpClient_token ? 'EXISTS' : 'MISSING'}<br/>
-            localStorage keys: {debugInfo.localStorage_keys.join(', ')}
+            <strong>Debug Info:</strong>
+            <br />
+            localStorage auth_token:{" "}
+            {debugInfo.localStorage_auth_token ? "EXISTS" : "MISSING"}
+            <br />
+            localStorage aluplan_access_token:{" "}
+            {debugInfo.localStorage_aluplan_access_token ? "EXISTS" : "MISSING"}
+            <br />
+            httpClient token:{" "}
+            {debugInfo.httpClient_token ? "EXISTS" : "MISSING"}
+            <br />
+            localStorage keys: {debugInfo.localStorage_keys.join(", ")}
           </div>
-          
+
           <div className="space-y-2">
-            <Button onClick={() => window.location.href = '/login'}>
+            <Button onClick={() => (window.location.href = "/login")}>
               Giriş Yap
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 localStorage.clear();
                 sessionStorage.clear();
@@ -402,20 +479,22 @@ export default function CustomFieldsManager() {
             >
               Oturumu Temizle
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 // Try to manually set token from localStorage
-                const token = localStorage.getItem('auth_token') || localStorage.getItem('aluplan_access_token');
+                const token =
+                  localStorage.getItem("auth_token") ||
+                  localStorage.getItem("aluplan_access_token");
                 if (token) {
                   httpClient.setAuthToken(token);
                   window.location.reload();
                 } else {
-                  alert('Token bulunamadı');
+                  notify.error("Token bulunamadı");
                 }
               }}
             >
-              Token'ı Yenile
+              Token&apos;ı Yenile
             </Button>
           </div>
         </div>
@@ -472,7 +551,9 @@ export default function CustomFieldsManager() {
             <div className="text-center py-8 text-muted-foreground">
               <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Henüz özel alan tanımlanmamış</p>
-              <p className="text-sm">Yeni alan eklemek için yukarıdaki butonu kullanın</p>
+              <p className="text-sm">
+                Yeni alan eklemek için yukarıdaki butonu kullanın
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -499,7 +580,9 @@ export default function CustomFieldsManager() {
                           )}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          <code className="bg-muted px-1 rounded text-xs">{field.name}</code>
+                          <code className="bg-muted px-1 rounded text-xs">
+                            {field.name}
+                          </code>
                           {field.description && (
                             <span className="ml-2">{field.description}</span>
                           )}

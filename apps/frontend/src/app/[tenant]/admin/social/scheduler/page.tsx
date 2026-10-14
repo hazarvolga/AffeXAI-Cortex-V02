@@ -16,6 +16,7 @@ import { SchedulerTableView } from "../components/SchedulerTableView";
 import { SchedulerCalendarView } from "../components/SchedulerCalendarView";
 import { SocialProvider } from "../components/ProviderFilter";
 import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 export default function SocialMediaScheduler() {
   const [queue, setQueue] = useState<SocialPost[]>([]);
@@ -54,7 +55,12 @@ export default function SocialMediaScheduler() {
   }, []);
 
   const handleDeletePost = async (id: string) => {
-    if (!confirm("Are you sure you want to abort this transmission sequence?"))
+    if (
+      !(await confirmDialog({
+        title: "Are you sure you want to abort this transmission sequence?",
+        destructive: true,
+      }))
+    )
       return;
 
     try {

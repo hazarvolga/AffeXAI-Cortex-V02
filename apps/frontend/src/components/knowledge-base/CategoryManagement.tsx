@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus as PlusIcon, 
+import React, { useState } from "react";
+import {
+  Plus as PlusIcon,
   Settings as Cog6ToothIcon,
   BarChart3 as ChartBarIcon,
   RotateCcw as ArrowPathIcon,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { useToast } from '../../hooks/use-toast';
-import CategoryList, { CategoryTreeNode } from './CategoryList';
-import CategoryForm from './CategoryForm';
-import { Alert, AlertDescription } from '../ui/alert';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Badge } from "../ui/badge";
+import { useToast } from "../../hooks/use-toast";
+import CategoryList, { CategoryTreeNode } from "./CategoryList";
+import CategoryForm from "./CategoryForm";
+import { Alert, AlertDescription } from "../ui/alert";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface CategoryStats {
   totalCategories: number;
@@ -48,15 +56,11 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
   const [stats, setStats] = useState<CategoryStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryTreeNode | null>(null);
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryTreeNode | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [isUpdatingCounts, setIsUpdatingCounts] = useState(false);
   const { toast } = useToast();
-
-  // Load initial data
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     try {
@@ -69,29 +73,40 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       setStats(statsData);
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Kategori verileri yüklenemedi.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Kategori verileri yüklenemedi.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Load initial data
+  useAsyncEffect(() => {
+    loadData();
+  }, []);
+
   const handleCreateCategory = () => {
     setSelectedCategory(null);
-    setFormMode('create');
+    setFormMode("create");
     setIsFormOpen(true);
   };
 
   const handleEditCategory = (category: CategoryTreeNode) => {
     setSelectedCategory(category);
-    setFormMode('edit');
+    setFormMode("edit");
     setIsFormOpen(true);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+    if (
+      !(await confirmDialog({
+        title:
+          "Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
@@ -99,20 +114,21 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       await onDeleteCategory(categoryId);
       await loadData(); // Reload data
       toast({
-        title: 'Başarılı',
-        description: 'Kategori başarıyla silindi.',
+        title: "Başarılı",
+        description: "Kategori başarıyla silindi.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: error instanceof Error ? error.message : 'Kategori silinemedi.',
-        variant: 'destructive',
+        title: "Hata",
+        description:
+          error instanceof Error ? error.message : "Kategori silinemedi.",
+        variant: "destructive",
       });
     }
   };
 
   const handleFormSubmit = async (data: any) => {
-    if (formMode === 'create') {
+    if (formMode === "create") {
       await onCreateCategory(data);
     } else if (selectedCategory) {
       await onUpdateCategory(selectedCategory.id, data);
@@ -125,20 +141,25 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       await onReorderCategories(categoryIds);
       await loadData(); // Reload data
       toast({
-        title: 'Başarılı',
-        description: 'Kategoriler başarıyla yeniden sıralandı.',
+        title: "Başarılı",
+        description: "Kategoriler başarıyla yeniden sıralandı.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Kategoriler yeniden sıralanamadı.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Kategoriler yeniden sıralanamadı.",
+        variant: "destructive",
       });
     }
   };
 
   const handleInitializeDefaults = async () => {
-    if (!confirm('Bu işlem varsayılan kategorileri oluşturacak. Devam etmek istiyor musunuz?')) {
+    if (
+      !(await confirmDialog({
+        title:
+          "Bu işlem varsayılan kategorileri oluşturacak. Devam etmek istiyor musunuz?",
+      }))
+    ) {
       return;
     }
 
@@ -146,14 +167,14 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       await onInitializeDefaults();
       await loadData(); // Reload data
       toast({
-        title: 'Başarılı',
-        description: 'Varsayılan kategoriler başarıyla oluşturuldu.',
+        title: "Başarılı",
+        description: "Varsayılan kategoriler başarıyla oluşturuldu.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Varsayılan kategoriler oluşturulamadı.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Varsayılan kategoriler oluşturulamadı.",
+        variant: "destructive",
       });
     }
   };
@@ -164,14 +185,14 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       await onUpdateArticleCounts();
       await loadData(); // Reload data
       toast({
-        title: 'Başarılı',
-        description: 'Makale sayıları başarıyla güncellendi.',
+        title: "Başarılı",
+        description: "Makale sayıları başarıyla güncellendi.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Makale sayıları güncellenemedi.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Makale sayıları güncellenemedi.",
+        variant: "destructive",
       });
     } finally {
       setIsUpdatingCounts(false);
@@ -181,7 +202,7 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
   const flattenCategories = (cats: CategoryTreeNode[]): CategoryTreeNode[] => {
     const result: CategoryTreeNode[] = [];
     const traverse = (categories: CategoryTreeNode[]) => {
-      categories.forEach(cat => {
+      categories.forEach((cat) => {
         result.push(cat);
         if (cat.children.length > 0) {
           traverse(cat.children);
@@ -197,9 +218,12 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Kategori Yönetimi</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Kategori Yönetimi
+          </h1>
           <p className="text-muted-foreground">
-            Bilgi bankası makalelerinizi kategoriler ve alt kategoriler ile organize edin.
+            Bilgi bankası makalelerinizi kategoriler ve alt kategoriler ile
+            organize edin.
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -209,7 +233,9 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
             disabled={isUpdatingCounts}
             className="flex items-center space-x-2"
           >
-            <ArrowPathIcon className={`h-4 w-4 ${isUpdatingCounts ? 'animate-spin' : ''}`} />
+            <ArrowPathIcon
+              className={`h-4 w-4 ${isUpdatingCounts ? "animate-spin" : ""}`}
+            />
             <span>Sayıları Güncelle</span>
           </Button>
           <Button
@@ -235,7 +261,9 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Kategori</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Toplam Kategori
+              </CardTitle>
               <ChartBarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -248,24 +276,28 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Toplam Makale</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Toplam Makale
+              </CardTitle>
               <ChartBarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalArticles}</div>
-              <p className="text-xs text-muted-foreground">
-                Tüm kategorilerde
-              </p>
+              <p className="text-xs text-muted-foreground">Tüm kategorilerde</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ort. Makale/Kategori</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Ort. Makale/Kategori
+              </CardTitle>
               <ChartBarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.averageArticlesPerCategory}</div>
+              <div className="text-2xl font-bold">
+                {stats.averageArticlesPerCategory}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Aktif kategori başına
               </p>
@@ -274,11 +306,15 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Kullanılmayan Kategoriler</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Kullanılmayan Kategoriler
+              </CardTitle>
               <ChartBarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.unusedCategories.length}</div>
+              <div className="text-2xl font-bold">
+                {stats.unusedCategories.length}
+              </div>
               <p className="text-xs text-muted-foreground">
                 0 makaleli kategoriler
               </p>
@@ -291,7 +327,9 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
       {stats && stats.unusedCategories.length > 0 && (
         <Alert>
           <AlertDescription>
-            {stats.unusedCategories.length} adet kullanılmayan kategoriniz var. Bunlara makale eklemeyi veya bilgi bankanızı düzenli tutmak için silmeyi düşünün.
+            {stats.unusedCategories.length} adet kullanılmayan kategoriniz var.
+            Bunlara makale eklemeyi veya bilgi bankanızı düzenli tutmak için
+            silmeyi düşünün.
           </AlertDescription>
         </Alert>
       )}
@@ -325,10 +363,17 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
               <CardContent>
                 <div className="space-y-3">
                   {stats.mostPopularCategories.slice(0, 5).map((category) => (
-                    <div key={category.id} className="flex items-center justify-between">
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full bg-${category.color}-500`}></div>
-                        <span className="text-sm font-medium">{category.name}</span>
+                        <div
+                          className={`w-3 h-3 rounded-full bg-${category.color}-500`}
+                        ></div>
+                        <span className="text-sm font-medium">
+                          {category.name}
+                        </span>
                       </div>
                       <Badge variant="secondary">{category.articleCount}</Badge>
                     </div>
@@ -349,10 +394,17 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
               <CardContent>
                 <div className="space-y-3">
                   {stats.unusedCategories.slice(0, 5).map((category) => (
-                    <div key={category.id} className="flex items-center justify-between">
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full bg-${category.color}-500`}></div>
-                        <span className="text-sm font-medium">{category.name}</span>
+                        <div
+                          className={`w-3 h-3 rounded-full bg-${category.color}-500`}
+                        ></div>
+                        <span className="text-sm font-medium">
+                          {category.name}
+                        </span>
                       </div>
                       <Button
                         variant="ghost"
@@ -397,7 +449,9 @@ const CategoryManagement: React.FC<CategoryManagementProps> = ({
                 onClick={handleUpdateArticleCounts}
                 disabled={isUpdatingCounts}
               >
-                <ArrowPathIcon className={`h-4 w-4 mr-2 ${isUpdatingCounts ? 'animate-spin' : ''}`} />
+                <ArrowPathIcon
+                  className={`h-4 w-4 mr-2 ${isUpdatingCounts ? "animate-spin" : ""}`}
+                />
                 Makale Sayılarını Güncelle
               </Button>
             </CardContent>

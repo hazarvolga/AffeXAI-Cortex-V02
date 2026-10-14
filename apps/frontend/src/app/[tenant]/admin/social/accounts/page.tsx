@@ -27,6 +27,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 const PROVIDERS = [
   { id: "twitter", name: "X (Twitter)", icon: Twitter, color: "text-blue-400" },
@@ -125,7 +126,11 @@ export default function SocialMediaAccounts() {
   };
 
   const handleDisconnect = async (accountId: string) => {
-    if (!confirm("Disconnect this account? This will stop future posts."))
+    if (
+      !(await confirmDialog({
+        title: "Disconnect this account? This will stop future posts.",
+      }))
+    )
       return;
     try {
       await socialMediaService.disconnectAccount(accountId);

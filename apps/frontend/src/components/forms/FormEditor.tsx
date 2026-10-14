@@ -30,6 +30,7 @@ import {
   type FormStructure,
 } from "@/services/forms.service";
 import { FormErrorState, FormLoadingState } from "./FormPageState";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 const EMPTY_STRUCTURE: FormStructure = {
   rows: [],
@@ -168,7 +169,8 @@ export function FormEditor({ tenantId, formId }: FormEditorProps) {
   };
 
   const archive = async () => {
-    if (!formId || !window.confirm("Bu form arşivlensin mi?")) return;
+    if (!formId || !(await confirmDialog({ title: "Bu form arşivlensin mi?" })))
+      return;
     setSavingAction("archived");
     try {
       await formsService.archive(formId);

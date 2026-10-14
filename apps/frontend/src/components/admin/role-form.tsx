@@ -20,6 +20,7 @@ import { rolesService } from "@/lib/api";
 import { Role, CreateRoleDto, UpdateRoleDto } from "@affexai/shared-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/auth-context";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
 type RoleFormProps = {
   role?: Role;
@@ -236,7 +237,13 @@ export function RoleForm({ role }: RoleFormProps) {
       return;
     }
 
-    if (!confirm("Bu rolü silmek istediğinizden emin misiniz?")) return;
+    if (
+      !(await confirmDialog({
+        title: "Bu rolü silmek istediğinizden emin misiniz?",
+        destructive: true,
+      }))
+    )
+      return;
 
     try {
       setLoading(true);

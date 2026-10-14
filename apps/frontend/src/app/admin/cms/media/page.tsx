@@ -1,25 +1,43 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import NextImage from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Media, MediaType } from '@/lib/media/types';
-import { mediaService } from '@/lib/api/mediaService';
-import { Image, FileText, Video, Music, Upload, Search, X, Edit, Trash2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useCallback } from "react";
+import NextImage from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Media, MediaType } from "@/lib/media/types";
+import { mediaService } from "@/lib/api/mediaService";
+import {
+  Image,
+  FileText,
+  Video,
+  Music,
+  Upload,
+  Search,
+  X,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { confirmDialog } from "@/lib/dialogs/dialog-queue";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 const MediaManagementPage = () => {
   const { toast } = useToast();
   const [mediaItems, setMediaItems] = useState<Media[]>([]);
   const [filteredMedia, setFilteredMedia] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<MediaType | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<MediaType | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [uploading, setUploading] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
   const [editingMedia, setEditingMedia] = useState<Partial<Media> | null>(null);
@@ -41,25 +59,26 @@ const MediaManagementPage = () => {
     }
   }, [toast]);
 
-  useEffect(() => {
+  useAsyncEffect(() => {
     fetchMedia();
   }, [fetchMedia]);
 
-  useEffect(() => {
+  useAsyncEffect(() => {
     let result = mediaItems;
 
     // Filter by type
-    if (selectedType !== 'all') {
-      result = result.filter(item => item.type === selectedType);
+    if (selectedType !== "all") {
+      result = result.filter((item) => item.type === selectedType);
     }
 
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(item =>
-        item.originalName.toLowerCase().includes(query) ||
-        item.title?.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
+      result = result.filter(
+        (item) =>
+          item.originalName.toLowerCase().includes(query) ||
+          item.title?.toLowerCase().includes(query) ||
+          item.description?.toLowerCase().includes(query),
       );
     }
 
@@ -70,39 +89,50 @@ const MediaManagementPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    console.log('[MediaPage] Upload started, file:', file.name, 'size:', file.size);
+    console.log(
+      "[MediaPage] Upload started, file:",
+      file.name,
+      "size:",
+      file.size,
+    );
 
     try {
       setUploading(true);
-      console.log('[MediaPage] Calling mediaService.uploadFile...');
+      console.log("[MediaPage] Calling mediaService.uploadFile...");
       const media = await mediaService.uploadFile(file);
-      console.log('[MediaPage] Upload successful, media:', media);
+      console.log("[MediaPage] Upload successful, media:", media);
       setMediaItems([media, ...mediaItems]);
       toast({
         title: "Success",
         description: "File uploaded successfully",
       });
     } catch (error) {
-      console.error('[MediaPage] Upload failed:', error);
+      console.error("[MediaPage] Upload failed:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload file",
+        description:
+          error instanceof Error ? error.message : "Failed to upload file",
         variant: "destructive",
       });
     } finally {
       setUploading(false);
-      e.target.value = ''; // Reset input
+      e.target.value = ""; // Reset input
     }
   };
 
   const handleDeleteMedia = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this media item?')) {
+    if (
+      !(await confirmDialog({
+        title: "Are you sure you want to delete this media item?",
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
     try {
       await mediaService.deleteMedia(id);
-      setMediaItems(mediaItems.filter(item => item.id !== id));
+      setMediaItems(mediaItems.filter((item) => item.id !== id));
       if (selectedMedia?.id === id) {
         setSelectedMedia(null);
       }
@@ -132,10 +162,17 @@ const MediaManagementPage = () => {
     if (!selectedMedia || !editingMedia) return;
 
     try {
-      const updatedMedia = await mediaService.updateMedia(selectedMedia.id, editingMedia as unknown as Parameters<typeof mediaService.updateMedia>[1]);
-      setMediaItems(mediaItems.map(item =>
-        item.id === selectedMedia.id ? updatedMedia : item
-      ));
+      const updatedMedia = await mediaService.updateMedia(
+        selectedMedia.id,
+        editingMedia as unknown as Parameters<
+          typeof mediaService.updateMedia
+        >[1],
+      );
+      setMediaItems(
+        mediaItems.map((item) =>
+          item.id === selectedMedia.id ? updatedMedia : item,
+        ),
+      );
       setSelectedMedia(updatedMedia);
       setEditingMedia(null);
       toast({
@@ -154,20 +191,21 @@ const MediaManagementPage = () => {
   const getImageUrl = (media: Media): string => {
     const url = media.url;
 
-    console.log('[MediaPage] Original URL:', url);
+    console.log("[MediaPage] Original URL:", url);
 
     // If already absolute URL, return as-is
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      console.log('[MediaPage] Already absolute, returning:', url);
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      console.log("[MediaPage] Already absolute, returning:", url);
       return url;
     }
 
     // If relative path, make it absolute
     // NEXT_PUBLIC_API_URL has /api but uploads are at root level
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-    const cleanBaseUrl = baseUrl.replace('/api', ''); // Remove /api suffix
-    const absoluteUrl = `${cleanBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-    console.log('[MediaPage] Converted to absolute:', absoluteUrl);
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+    const cleanBaseUrl = baseUrl.replace("/api", ""); // Remove /api suffix
+    const absoluteUrl = `${cleanBaseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+    console.log("[MediaPage] Converted to absolute:", absoluteUrl);
     return absoluteUrl;
   };
 
@@ -189,15 +227,15 @@ const MediaManagementPage = () => {
   const getMediaTypeLabel = (type: MediaType) => {
     switch (type) {
       case MediaType.IMAGE:
-        return 'Image';
+        return "Image";
       case MediaType.DOCUMENT:
-        return 'Document';
+        return "Document";
       case MediaType.VIDEO:
-        return 'Video';
+        return "Video";
       case MediaType.AUDIO:
-        return 'Audio';
+        return "Audio";
       default:
-        return 'File';
+        return "File";
     }
   };
 
@@ -228,7 +266,7 @@ const MediaManagementPage = () => {
                         variant="ghost"
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => setSearchQuery("")}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -236,7 +274,9 @@ const MediaManagementPage = () => {
                   </div>
                   <Select
                     value={selectedType}
-                    onValueChange={(value) => setSelectedType(value as MediaType | 'all')}
+                    onValueChange={(value) =>
+                      setSelectedType(value as MediaType | "all")
+                    }
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue placeholder="Filter by type" />
@@ -244,7 +284,9 @@ const MediaManagementPage = () => {
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
                       <SelectItem value={MediaType.IMAGE}>Images</SelectItem>
-                      <SelectItem value={MediaType.DOCUMENT}>Documents</SelectItem>
+                      <SelectItem value={MediaType.DOCUMENT}>
+                        Documents
+                      </SelectItem>
                       <SelectItem value={MediaType.VIDEO}>Videos</SelectItem>
                       <SelectItem value={MediaType.AUDIO}>Audio</SelectItem>
                     </SelectContent>
@@ -268,7 +310,7 @@ const MediaManagementPage = () => {
                       >
                         <span>
                           <Upload className="h-4 w-4" />
-                          {uploading ? 'Uploading...' : 'Upload'}
+                          {uploading ? "Uploading..." : "Upload"}
                         </span>
                       </Button>
                     </Label>
@@ -281,15 +323,20 @@ const MediaManagementPage = () => {
                 <p>Loading media...</p>
               ) : filteredMedia.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  {searchQuery ? 'No media found matching your search' : 'No media items available'}
+                  {searchQuery
+                    ? "No media found matching your search"
+                    : "No media items available"}
                 </p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {filteredMedia.map((media) => (
                     <div
                       key={media.id}
-                      className={`relative group cursor-pointer border rounded-md overflow-hidden hover:border-primary transition-colors ${selectedMedia?.id === media.id ? 'border-primary ring-2 ring-primary/20' : ''
-                        }`}
+                      className={`relative group cursor-pointer border rounded-md overflow-hidden hover:border-primary transition-colors ${
+                        selectedMedia?.id === media.id
+                          ? "border-primary ring-2 ring-primary/20"
+                          : ""
+                      }`}
                       onClick={() => setSelectedMedia(media)}
                     >
                       {media.type === MediaType.IMAGE ? (
@@ -299,9 +346,15 @@ const MediaManagementPage = () => {
                             alt={media.altText || media.originalName}
                             className="object-cover w-full h-full"
                             onError={(e) => {
-                              console.error('[MediaPage] Image failed to load:', getImageUrl(media));
-                              e.currentTarget.style.display = 'none';
-                              e.currentTarget.parentElement?.classList.add('border-2', 'border-red-500');
+                              console.error(
+                                "[MediaPage] Image failed to load:",
+                                getImageUrl(media),
+                              );
+                              e.currentTarget.style.display = "none";
+                              e.currentTarget.parentElement?.classList.add(
+                                "border-2",
+                                "border-red-500",
+                              );
                             }}
                           />
                         </div>
@@ -354,7 +407,7 @@ const MediaManagementPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedMedia ? 'Media Details' : 'Select Media'}
+                {selectedMedia ? "Media Details" : "Select Media"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -364,11 +417,16 @@ const MediaManagementPage = () => {
                     <div className="aspect-square bg-muted rounded-md overflow-hidden">
                       <img
                         src={getImageUrl(selectedMedia)}
-                        alt={selectedMedia.altText || selectedMedia.originalName}
+                        alt={
+                          selectedMedia.altText || selectedMedia.originalName
+                        }
                         className="object-cover w-full h-full"
                         onError={(e) => {
-                          console.error('[MediaPage] Detail image failed:', getImageUrl(selectedMedia));
-                          e.currentTarget.style.display = 'none';
+                          console.error(
+                            "[MediaPage] Detail image failed:",
+                            getImageUrl(selectedMedia),
+                          );
+                          e.currentTarget.style.display = "none";
                         }}
                       />
                     </div>
@@ -389,8 +447,13 @@ const MediaManagementPage = () => {
                         <Label htmlFor="title">Title</Label>
                         <Input
                           id="title"
-                          value={editingMedia.title || ''}
-                          onChange={(e) => setEditingMedia({ ...editingMedia, title: e.target.value })}
+                          value={editingMedia.title || ""}
+                          onChange={(e) =>
+                            setEditingMedia({
+                              ...editingMedia,
+                              title: e.target.value,
+                            })
+                          }
                         />
                       </div>
 
@@ -398,8 +461,13 @@ const MediaManagementPage = () => {
                         <Label htmlFor="altText">Alt Text</Label>
                         <Input
                           id="altText"
-                          value={editingMedia.altText || ''}
-                          onChange={(e) => setEditingMedia({ ...editingMedia, altText: e.target.value })}
+                          value={editingMedia.altText || ""}
+                          onChange={(e) =>
+                            setEditingMedia({
+                              ...editingMedia,
+                              altText: e.target.value,
+                            })
+                          }
                         />
                       </div>
 
@@ -407,56 +475,101 @@ const MediaManagementPage = () => {
                         <Label htmlFor="description">Description</Label>
                         <Textarea
                           id="description"
-                          value={editingMedia.description || ''}
-                          onChange={(e) => setEditingMedia({ ...editingMedia, description: e.target.value })}
+                          value={editingMedia.description || ""}
+                          onChange={(e) =>
+                            setEditingMedia({
+                              ...editingMedia,
+                              description: e.target.value,
+                            })
+                          }
                         />
                       </div>
 
                       <div className="flex gap-2">
                         <Button onClick={handleSaveEdit}>Save</Button>
-                        <Button variant="outline" onClick={() => setEditingMedia(null)}>Cancel</Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditingMedia(null)}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div>
-                        <Label className="text-xs text-muted-foreground">File Name</Label>
-                        <p className="font-medium">{selectedMedia.originalName}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          File Name
+                        </Label>
+                        <p className="font-medium">
+                          {selectedMedia.originalName}
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">Title</Label>
-                        <p className="font-medium">{selectedMedia.title || 'No title'}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          Title
+                        </Label>
+                        <p className="font-medium">
+                          {selectedMedia.title || "No title"}
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">Alt Text</Label>
-                        <p className="font-medium">{selectedMedia.altText || 'No alt text'}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          Alt Text
+                        </Label>
+                        <p className="font-medium">
+                          {selectedMedia.altText || "No alt text"}
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">Description</Label>
-                        <p className="font-medium">{selectedMedia.description || 'No description'}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          Description
+                        </Label>
+                        <p className="font-medium">
+                          {selectedMedia.description || "No description"}
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">Type</Label>
-                        <p className="font-medium capitalize">{selectedMedia.type}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          Type
+                        </Label>
+                        <p className="font-medium capitalize">
+                          {selectedMedia.type}
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">Size</Label>
-                        <p className="font-medium">{(selectedMedia.size / 1024).toFixed(2)} KB</p>
+                        <Label className="text-xs text-muted-foreground">
+                          Size
+                        </Label>
+                        <p className="font-medium">
+                          {(selectedMedia.size / 1024).toFixed(2)} KB
+                        </p>
                       </div>
 
                       <div>
-                        <Label className="text-xs text-muted-foreground">URL</Label>
-                        <p className="font-mono text-xs break-all">{selectedMedia.url}</p>
+                        <Label className="text-xs text-muted-foreground">
+                          URL
+                        </Label>
+                        <p className="font-mono text-xs break-all">
+                          {selectedMedia.url}
+                        </p>
                       </div>
 
                       <div className="flex gap-2">
-                        <Button onClick={() => handleEditMedia(selectedMedia)}>Edit</Button>
-                        <Button variant="destructive" onClick={() => handleDeleteMedia(selectedMedia.id)}>Delete</Button>
+                        <Button onClick={() => handleEditMedia(selectedMedia)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleDeleteMedia(selectedMedia.id)}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   )}

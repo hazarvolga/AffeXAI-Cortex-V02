@@ -1,5 +1,4 @@
-
-'use client';
+"use client";
 
 import {
   Card,
@@ -8,43 +7,44 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Send, Paperclip, X, Plus } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Send, Paperclip, X, Plus } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { promptDialog } from "@/lib/dialogs/dialog-queue";
 
 export default function AdminNewSupportTicketPage() {
   const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
+  const [tagInput, setTagInput] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       setTags([...tags, tagInput.trim()]);
-      setTagInput('');
+      setTagInput("");
     }
   };
 
   const removeTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
+    setTags(tags.filter((t) => t !== tag));
   };
 
-  const addCustomField = () => {
-    const key = prompt('Alan adı:');
+  const addCustomField = async () => {
+    const key = await promptDialog({ title: "Alan adı:", label: "Alan adı:" });
     if (key && !customFields[key]) {
-      setCustomFields({ ...customFields, [key]: '' });
+      setCustomFields({ ...customFields, [key]: "" });
     }
   };
 
@@ -64,7 +64,8 @@ export default function AdminNewSupportTicketPage() {
           <CardHeader>
             <CardTitle>Yeni Destek Talebi Oluştur</CardTitle>
             <CardDescription>
-              Bir kullanıcı adına manuel olarak yeni bir destek talebi oluşturun.
+              Bir kullanıcı adına manuel olarak yeni bir destek talebi
+              oluşturun.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -74,7 +75,7 @@ export default function AdminNewSupportTicketPage() {
                 id="user-email"
                 type="email"
                 placeholder="kullanici@example.com"
-                />
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="subject">Konu</Label>
@@ -131,21 +132,30 @@ export default function AdminNewSupportTicketPage() {
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       e.preventDefault();
                       addTag();
                     }
                   }}
                   placeholder="Etiket ekle ve Enter'a bas"
                 />
-                <Button type="button" onClick={addTag} size="icon" variant="outline">
+                <Button
+                  type="button"
+                  onClick={addTag}
+                  size="icon"
+                  variant="outline"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
                       {tag}
                       <button
                         type="button"
@@ -164,7 +174,12 @@ export default function AdminNewSupportTicketPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Özel Alanlar</Label>
-                <Button type="button" onClick={addCustomField} size="sm" variant="outline">
+                <Button
+                  type="button"
+                  onClick={addCustomField}
+                  size="sm"
+                  variant="outline"
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Alan Ekle
                 </Button>
@@ -177,7 +192,9 @@ export default function AdminNewSupportTicketPage() {
                         <Label className="text-sm font-medium">{key}</Label>
                         <Input
                           value={value}
-                          onChange={(e) => updateCustomField(key, e.target.value)}
+                          onChange={(e) =>
+                            updateCustomField(key, e.target.value)
+                          }
                           placeholder={`${key} değerini girin`}
                         />
                       </div>
@@ -196,29 +213,40 @@ export default function AdminNewSupportTicketPage() {
               )}
             </div>
 
-             <div>
-                <Label>Ekler</Label>
-                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-input px-6 py-10">
-                    <div className="text-center">
-                    <Paperclip className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                        <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md bg-background font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary/80"
-                        >
-                        <span>Dosyalarınızı yükleyin</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple />
-                        </label>
-                        <p className="pl-1">veya sürükleyip bırakın</p>
-                    </div>
-                    <p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, PDF, vb. en fazla 10MB</p>
-                    </div>
+            <div>
+              <Label>Ekler</Label>
+              <div className="mt-2 flex justify-center rounded-lg border border-dashed border-input px-6 py-10">
+                <div className="text-center">
+                  <Paperclip
+                    className="mx-auto h-12 w-12 text-gray-300"
+                    aria-hidden="true"
+                  />
+                  <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer rounded-md bg-background font-semibold text-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 hover:text-primary/80"
+                    >
+                      <span>Dosyalarınızı yükleyin</span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        multiple
+                      />
+                    </label>
+                    <p className="pl-1">veya sürükleyip bırakın</p>
+                  </div>
+                  <p className="text-xs leading-5 text-gray-600">
+                    PNG, JPG, GIF, PDF, vb. en fazla 10MB
+                  </p>
                 </div>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" asChild>
-                <Link href="/admin/support">İptal</Link>
+              <Link href="/admin/support">İptal</Link>
             </Button>
             <Button type="submit">
               <Send className="mr-2 h-4 w-4" /> Talebi Oluştur
