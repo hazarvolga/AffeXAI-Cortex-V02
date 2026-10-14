@@ -1,5 +1,10 @@
-import { tenantHeaders, tenantFromPath } from '../auth/tenant-selection';
-import { httpClient } from './http-client';
+import { tenantHeaders, tenantFromPath } from "../auth/tenant-selection";
+import { httpClient } from "./http-client";
+import {
+  isTenantSelection,
+  LoginError,
+  type LoginOutcome,
+} from "../auth/login-outcome";
 import {
   LoginDto,
   LoginResponse,
@@ -7,112 +12,105 @@ import {
   ApiResponse,
   RefreshTokenDto,
   RefreshTokenResponse,
-  ChangePasswordDto
-} from '@affexai/shared-types';
+  ChangePasswordDto,
+} from "@affexai/shared-types";
 
 export type {
   LoginDto,
   LoginResponse,
   RefreshTokenDto,
   RefreshTokenResponse,
-  ChangePasswordDto
+  ChangePasswordDto,
 };
 
 export type CurrentUser = UserProfile & { tenantId?: string };
 
 export type TenantLoginCredentials = LoginDto & { tenantId?: string };
 
+export type { LoginOutcome } from "../auth/login-outcome";
+
 class AuthService {
   /**
-   * Login user and store token
-   * Uses server-side route handler to properly set cookies for middleware
+   * Login through the Next route (which sets the middleware cookies).
+   * With a workspace code, or one taken from the URL, this is the tenant
+   * login; without one the backend discovers the workspace. A selection
+   * outcome carries no token and stores nothing.
    */
-  async login(credentials: TenantLoginCredentials): Promise<LoginResponse> {
-    console.log('🔐 AuthService: Starting login process');
-
-    // Call our Next.js API route instead of backend directly
-    // This ensures cookies are set server-side for middleware
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
+  async login(credentials: TenantLoginCredentials): Promise<LoginOutcome> {
+    const tenant =
+      credentials.tenantId?.trim() ||
+      (typeof window !== "undefined"
+        ? tenantFromPath(window.location.pathname)
+        : undefined);
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        ...tenantHeaders(credentials.tenantId ?? (typeof window !== 'undefined' ? tenantFromPath(window.location.pathname) : undefined)),
+        "Content-Type": "application/json",
+        ...(tenant ? tenantHeaders(tenant) : {}),
       },
-      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+      body: JSON.stringify({
+        email: credentials.email,
+        password: credentials.password,
+      }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
-      throw new Error(errorData.error || 'Login failed');
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Login failed" }));
+      throw new LoginError(response.status, errorData.error || "Login failed");
     }
 
-    const loginData: LoginResponse = await response.json();
+    const outcome: unknown = await response.json();
+    if (isTenantSelection(outcome)) return outcome;
 
-    console.log('🔐 AuthService: Login response received:', {
-      hasAccessToken: !!loginData.access_token,
-      hasRefreshToken: !!loginData.refresh_token,
-    });
-
-    // Store tokens in multiple places for compatibility
-    if (loginData.access_token) {
-      console.log('🔐 AuthService: Storing tokens');
-
-      // Store in httpClient
-      httpClient.setAuthToken(loginData.access_token);
-
-      // Also store in localStorage directly (backup)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('auth_token', loginData.access_token);
-        console.log('🔐 AuthService: Access token stored in localStorage');
-      }
-
-      // Store in tokenStorage as well
-      try {
-        const { tokenStorage } = await import('../auth/token-storage');
-        tokenStorage.setAccessToken(loginData.access_token);
-        console.log('🔐 AuthService: Access token stored in tokenStorage');
-
-        // Store refresh token if present
-        if (loginData.refresh_token) {
-          tokenStorage.setRefreshToken(loginData.refresh_token);
-          console.log('🔐 AuthService: Refresh token stored in tokenStorage');
-        }
-      } catch (error) {
-        console.log('🔐 AuthService: Could not store in tokenStorage:', error);
-      }
-    } else {
-      console.error('🔐 AuthService: No access_token in response!');
+    const loginData = outcome as LoginResponse;
+    if (!loginData.access_token) {
+      throw new LoginError(500, "No access token received from server");
     }
-
+    await this.storeSession(loginData);
     return loginData;
+  }
+
+  private async storeSession(loginData: LoginResponse): Promise<void> {
+    httpClient.setAuthToken(loginData.access_token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("auth_token", loginData.access_token);
+    }
+    const { tokenStorage } = await import("../auth/token-storage");
+    tokenStorage.setAccessToken(loginData.access_token);
+    if (loginData.refresh_token)
+      tokenStorage.setRefreshToken(loginData.refresh_token);
   }
 
   /**
    * Logout user and clear token
    */
   async logout(): Promise<void> {
-    const tenantId = typeof window !== 'undefined'
-      ? (this.getUserFromToken()?.tenantId || tenantFromPath(window.location.pathname))
-      : undefined;
+    const tenantId =
+      typeof window !== "undefined"
+        ? this.getUserFromToken()?.tenantId ||
+          tenantFromPath(window.location.pathname)
+        : undefined;
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
+      await fetch("/api/auth/logout", {
+        method: "POST",
         headers: tenantHeaders(tenantId),
       });
     } finally {
       httpClient.clearAuthToken();
-      const { tokenStorage } = await import('../auth/token-storage');
+      const { tokenStorage } = await import("../auth/token-storage");
       tokenStorage.clear();
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('aluplan_access_token');
-        localStorage.removeItem('aluplan_refresh_token');
-        localStorage.removeItem('cortex_access_token');
-        localStorage.removeItem('cortex_refresh_token');
-        window.location.href = '/login';
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("aluplan_access_token");
+        localStorage.removeItem("aluplan_refresh_token");
+        localStorage.removeItem("cortex_access_token");
+        localStorage.removeItem("cortex_refresh_token");
+        window.location.href = "/login";
       }
     }
   }
@@ -135,19 +133,23 @@ class AuthService {
    * Decode JWT token and get user info (client-side only)
    * Note: This is NOT secure for permissions - only use for UI display
    */
-  getUserFromToken(): (Pick<CurrentUser, 'id' | 'email'> & Partial<CurrentUser>) | null {
+  getUserFromToken():
+    (Pick<CurrentUser, "id" | "email"> & Partial<CurrentUser>) | null {
     const token = this.getToken();
     if (!token) return null;
 
     try {
       // JWT format: header.payload.signature
-      const payload = token.split('.')[1];
+      const payload = token.split(".")[1];
 
       // JWT uses base64url encoding, need to convert to standard base64
       // Replace URL-safe characters: - with +, _ with /
       // Add padding if needed
-      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64.padEnd(
+        base64.length + ((4 - (base64.length % 4)) % 4),
+        "=",
+      );
 
       const decoded = JSON.parse(atob(padded));
 
@@ -169,7 +171,7 @@ class AuthService {
         metadata: decoded.metadata,
       };
     } catch (error) {
-      console.error('Error decoding token:', error);
+      console.error("Error decoding token:", error);
       return null;
     }
   }
@@ -178,7 +180,7 @@ class AuthService {
    * Get current user from API
    */
   async getCurrentUser(): Promise<CurrentUser> {
-    return await httpClient.getWrapped<CurrentUser>('/auth/me');
+    return await httpClient.getWrapped<CurrentUser>("/auth/me");
   }
 
   /**
@@ -191,7 +193,7 @@ class AuthService {
 
     try {
       // Decode current token
-      const payload = currentToken.split('.')[1];
+      const payload = currentToken.split(".")[1];
       const decoded = JSON.parse(atob(payload));
 
       // Merge updated user data
@@ -206,33 +208,45 @@ class AuthService {
       // Note: In production, you should get a new token from the server
       // This is a client-side workaround for immediate UI updates
       // For security, consider calling backend to get a fresh token
-      console.log('⚠️ Token updated client-side. Consider refreshing from server for security.');
+      console.log(
+        "⚠️ Token updated client-side. Consider refreshing from server for security.",
+      );
 
       // For now, we'll just log. In production, call backend for new token
       // The UI will use getUserFromToken() which reads from the current token
     } catch (error) {
-      console.error('Error updating token:', error);
+      console.error("Error updating token:", error);
     }
   }
 
   /**
    * Check if email already exists (duplicate check)
    */
-  async checkEmailExists(email: string, tenantId?: string): Promise<{ exists: boolean; message: string }> {
-    return await httpClient.postWrapped<{ exists: boolean; message: string }>('/auth/check-email', { email }, { headers: tenantHeaders(tenantId) });
+  async checkEmailExists(
+    email: string,
+    tenantId?: string,
+  ): Promise<{ exists: boolean; message: string }> {
+    return await httpClient.postWrapped<{ exists: boolean; message: string }>(
+      "/auth/check-email",
+      { email },
+      { headers: tenantHeaders(tenantId) },
+    );
   }
 
   /**
    * Register new user
    */
-  async register(userData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    phone?: string;
-    metadata?: any;
-  }, tenantId?: string): Promise<{
+  async register(
+    userData: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      phone?: string;
+      metadata?: any;
+    },
+    tenantId?: string,
+  ): Promise<{
     success: boolean;
     message: string;
     user: {
@@ -242,34 +256,39 @@ class AuthService {
       lastName: string;
     };
   }> {
-    return await httpClient.postWrapped('/auth/register', userData, { headers: tenantHeaders(tenantId) });
+    return await httpClient.postWrapped("/auth/register", userData, {
+      headers: tenantHeaders(tenantId),
+    });
   }
 
   /**
    * Refresh access token using refresh token
    */
   async refreshToken(dto: RefreshTokenDto): Promise<RefreshTokenResponse> {
-    console.log('🔄 AuthService: Refreshing access token');
-    const response = await httpClient.postWrapped<RefreshTokenResponse>('/auth/refresh', dto);
+    console.log("🔄 AuthService: Refreshing access token");
+    const response = await httpClient.postWrapped<RefreshTokenResponse>(
+      "/auth/refresh",
+      dto,
+    );
 
     // Store new tokens
     if (response.access_token) {
       httpClient.setAuthToken(response.access_token);
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('auth_token', response.access_token);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("auth_token", response.access_token);
       }
 
       try {
-        const { tokenStorage } = await import('../auth/token-storage');
+        const { tokenStorage } = await import("../auth/token-storage");
         tokenStorage.setAccessToken(response.access_token);
 
         if (response.refresh_token) {
           tokenStorage.setRefreshToken(response.refresh_token);
         }
-        console.log('✅ AuthService: Tokens refreshed and stored');
+        console.log("✅ AuthService: Tokens refreshed and stored");
       } catch (error) {
-        console.error('Error storing refreshed tokens:', error);
+        console.error("Error storing refreshed tokens:", error);
       }
     }
 
@@ -279,20 +298,48 @@ class AuthService {
   /**
    * Change password
    */
-  async changePassword(data: ChangePasswordDto): Promise<{ success: boolean; message: string }> {
-    return await httpClient.postWrapped<{ success: boolean; message: string }>('/auth/change-password', data);
+  async changePassword(
+    data: ChangePasswordDto,
+  ): Promise<{ success: boolean; message: string }> {
+    return await httpClient.postWrapped<{ success: boolean; message: string }>(
+      "/auth/change-password",
+      data,
+    );
   }
 
-  async requestPasswordReset(email: string, tenantId: string): Promise<{ success: boolean; message: string }> {
-    return await httpClient.postWrapped('/auth/forgot-password', { email }, { headers: tenantHeaders(tenantId) });
+  async requestPasswordReset(
+    email: string,
+    tenantId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return await httpClient.postWrapped(
+      "/auth/forgot-password",
+      { email },
+      { headers: tenantHeaders(tenantId) },
+    );
   }
 
-  async resetPassword(token: string, newPassword: string, tenantId: string): Promise<{ success: boolean; message: string }> {
-    return await httpClient.postWrapped('/auth/reset-password', { token, newPassword }, { headers: tenantHeaders(tenantId) });
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    tenantId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return await httpClient.postWrapped(
+      "/auth/reset-password",
+      { token, newPassword },
+      { headers: tenantHeaders(tenantId) },
+    );
   }
 
-  async acceptInvitation(token: string, newPassword: string, tenantId: string): Promise<{ success: boolean; message: string }> {
-    return await httpClient.postWrapped('/auth/invitations/accept', { token, newPassword }, { headers: tenantHeaders(tenantId) });
+  async acceptInvitation(
+    token: string,
+    newPassword: string,
+    tenantId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return await httpClient.postWrapped(
+      "/auth/invitations/accept",
+      { token, newPassword },
+      { headers: tenantHeaders(tenantId) },
+    );
   }
 }
 

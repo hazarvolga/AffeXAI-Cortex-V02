@@ -15,8 +15,29 @@ import { AuthUtilsService } from "../../core/shared/auth-utils.service";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { User } from "../../modules/users/entities/user.entity";
 import { isConfiguredPlatformAdmin } from "./platform-admin.policy";
+import { hasUsableMembership } from "./session-eligibility";
 import { TenantService } from "../tenant/tenant.service";
 import { MailChannel } from "../../modules/mail/interfaces/mail-service.interface";
+
+/** Same message for unknown email and wrong password: login never reveals which. */
+export const INVALID_CREDENTIALS = "Invalid credentials";
+
+/**
+ * Constant cost-10 bcrypt hash of a random secret. Compared when no account
+ * matches so an unknown email costs about as much as a wrong password.
+ */
+const TIMING_EQUALIZER_HASH =
+  "$2a$10$W7POmjTke1tCCnOqR7xJgebYlmm0XrQ6k63.7X8qK4.PNiCxLY9uS";
+
+export interface WorkspaceChoice {
+  slug: string;
+  name: string;
+}
+
+export interface TenantSelectionRequired {
+  requiresTenantSelection: true;
+  tenants: WorkspaceChoice[];
+}
 
 @Injectable()
 export class AuthService {
@@ -52,6 +73,70 @@ export class AuthService {
     }
 
     return this.issueSession(user);
+  }
+
+  /**
+   * Login without a workspace code. Only accounts whose password matches are
+   * considered, so the answer never tells an anonymous caller whether an email
+   * exists. One match opens the session through the normal tenant login path;
+   * several matches return the workspaces to choose from, without a token.
+   */
+  async discoverLogin(
+    email: string,
+    password: string,
+  ): Promise<
+    | NonNullable<Awaited<ReturnType<AuthService["login"]>>>
+    | TenantSelectionRequired
+  > {
+    const candidates = (
+      await this.usersService.findLoginCandidatesByEmail(email)
+    ).filter(
+      (user) =>
+        user.isActive &&
+        user.emailVerified === true &&
+        !!user.tenantId &&
+        hasUsableMembership(user),
+    );
+    if (candidates.length === 0) {
+      await this.authUtilsService.comparePassword(
+        password,
+        TIMING_EQUALIZER_HASH,
+      );
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
+    }
+
+    const matches: User[] = [];
+    for (const candidate of candidates) {
+      if (
+        await this.authUtilsService.comparePassword(
+          password,
+          candidate.password,
+        )
+      ) {
+        matches.push(candidate);
+      }
+    }
+    if (matches.length === 0)
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
+
+    if (matches.length > 1) {
+      return {
+        requiresTenantSelection: true,
+        tenants: matches
+          .map((user) => ({
+            slug: user.tenantId,
+            name: user.organization?.name || user.tenantId,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "tr")),
+      };
+    }
+
+    const session = await this.tenantService.runWithTenant(
+      { tenantId: matches[0].tenantId, source: "public" },
+      () => this.login({ email, password }),
+    );
+    if (!session) throw new UnauthorizedException(INVALID_CREDENTIALS);
+    return session;
   }
 
   async createVerifiedSession(userId: string, tenantId: string) {
@@ -319,7 +404,8 @@ export class AuthService {
     ) {
       throw new BadRequestException("Invalid or expired reset token");
     }
-    const hashedPassword = await this.authUtilsService.hashPassword(newPassword);
+    const hashedPassword =
+      await this.authUtilsService.hashPassword(newPassword);
     if (
       !(await this.usersService.consumePasswordResetToken(
         user.id,
@@ -334,7 +420,9 @@ export class AuthService {
 
   async logout(userId: string, tokenVersion: number): Promise<void> {
     const tenantId = this.requireTenant();
-    if (!(await this.usersService.revokeSessions(userId, tenantId, tokenVersion)))
+    if (
+      !(await this.usersService.revokeSessions(userId, tenantId, tokenVersion))
+    )
       throw new UnauthorizedException("Session changed; sign in again");
   }
 
@@ -353,8 +441,16 @@ export class AuthService {
     ) {
       throw new BadRequestException("Invalid or expired invitation");
     }
-    const hashedPassword = await this.authUtilsService.hashPassword(newPassword);
-    if (!(await this.usersService.consumeInvitationToken(user.id, tenantId, token, hashedPassword)))
+    const hashedPassword =
+      await this.authUtilsService.hashPassword(newPassword);
+    if (
+      !(await this.usersService.consumeInvitationToken(
+        user.id,
+        tenantId,
+        token,
+        hashedPassword,
+      ))
+    )
       throw new BadRequestException("Invalid or expired invitation");
   }
 
@@ -362,9 +458,13 @@ export class AuthService {
     return value.replace(
       /[&<>"']/g,
       (character) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-          character
-        ],
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[character],
     );
   }
 

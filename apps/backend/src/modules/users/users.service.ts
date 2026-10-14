@@ -1,28 +1,56 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere, ILike } from 'typeorm';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { FilterUsersDto } from './dto/filter-users.dto';
-import { ChangeUserRoleDto } from './dto/change-user-role.dto';
-import { CompleteProfileDto } from './dto/complete-profile.dto';
-import { User } from './entities/user.entity';
-import { UserRole as UserRoleEntity } from './entities/user-role.entity';
-import { assertTenantRoleDefinition, assertPlatformAccountMutation, VerifiedPlatformActor } from '../roles/tenant-role-policy';
-import { AuthUtilsService } from '../../core/shared/auth-utils.service';
-import { CacheService } from '../../core/shared/services/cache.service';
-import { RolesService } from '../roles/roles.service';
-import { UserRolesService } from './user-roles.service';
-import { CrmService } from '../crm/crm.service';
-import { UserEmailService } from './services/user-email.service';
-import { TenantService } from '../../core/tenant/tenant.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CommerceService } from '../commerce/services/commerce.service';
-import { InviteUserDto } from './dto/invite-user.dto';
-import { createHash, randomBytes } from 'crypto';
-import { Organization } from '../organizations/entities/organization.entity';
-import { assertAdminAuthorityCanBeRevoked } from '../organizations/organization-admin-invariant';
-import { rotateRefreshCredentials, replacePasswordCredentials, consumeVerificationCredentials, consumePasswordResetCredentials, revokeSessionCredentials, consumeInvitationCredentials } from './auth-persistence';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import {
+  Repository,
+  Like,
+  FindOptionsWhere,
+  ILike,
+  IsNull,
+  Not,
+} from "typeorm";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { FilterUsersDto } from "./dto/filter-users.dto";
+import { ChangeUserRoleDto } from "./dto/change-user-role.dto";
+import { CompleteProfileDto } from "./dto/complete-profile.dto";
+import { User } from "./entities/user.entity";
+import { UserRole as UserRoleEntity } from "./entities/user-role.entity";
+import {
+  assertTenantRoleDefinition,
+  assertPlatformAccountMutation,
+  VerifiedPlatformActor,
+} from "../roles/tenant-role-policy";
+import { AuthUtilsService } from "../../core/shared/auth-utils.service";
+import { CacheService } from "../../core/shared/services/cache.service";
+import { RolesService } from "../roles/roles.service";
+import { UserRolesService } from "./user-roles.service";
+import { CrmService } from "../crm/crm.service";
+import { UserEmailService } from "./services/user-email.service";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { CommerceService } from "../commerce/services/commerce.service";
+import { InviteUserDto } from "./dto/invite-user.dto";
+import { createHash, randomBytes } from "crypto";
+import { Organization } from "../organizations/entities/organization.entity";
+import { assertAdminAuthorityCanBeRevoked } from "../organizations/organization-admin-invariant";
+import {
+  rotateRefreshCredentials,
+  replacePasswordCredentials,
+  consumeVerificationCredentials,
+  consumePasswordResetCredentials,
+  revokeSessionCredentials,
+  consumeInvitationCredentials,
+} from "./auth-persistence";
+
+/** Upper bound of accounts one email may unlock during login discovery. */
+const MAX_LOGIN_CANDIDATES = 10;
 
 @Injectable()
 export class UsersService {
@@ -40,74 +68,119 @@ export class UsersService {
     private eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => CommerceService))
     private commerceService: CommerceService,
-  ) { }
+  ) {}
 
   async create(createUserDto: CreateUserDto, tenantId?: string): Promise<User> {
     const activeTenantId = tenantId || this.tenantService.getTenantId();
-    if (!activeTenantId) throw new BadRequestException('Tenant context required');
+    if (!activeTenantId)
+      throw new BadRequestException("Tenant context required");
 
     try {
       // Check if email already exists (scoped to tenant)
       const normalizedEmail = createUserDto.email.trim().toLowerCase();
-      const existingUser = await this.findByEmail(normalizedEmail, activeTenantId, true);
+      const existingUser = await this.findByEmail(
+        normalizedEmail,
+        activeTenantId,
+        true,
+      );
       if (existingUser) {
-        throw new ConflictException('User with this email already exists');
+        throw new ConflictException("User with this email already exists");
       }
 
       // Check User Limits (Seat Management)
-      const limitCheck = await this.commerceService.checkUserLimit(activeTenantId);
+      const limitCheck =
+        await this.commerceService.checkUserLimit(activeTenantId);
       if (!limitCheck.allowed) {
-        throw new BadRequestException(`User limit reached for your plan. Upgrade to add more users.`);
+        throw new BadRequestException(
+          `User limit reached for your plan. Upgrade to add more users.`,
+        );
       }
 
-      const { primaryRoleId, additionalRoles } = await this.resolveCreationRoles(createUserDto, activeTenantId);
-      const hashedPassword = await this.authUtilsService.hashPassword(createUserDto.password);
-      const { primaryRoleId: _primary, additionalRoleIds: _additional, ...fields } = createUserDto;
+      const { primaryRoleId, additionalRoles } =
+        await this.resolveCreationRoles(createUserDto, activeTenantId);
+      const hashedPassword = await this.authUtilsService.hashPassword(
+        createUserDto.password,
+      );
+      const {
+        primaryRoleId: _primary,
+        additionalRoleIds: _additional,
+        ...fields
+      } = createUserDto;
       // User and role assignments commit together; a failed assignment cannot leave a privileged legacy row.
-      const savedUser = await this.usersRepository.manager.transaction(async manager => {
-        const users = manager.getRepository(User);
-        const organization = await manager.getRepository(Organization).findOne({
-          where: { slug: activeTenantId, isActive: true },
-        });
-        if (!organization) throw new BadRequestException('Active organization is required to create a tenant user');
-        const user = users.create({
-          ...fields,
-          email: normalizedEmail,
-          roleId: primaryRoleId,
-          password: hashedPassword,
-          tenantId: activeTenantId,
-          organizationId: organization.id,
-        });
-        const saved = await users.save(user);
-        const assignments = new UserRolesService(manager.getRepository(UserRoleEntity), users, this.rolesService);
-        await assignments.assignRoles(saved.id, primaryRoleId, additionalRoles, false, undefined, activeTenantId);
-        const committedUser = await users.findOne({ where: { id: saved.id, tenantId: activeTenantId } });
-        if (!committedUser) throw new NotFoundException('Created user could not be reloaded');
-        return committedUser;
-      });
+      const savedUser = await this.usersRepository.manager.transaction(
+        async (manager) => {
+          const users = manager.getRepository(User);
+          const organization = await manager
+            .getRepository(Organization)
+            .findOne({
+              where: { slug: activeTenantId, isActive: true },
+            });
+          if (!organization)
+            throw new BadRequestException(
+              "Active organization is required to create a tenant user",
+            );
+          const user = users.create({
+            ...fields,
+            email: normalizedEmail,
+            roleId: primaryRoleId,
+            password: hashedPassword,
+            tenantId: activeTenantId,
+            organizationId: organization.id,
+          });
+          const saved = await users.save(user);
+          const assignments = new UserRolesService(
+            manager.getRepository(UserRoleEntity),
+            users,
+            this.rolesService,
+          );
+          await assignments.assignRoles(
+            saved.id,
+            primaryRoleId,
+            additionalRoles,
+            false,
+            undefined,
+            activeTenantId,
+          );
+          const committedUser = await users.findOne({
+            where: { id: saved.id, tenantId: activeTenantId },
+          });
+          if (!committedUser)
+            throw new NotFoundException("Created user could not be reloaded");
+          return committedUser;
+        },
+      );
 
       // Clear cache
-      await this.cacheService.del('users:all');
+      await this.cacheService.del("users:all");
 
       return savedUser;
     } catch (error) {
-      console.error('❌ Error in UsersService.create:', error);
+      console.error("❌ Error in UsersService.create:", error);
 
       // Re-throw known errors
-      if (error instanceof ConflictException || error instanceof BadRequestException) {
+      if (
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
 
       // Handle database constraint violations (duplicate key)
-      if (error.code === '23505') { // PostgreSQL unique violation code
-        if (error.constraint?.includes('email') || error.detail?.includes('email')) {
-          throw new ConflictException('User with this email already exists');
+      if (error.code === "23505") {
+        // PostgreSQL unique violation code
+        if (
+          error.constraint?.includes("email") ||
+          error.detail?.includes("email")
+        ) {
+          throw new ConflictException("User with this email already exists");
         }
-        throw new ConflictException('A user with this information already exists');
+        throw new ConflictException(
+          "A user with this information already exists",
+        );
       }
 
       // Log and throw unexpected errors
-      console.error('❌ Unexpected error details:', {
+      console.error("❌ Unexpected error details:", {
         message: error.message,
         code: error.code,
         constraint: error.constraint,
@@ -120,19 +193,22 @@ export class UsersService {
   }
 
   async invite(dto: InviteUserDto, tenantId: string): Promise<User> {
-    const invitationToken = `invite_${randomBytes(32).toString('hex')}`;
-    const user = await this.create({
-      ...dto,
-      password: randomBytes(48).toString('base64url'),
-    }, tenantId);
+    const invitationToken = `invite_${randomBytes(32).toString("hex")}`;
+    const user = await this.create(
+      {
+        ...dto,
+        password: randomBytes(48).toString("base64url"),
+      },
+      tenantId,
+    );
     await this.usersRepository.update(
       { id: user.id, tenantId },
       {
-        emailVerificationToken: `invite_hash_${createHash('sha256').update(invitationToken).digest('hex')}`,
+        emailVerificationToken: `invite_hash_${createHash("sha256").update(invitationToken).digest("hex")}`,
         emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     );
-    this.eventEmitter.emit('user.invited', {
+    this.eventEmitter.emit("user.invited", {
       userId: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -143,41 +219,75 @@ export class UsersService {
     return user;
   }
 
-  private async resolveCreationRoles(dto: CreateUserDto, tenantId: string): Promise<{ primaryRoleId: string; additionalRoles: string[] }> {
-    const requestedIds = [...new Set([dto.roleId, dto.primaryRoleId, ...(dto.additionalRoleIds || [])].filter((id): id is string => Boolean(id)))];
+  private async resolveCreationRoles(
+    dto: CreateUserDto,
+    tenantId: string,
+  ): Promise<{ primaryRoleId: string; additionalRoles: string[] }> {
+    const requestedIds = [
+      ...new Set(
+        [
+          dto.roleId,
+          dto.primaryRoleId,
+          ...(dto.additionalRoleIds || []),
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    ];
     if (requestedIds.length > 0) {
       const roles = await this.rolesService.findByIds(requestedIds, tenantId);
-      if (roles.length !== requestedIds.length || roles.some(role => role.tenantId !== tenantId)) {
-        throw new BadRequestException('All user roles must belong to this tenant');
+      if (
+        roles.length !== requestedIds.length ||
+        roles.some((role) => role.tenantId !== tenantId)
+      ) {
+        throw new BadRequestException(
+          "All user roles must belong to this tenant",
+        );
       }
       roles.forEach(assertTenantRoleDefinition);
     }
     let primaryRoleId = dto.primaryRoleId || dto.roleId;
     if (!primaryRoleId) {
-      const viewer = (await this.rolesService.findAll(tenantId)).find(role => role.name === 'viewer');
-      if (!viewer) throw new BadRequestException('Default viewer role not found');
-      if (viewer.tenantId !== tenantId) throw new BadRequestException('Default role tenant mismatch');
+      const viewer = (await this.rolesService.findAll(tenantId)).find(
+        (role) => role.name === "viewer",
+      );
+      if (!viewer)
+        throw new BadRequestException("Default viewer role not found");
+      if (viewer.tenantId !== tenantId)
+        throw new BadRequestException("Default role tenant mismatch");
       assertTenantRoleDefinition(viewer);
       primaryRoleId = viewer.id;
     }
     if (!dto.primaryRoleId) {
       // A CRM outage retains the validated default/explicit role; it cannot introduce a new grant.
-      const isCustomer = await this.crmService.isCustomerEmail(dto.email).catch(() => false);
+      const isCustomer = await this.crmService
+        .isCustomerEmail(dto.email)
+        .catch(() => false);
       if (isCustomer) {
-        const customer = (await this.rolesService.findAll(tenantId)).find(role => role.name === 'customer');
+        const customer = (await this.rolesService.findAll(tenantId)).find(
+          (role) => role.name === "customer",
+        );
         if (customer) {
-          if (customer.tenantId !== tenantId) throw new BadRequestException('Customer role tenant mismatch');
+          if (customer.tenantId !== tenantId)
+            throw new BadRequestException("Customer role tenant mismatch");
           assertTenantRoleDefinition(customer);
           primaryRoleId = customer.id;
         }
       }
     }
-    return { primaryRoleId, additionalRoles: [...new Set(dto.additionalRoleIds || [])].filter(id => id !== primaryRoleId) };
+    return {
+      primaryRoleId,
+      additionalRoles: [...new Set(dto.additionalRoleIds || [])].filter(
+        (id) => id !== primaryRoleId,
+      ),
+    };
   }
 
-  async findAll(filterDto: FilterUsersDto, tenantId?: string): Promise<{ data: User[]; total: number; page: number; limit: number }> {
+  async findAll(
+    filterDto: FilterUsersDto,
+    tenantId?: string,
+  ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const activeTenantId = tenantId || this.tenantService.getTenantId();
-    if (!activeTenantId) throw new BadRequestException('Tenant context required');
+    if (!activeTenantId)
+      throw new BadRequestException("Tenant context required");
 
     const page = filterDto?.page || 1;
     const limit = filterDto?.limit || 10;
@@ -206,12 +316,12 @@ export class UsersService {
     }
 
     // Sorting
-    const sortBy = filterDto?.sortBy || 'createdAt';
-    const sortOrder = filterDto?.sortOrder || 'DESC';
+    const sortBy = filterDto?.sortBy || "createdAt";
+    const sortOrder = filterDto?.sortOrder || "DESC";
 
     const [users, total] = await this.usersRepository.findAndCount({
       where,
-      relations: ['roleEntity', 'userRoles', 'userRoles.role'], // Include multi-role data
+      relations: ["roleEntity", "userRoles", "userRoles.role"], // Include multi-role data
       take: limit,
       skip,
       order: {
@@ -228,8 +338,14 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string, tenantId?: string, isGlobal = false): Promise<User> {
-    const activeTenantId = isGlobal ? undefined : (tenantId || this.tenantService.getTenantId());
+  async findOne(
+    id: string,
+    tenantId?: string,
+    isGlobal = false,
+  ): Promise<User> {
+    const activeTenantId = isGlobal
+      ? undefined
+      : tenantId || this.tenantService.getTenantId();
     const where: FindOptionsWhere<User> = { id } as any;
     // CRITICAL: Strict tenant enforcement
     if (activeTenantId) {
@@ -240,12 +356,12 @@ export class UsersService {
       tenantIdArg: tenantId,
       isGlobal,
       resolvedActiveTenantId: activeTenantId,
-      whereClause: where
+      whereClause: where,
     });
 
     const user = await this.usersRepository.findOne({
       where,
-      relations: ['roleEntity', 'userRoles', 'userRoles.role', 'organization'], // Include both legacy and new role relations + organization
+      relations: ["roleEntity", "userRoles", "userRoles.role", "organization"], // Include both legacy and new role relations + organization
       withDeleted: false, // Exclude soft-deleted users
     });
 
@@ -259,31 +375,37 @@ export class UsersService {
     }
 
     // DEBUG: Log user roles
-    console.log('🔍 UsersService.findOne - user roles:', {
+    console.log("🔍 UsersService.findOne - user roles:", {
       email: user.email,
       roleId: user.roleId,
       userRolesCount: user.userRoles?.length || 0,
-      userRoles: user.userRoles?.map(ur => ({
+      userRoles: user.userRoles?.map((ur) => ({
         roleName: ur.role?.name,
         isPrimary: ur.isPrimary,
       })),
-      rolesGetter: user.roles?.map(r => r.name),
+      rolesGetter: user.roles?.map((r) => r.name),
     });
 
     return user;
   }
 
-  async findByEmail(email: string, tenantId?: string, skipCache = false, isGlobal = false): Promise<User | null> {
+  async findByEmail(
+    email: string,
+    tenantId?: string,
+    skipCache = false,
+    isGlobal = false,
+  ): Promise<User | null> {
     email = email.trim().toLowerCase();
-    const activeTenantId = isGlobal ? undefined : (tenantId || this.tenantService.getTenantId());
+    const activeTenantId = isGlobal
+      ? undefined
+      : tenantId || this.tenantService.getTenantId();
 
     console.log(`🔍 UsersService.findByEmail(${email}) context:`, {
       tenantIdArg: tenantId,
       isGlobal,
       resolvedActiveTenantId: activeTenantId,
-      skipCache
+      skipCache,
     });
-
 
     // Skip cache for critical operations like user registration
     if (!skipCache) {
@@ -307,7 +429,7 @@ export class UsersService {
     // But we need to be explicit for clarity
     const user = await this.usersRepository.findOne({
       where,
-      relations: ['roleEntity', 'userRoles', 'userRoles.role', 'organization'], // Include role and organization information for permission checks
+      relations: ["roleEntity", "userRoles", "userRoles.role", "organization"], // Include role and organization information for permission checks
       withDeleted: false, // Explicitly exclude soft-deleted users
     });
 
@@ -322,6 +444,26 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Accounts that could sign in with this email in any workspace. Only for
+   * AuthService.discoverLogin, which checks the password before revealing any
+   * of them; never cached and bounded to keep password checks cheap.
+   */
+  async findLoginCandidatesByEmail(email: string): Promise<User[]> {
+    return this.usersRepository.find({
+      where: {
+        email: email.trim().toLowerCase(),
+        isActive: true,
+        emailVerified: true,
+        tenantId: Not(IsNull()),
+      },
+      relations: ["organization"],
+      withDeleted: false,
+      order: { tenantId: "ASC" },
+      take: MAX_LOGIN_CANDIDATES,
+    });
+  }
+
   async findByVerificationToken(token: string): Promise<User | null> {
     return await this.usersRepository.findOne({
       where: { emailVerificationToken: token },
@@ -329,22 +471,48 @@ export class UsersService {
     });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, tenantId?: string, isGlobal = false, actor?: VerifiedPlatformActor): Promise<User> {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    tenantId?: string,
+    isGlobal = false,
+    actor?: VerifiedPlatformActor,
+  ): Promise<User> {
     assertPlatformAccountMutation(id, actor);
     const allowedProfileFields = new Set([
-      'email', 'firstName', 'lastName', 'phone', 'avatar', 'address', 'city',
-      'country', 'bio', 'metadata', 'customerNumber', 'schoolName', 'studentId',
-      'isSubscribedToNewsletter', 'primaryRoleId', 'additionalRoleIds', 'roleId',
+      "email",
+      "firstName",
+      "lastName",
+      "phone",
+      "avatar",
+      "address",
+      "city",
+      "country",
+      "bio",
+      "metadata",
+      "customerNumber",
+      "schoolName",
+      "studentId",
+      "isSubscribedToNewsletter",
+      "primaryRoleId",
+      "additionalRoleIds",
+      "roleId",
     ]);
     const profileUpdate = Object.fromEntries(
-      Object.entries(updateUserDto).filter(([key]) => allowedProfileFields.has(key)),
+      Object.entries(updateUserDto).filter(([key]) =>
+        allowedProfileFields.has(key),
+      ),
     ) as Record<string, unknown>;
-    const activeTenantId = isGlobal ? undefined : (tenantId || this.tenantService.getTenantId());
+    const activeTenantId = isGlobal
+      ? undefined
+      : tenantId || this.tenantService.getTenantId();
 
     // Pass isGlobal to findOne to bypass tenant check if needed
     const user = await this.findOne(id, activeTenantId, isGlobal);
-    if (Object.prototype.hasOwnProperty.call(updateUserDto, 'isActive')) {
-      throw new BadRequestException('Use the dedicated account lifecycle endpoint to change active status');
+    if (Object.prototype.hasOwnProperty.call(updateUserDto, "isActive")) {
+      throw new BadRequestException(
+        "Use the dedicated account lifecycle endpoint to change active status",
+      );
     }
 
     // Check if email is being changed and if it's already taken
@@ -352,9 +520,12 @@ export class UsersService {
       profileUpdate.email = updateUserDto.email.trim().toLowerCase();
       // Check for email collision, scoping to tenant if available (though user might be updating self)
       // We use user.tenantId to keep it consistent
-      const existingUser = await this.findByEmail(updateUserDto.email, user.tenantId);
+      const existingUser = await this.findByEmail(
+        updateUserDto.email,
+        user.tenantId,
+      );
       if (existingUser) {
-        throw new ConflictException('Email already in use');
+        throw new ConflictException("Email already in use");
       }
     }
 
@@ -379,25 +550,32 @@ export class UsersService {
         // SMOOTH TRANSITION: Just clear cache - user will get updated role on next request
         // No token invalidation = seamless role change without logout
         await this.cacheService.del(`users:${id}`);
-        await this.cacheService.del('users:all');
+        await this.cacheService.del("users:all");
 
         // Remove from DTO to prevent duplicate update
         delete profileUpdate.primaryRoleId;
         delete profileUpdate.additionalRoleIds;
       } catch (error) {
-        console.error('❌ Error updating user roles:', error);
+        console.error("❌ Error updating user roles:", error);
         throw error;
       }
     }
 
     // DEPRECATED: Backward compatibility for single roleId
     if (updateUserDto.roleId && updateUserDto.roleId !== user.roleId) {
-      console.log(`⚠️ Using deprecated roleId field. Consider using primaryRoleId instead.`);
+      console.log(
+        `⚠️ Using deprecated roleId field. Consider using primaryRoleId instead.`,
+      );
 
       // Validate role exists
-      const roleExists = await this.rolesService.findOne(updateUserDto.roleId, user.tenantId);
+      const roleExists = await this.rolesService.findOne(
+        updateUserDto.roleId,
+        user.tenantId,
+      );
       if (!roleExists) {
-        throw new NotFoundException(`Role with ID "${updateUserDto.roleId}" not found`);
+        throw new NotFoundException(
+          `Role with ID "${updateUserDto.roleId}" not found`,
+        );
       }
 
       // Assign as primary role using new system
@@ -425,77 +603,183 @@ export class UsersService {
     // Clear cache
     await this.cacheService.del(`users:${id}`);
     await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     // Reload user with updated roles
     return this.findOne(id, activeTenantId, isGlobal);
   }
 
   /** Atomic authentication writes: no tenant/user-editable role authority is involved. */
-  async rotateRefreshToken(userId: string, tenantId: string, expectedStoredToken: string, expectedVersion: number, newToken: string, newExpiry: Date): Promise<boolean> {
-    const changed = await rotateRefreshCredentials(this.usersRepository, userId, tenantId, expectedStoredToken, expectedVersion, newToken, newExpiry);
+  async rotateRefreshToken(
+    userId: string,
+    tenantId: string,
+    expectedStoredToken: string,
+    expectedVersion: number,
+    newToken: string,
+    newExpiry: Date,
+  ): Promise<boolean> {
+    const changed = await rotateRefreshCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      expectedStoredToken,
+      expectedVersion,
+      newToken,
+      newExpiry,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  async changePasswordCredentials(userId: string, tenantId: string, hashedPassword: string, expectedVersion: number): Promise<boolean> {
-    const changed = await replacePasswordCredentials(this.usersRepository, userId, tenantId, hashedPassword, expectedVersion);
+  async changePasswordCredentials(
+    userId: string,
+    tenantId: string,
+    hashedPassword: string,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    const changed = await replacePasswordCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      hashedPassword,
+      expectedVersion,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  async consumeEmailVerificationToken(userId: string, tenantId: string, expectedToken: string): Promise<boolean> {
-    const changed = await consumeVerificationCredentials(this.usersRepository, userId, tenantId, expectedToken);
+  async consumeEmailVerificationToken(
+    userId: string,
+    tenantId: string,
+    expectedToken: string,
+  ): Promise<boolean> {
+    const changed = await consumeVerificationCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      expectedToken,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  async consumePasswordResetToken(userId: string, tenantId: string, expectedToken: string, hashedPassword: string): Promise<boolean> {
-    const changed = await consumePasswordResetCredentials(this.usersRepository, userId, tenantId, expectedToken, hashedPassword);
+  async consumePasswordResetToken(
+    userId: string,
+    tenantId: string,
+    expectedToken: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    const changed = await consumePasswordResetCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      expectedToken,
+      hashedPassword,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  async revokeSessions(userId: string, tenantId: string, expectedVersion: number): Promise<boolean> {
-    const changed = await revokeSessionCredentials(this.usersRepository, userId, tenantId, expectedVersion);
+  async revokeSessions(
+    userId: string,
+    tenantId: string,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    const changed = await revokeSessionCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      expectedVersion,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  async consumeInvitationToken(userId: string, tenantId: string, invitationToken: string, hashedPassword: string): Promise<boolean> {
-    const changed = await consumeInvitationCredentials(this.usersRepository, userId, tenantId, invitationToken, hashedPassword);
+  async consumeInvitationToken(
+    userId: string,
+    tenantId: string,
+    invitationToken: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    const changed = await consumeInvitationCredentials(
+      this.usersRepository,
+      userId,
+      tenantId,
+      invitationToken,
+      hashedPassword,
+    );
     if (changed) await this.clearAuthCaches(userId, tenantId);
     return changed;
   }
 
-  private async clearAuthCaches(userId: string, tenantId: string): Promise<void> {
-    const user = await this.usersRepository.findOne({ where: { id: userId, tenantId }, select: ['id', 'email'], loadEagerRelations: false });
+  private async clearAuthCaches(
+    userId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId, tenantId },
+      select: ["id", "email"],
+      loadEagerRelations: false,
+    });
     await this.cacheService.del(`users:${userId}`);
     if (user) await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
   }
 
   // Alias for update method (for compatibility)
   async updateUser(
     id: string,
-    updateUserDto: Partial<Pick<User, 'refreshToken' | 'refreshTokenExpires' | 'lastLoginAt' | 'emailVerificationToken' | 'emailVerificationExpires' | 'emailVerified' | 'emailVerifiedAt' | 'isActive' | 'password'>>,
+    updateUserDto: Partial<
+      Pick<
+        User,
+        | "refreshToken"
+        | "refreshTokenExpires"
+        | "lastLoginAt"
+        | "emailVerificationToken"
+        | "emailVerificationExpires"
+        | "emailVerified"
+        | "emailVerifiedAt"
+        | "isActive"
+        | "password"
+      >
+    >,
     tenantId?: string,
     isGlobal = false,
   ): Promise<User> {
     // Internal auth persistence seam: no arbitrary profile/role writes can use this bypass.
-    const authFields = new Set(['refreshToken', 'refreshTokenExpires', 'lastLoginAt', 'emailVerificationToken', 'emailVerificationExpires', 'emailVerified', 'emailVerifiedAt', 'isActive', 'password']);
-    if (Object.keys(updateUserDto).some(key => !authFields.has(key))) {
-      throw new BadRequestException('Internal authentication update contains unsupported fields');
+    const authFields = new Set([
+      "refreshToken",
+      "refreshTokenExpires",
+      "lastLoginAt",
+      "emailVerificationToken",
+      "emailVerificationExpires",
+      "emailVerified",
+      "emailVerifiedAt",
+      "isActive",
+      "password",
+    ]);
+    if (Object.keys(updateUserDto).some((key) => !authFields.has(key))) {
+      throw new BadRequestException(
+        "Internal authentication update contains unsupported fields",
+      );
     }
     const activeTenantId = tenantId || this.tenantService.getTenantId();
-    if (!activeTenantId) throw new BadRequestException('Tenant context required');
+    if (!activeTenantId)
+      throw new BadRequestException("Tenant context required");
     const user = await this.findOne(id, activeTenantId, isGlobal);
-    await this.usersRepository.update({ id, tenantId: user.tenantId }, updateUserDto);
+    await this.usersRepository.update(
+      { id, tenantId: user.tenantId },
+      updateUserDto,
+    );
     await this.clearAuthCaches(id, user.tenantId);
     return this.findOne(id, user.tenantId, isGlobal);
   }
 
-  async remove(id: string, tenantId?: string, actor?: VerifiedPlatformActor): Promise<void> {
+  async remove(
+    id: string,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<void> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
     // Need to use withDeleted to find user even if already soft-deleted
@@ -513,13 +797,23 @@ export class UsersService {
 
     const revokeAndDelete = async (users: Repository<User>) => {
       await users.update(
-        { id, ...(activeTenantId ? { tenantId: activeTenantId } : {}) } as FindOptionsWhere<User>,
-        { tokenVersion: () => '"tokenVersion" + 1', refreshToken: null, refreshTokenExpires: null },
+        {
+          id,
+          ...(activeTenantId ? { tenantId: activeTenantId } : {}),
+        } as FindOptionsWhere<User>,
+        {
+          tokenVersion: () => '"tokenVersion" + 1',
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
       );
-      await users.softDelete({ id, ...(activeTenantId ? { tenantId: activeTenantId } : {}) });
+      await users.softDelete({
+        id,
+        ...(activeTenantId ? { tenantId: activeTenantId } : {}),
+      });
     };
     if (user.organizationId) {
-      await this.usersRepository.manager.transaction(async manager => {
+      await this.usersRepository.manager.transaction(async (manager) => {
         await assertAdminAuthorityCanBeRevoked(manager, user);
         await revokeAndDelete(manager.withRepository(this.usersRepository));
       });
@@ -530,7 +824,7 @@ export class UsersService {
     // Clear cache
     await this.cacheService.del(`users:${id}`);
     await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
   }
 
   /**
@@ -538,7 +832,11 @@ export class UsersService {
    * Use with caution! This action cannot be undone.
    * Consider using soft delete (remove) instead.
    */
-  async hardDelete(id: string, tenantId?: string, actor?: VerifiedPlatformActor): Promise<void> {
+  async hardDelete(
+    id: string,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<void> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
     const where: FindOptionsWhere<User> = { id } as any;
@@ -553,7 +851,9 @@ export class UsersService {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
 
-    console.warn(`⚠️  HARD DELETE: Permanently removing user ${user.email} (${id})`);
+    console.warn(
+      `⚠️  HARD DELETE: Permanently removing user ${user.email} (${id})`,
+    );
 
     // Permanently delete from database
     await this.usersRepository.remove(user);
@@ -561,13 +861,17 @@ export class UsersService {
     // Clear cache
     await this.cacheService.del(`users:${id}`);
     await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
   }
 
   /**
    * Restore a soft-deleted user
    */
-  async restore(id: string, tenantId?: string, actor?: VerifiedPlatformActor): Promise<User> {
+  async restore(
+    id: string,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<User> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
     // Find soft-deleted user
@@ -584,7 +888,7 @@ export class UsersService {
     }
 
     if (!user.deletedAt) {
-      throw new BadRequestException('User is not deleted');
+      throw new BadRequestException("User is not deleted");
     }
 
     // Restore the user
@@ -593,15 +897,22 @@ export class UsersService {
     // Clear cache and return updated user
     await this.cacheService.del(`users:${id}`);
     await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     return this.findOne(id, activeTenantId);
   }
 
-  async changeRole(id: string, changeRoleDto: ChangeUserRoleDto, tenantId?: string, actor?: VerifiedPlatformActor): Promise<User> {
+  async changeRole(
+    id: string,
+    changeRoleDto: ChangeUserRoleDto,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<User> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
-    console.log(`⚠️ changeRole is deprecated. Use update with primaryRoleId instead.`);
+    console.log(
+      `⚠️ changeRole is deprecated. Use update with primaryRoleId instead.`,
+    );
 
     const user = await this.findOne(id, activeTenantId);
 
@@ -619,31 +930,41 @@ export class UsersService {
     // SMOOTH TRANSITION: Just clear cache - user will get updated role on next request
     // No token invalidation = seamless role change without logout
     await this.cacheService.del(`users:${id}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     // Reload user with new role relation
     return this.findOne(id, activeTenantId);
   }
 
-  async toggleActive(id: string, tenantId?: string, actor?: VerifiedPlatformActor): Promise<User> {
+  async toggleActive(
+    id: string,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<User> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
     const user = await this.findOne(id, activeTenantId);
 
     const nextActive = !user.isActive;
-    const updateState = async (users: Repository<User>) => users.update(
-      { id, ...(activeTenantId ? { tenantId: activeTenantId } : {}) } as FindOptionsWhere<User>,
-      {
-        isActive: nextActive,
-        ...(!nextActive ? {
-          tokenVersion: () => '"tokenVersion" + 1',
-          refreshToken: null,
-          refreshTokenExpires: null,
-        } : {}),
-      },
-    );
+    const updateState = async (users: Repository<User>) =>
+      users.update(
+        {
+          id,
+          ...(activeTenantId ? { tenantId: activeTenantId } : {}),
+        } as FindOptionsWhere<User>,
+        {
+          isActive: nextActive,
+          ...(!nextActive
+            ? {
+                tokenVersion: () => '"tokenVersion" + 1',
+                refreshToken: null,
+                refreshTokenExpires: null,
+              }
+            : {}),
+        },
+      );
     if (!nextActive && user.organizationId) {
-      await this.usersRepository.manager.transaction(async manager => {
+      await this.usersRepository.manager.transaction(async (manager) => {
         await assertAdminAuthorityCanBeRevoked(manager, user);
         await updateState(manager.withRepository(this.usersRepository));
       });
@@ -653,27 +974,35 @@ export class UsersService {
 
     // Clear cache
     await this.cacheService.del(`users:${id}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     return this.findOne(id, activeTenantId);
   }
 
-  async deactivateUser(id: string, tenantId?: string, actor?: VerifiedPlatformActor): Promise<User> {
+  async deactivateUser(
+    id: string,
+    tenantId?: string,
+    actor?: VerifiedPlatformActor,
+  ): Promise<User> {
     assertPlatformAccountMutation(id, actor);
     const activeTenantId = tenantId || this.tenantService.getTenantId();
     const user = await this.findOne(id, activeTenantId);
 
-    const disable = async (users: Repository<User>) => users.update(
-      { id, ...(activeTenantId ? { tenantId: activeTenantId } : {}) } as FindOptionsWhere<User>,
-      {
-        isActive: false,
-        tokenVersion: () => '"tokenVersion" + 1',
-        refreshToken: null,
-        refreshTokenExpires: null,
-      },
-    );
+    const disable = async (users: Repository<User>) =>
+      users.update(
+        {
+          id,
+          ...(activeTenantId ? { tenantId: activeTenantId } : {}),
+        } as FindOptionsWhere<User>,
+        {
+          isActive: false,
+          tokenVersion: () => '"tokenVersion" + 1',
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
+      );
     if (user.organizationId) {
-      await this.usersRepository.manager.transaction(async manager => {
+      await this.usersRepository.manager.transaction(async (manager) => {
         await assertAdminAuthorityCanBeRevoked(manager, user);
         await disable(manager.withRepository(this.usersRepository));
       });
@@ -683,10 +1012,13 @@ export class UsersService {
 
     // Clear cache to enforce immediately
     await this.cacheService.del(`users:${id}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     // Emit event
-    this.eventEmitter.emit('user.deactivated', { userId: id, tenantId: activeTenantId });
+    this.eventEmitter.emit("user.deactivated", {
+      userId: id,
+      tenantId: activeTenantId,
+    });
 
     return this.findOne(id, activeTenantId);
   }
@@ -700,26 +1032,37 @@ export class UsersService {
     byRole: { role: string; count: number }[];
   }> {
     const activeTenantId = tenantId || this.tenantService.getTenantId();
-    if (!activeTenantId) throw new BadRequestException('Tenant context required');
+    if (!activeTenantId)
+      throw new BadRequestException("Tenant context required");
 
-    const total = await this.usersRepository.count({ where: { tenantId: activeTenantId } as any });
-    const active = await this.usersRepository.count({ where: { isActive: true, tenantId: activeTenantId } as any });
-    const inactive = await this.usersRepository.count({ where: { isActive: false, tenantId: activeTenantId } as any });
-    const verified = await this.usersRepository.count({ where: { emailVerified: true, tenantId: activeTenantId } as any });
-    const unverified = await this.usersRepository.count({ where: { emailVerified: false, tenantId: activeTenantId } as any });
+    const total = await this.usersRepository.count({
+      where: { tenantId: activeTenantId } as any,
+    });
+    const active = await this.usersRepository.count({
+      where: { isActive: true, tenantId: activeTenantId } as any,
+    });
+    const inactive = await this.usersRepository.count({
+      where: { isActive: false, tenantId: activeTenantId } as any,
+    });
+    const verified = await this.usersRepository.count({
+      where: { emailVerified: true, tenantId: activeTenantId } as any,
+    });
+    const unverified = await this.usersRepository.count({
+      where: { emailVerified: false, tenantId: activeTenantId } as any,
+    });
 
     // Get count by role
     const byRoleQuery = await this.usersRepository
-      .createQueryBuilder('user')
-      .leftJoin('user.roleEntity', 'role')
-      .where('user.tenantId = :tenantId', { tenantId: activeTenantId })
-      .select('role.displayName', 'role')
-      .addSelect('COUNT(user.id)', 'count')
-      .groupBy('role.displayName')
+      .createQueryBuilder("user")
+      .leftJoin("user.roleEntity", "role")
+      .where("user.tenantId = :tenantId", { tenantId: activeTenantId })
+      .select("role.displayName", "role")
+      .addSelect("COUNT(user.id)", "count")
+      .groupBy("role.displayName")
       .getRawMany();
 
-    const byRole = byRoleQuery.map(item => ({
-      role: item.role || 'No Role',
+    const byRole = byRoleQuery.map((item) => ({
+      role: item.role || "No Role",
       count: parseInt(item.count),
     }));
 
@@ -740,12 +1083,17 @@ export class UsersService {
    * - Student role: if studentData is provided
    * - Subscriber role: if newsletter preferences are enabled
    */
-  async completeProfile(userId: string, completeProfileDto: CompleteProfileDto): Promise<User> {
+  async completeProfile(
+    userId: string,
+    completeProfileDto: CompleteProfileDto,
+  ): Promise<User> {
     const user = await this.findOne(userId);
 
     // Update basic profile fields
-    if (completeProfileDto.firstName) user.firstName = completeProfileDto.firstName;
-    if (completeProfileDto.lastName) user.lastName = completeProfileDto.lastName;
+    if (completeProfileDto.firstName)
+      user.firstName = completeProfileDto.firstName;
+    if (completeProfileDto.lastName)
+      user.lastName = completeProfileDto.lastName;
     if (completeProfileDto.phone) user.phone = completeProfileDto.phone;
 
     // Update metadata
@@ -754,8 +1102,11 @@ export class UsersService {
     }
 
     // Handle customer data and role assignment
-    if (completeProfileDto.customerData &&
-      (completeProfileDto.customerData.customerNumber || completeProfileDto.customerData.companyName)) {
+    if (
+      completeProfileDto.customerData &&
+      (completeProfileDto.customerData.customerNumber ||
+        completeProfileDto.customerData.companyName)
+    ) {
       user.metadata.customerData = completeProfileDto.customerData;
 
       // Update direct customer fields for easier querying in frontend
@@ -764,20 +1115,25 @@ export class UsersService {
       }
 
       // CRITICAL FIX: Also save to flat metadata fields because frontend checks these
-      user.metadata.customerNumber = completeProfileDto.customerData.customerNumber;
+      user.metadata.customerNumber =
+        completeProfileDto.customerData.customerNumber;
       user.metadata.companyName = completeProfileDto.customerData.companyName;
       user.metadata.taxNumber = completeProfileDto.customerData.taxNumber;
       user.metadata.companyPhone = completeProfileDto.customerData.companyPhone;
-      user.metadata.companyAddress = completeProfileDto.customerData.companyAddress;
+      user.metadata.companyAddress =
+        completeProfileDto.customerData.companyAddress;
       user.metadata.companyCity = completeProfileDto.customerData.companyCity;
 
       // Assign Customer role
-      await this.assignRoleByName(user, 'customer');
+      await this.assignRoleByName(user, "customer");
     }
 
     // Handle student data and role assignment
-    if (completeProfileDto.studentData &&
-      (completeProfileDto.studentData.schoolName || completeProfileDto.studentData.studentId)) {
+    if (
+      completeProfileDto.studentData &&
+      (completeProfileDto.studentData.schoolName ||
+        completeProfileDto.studentData.studentId)
+    ) {
       user.metadata.studentData = completeProfileDto.studentData;
 
       // Update direct student fields for easier querying
@@ -793,24 +1149,32 @@ export class UsersService {
       user.metadata.studentId = completeProfileDto.studentData.studentId;
 
       // Assign Student role (if exists, otherwise log warning)
-      await this.assignRoleByName(user, 'student');
+      await this.assignRoleByName(user, "student");
     }
 
     // Handle newsletter preferences and subscriber role
     if (completeProfileDto.newsletterPreferences) {
-      user.metadata.newsletterPreferences = completeProfileDto.newsletterPreferences;
+      user.metadata.newsletterPreferences =
+        completeProfileDto.newsletterPreferences;
 
       // If any newsletter option is enabled, assign Subscriber role
-      const hasNewsletterSubscription = Object.values(completeProfileDto.newsletterPreferences).some(v => v === true);
+      const hasNewsletterSubscription = Object.values(
+        completeProfileDto.newsletterPreferences,
+      ).some((v) => v === true);
       if (hasNewsletterSubscription) {
         // Update direct subscription flag
         user.isSubscribedToNewsletter = true;
 
-        await this.assignRoleByName(user, 'subscriber');
+        await this.assignRoleByName(user, "subscriber");
 
         // NOTE: Email marketing integration planned - emit event for SubscriberService integration
-        this.eventEmitter.emit('user.subscribed', { userId: user.id, email: user.email });
-        console.log(`📧 User ${user.email} subscribed to newsletter - event emitted for email marketing.`);
+        this.eventEmitter.emit("user.subscribed", {
+          userId: user.id,
+          email: user.email,
+        });
+        console.log(
+          `📧 User ${user.email} subscribed to newsletter - event emitted for email marketing.`,
+        );
       }
     }
 
@@ -828,7 +1192,7 @@ export class UsersService {
     // Clear cache
     await this.cacheService.del(`users:${userId}`);
     await this.cacheService.del(`users:email:${user.email}`);
-    await this.cacheService.del('users:all');
+    await this.cacheService.del("users:all");
 
     return updatedUser;
   }
@@ -841,19 +1205,28 @@ export class UsersService {
   private async assignRoleByName(user: User, roleName: string): Promise<void> {
     try {
       const roles = await this.rolesService.findAll(user.tenantId);
-      const role = roles.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+      const role = roles.find(
+        (r) => r.name.toLowerCase() === roleName.toLowerCase(),
+      );
 
       if (!role) {
-        console.warn(`⚠️ Role "${roleName}" not found in database. Skipping role assignment.`);
+        console.warn(
+          `⚠️ Role "${roleName}" not found in database. Skipping role assignment.`,
+        );
         return;
       }
 
       // Check if user already has this role in user_roles table
-      const existingUserRoles = await this.userRolesService.getUserRoles(user.id, user.tenantId);
-      const hasRole = existingUserRoles.some(ur => ur.roleId === role.id);
+      const existingUserRoles = await this.userRolesService.getUserRoles(
+        user.id,
+        user.tenantId,
+      );
+      const hasRole = existingUserRoles.some((ur) => ur.roleId === role.id);
 
       if (hasRole) {
-        console.log(`ℹ️ User ${user.email} already has role "${roleName}" in user_roles`);
+        console.log(
+          `ℹ️ User ${user.email} already has role "${roleName}" in user_roles`,
+        );
         return;
       }
 
@@ -861,15 +1234,17 @@ export class UsersService {
       // This creates the many-to-many relationship in the junction table
       // Get current roles to preserve them
       const currentRoleIds = existingUserRoles
-        .filter(ur => !ur.isPrimary) // Only additional roles
-        .map(ur => ur.roleId);
+        .filter((ur) => !ur.isPrimary) // Only additional roles
+        .map((ur) => ur.roleId);
 
       // Get primary role (if any)
-      const primaryRole = existingUserRoles.find(ur => ur.isPrimary);
+      const primaryRole = existingUserRoles.find((ur) => ur.isPrimary);
       const primaryRoleId = primaryRole?.roleId || user.roleId;
 
       if (!primaryRoleId) {
-        console.error(`❌ User ${user.email} has no primary role. Cannot assign additional role.`);
+        console.error(
+          `❌ User ${user.email} has no primary role. Cannot assign additional role.`,
+        );
         return;
       }
 
@@ -886,7 +1261,9 @@ export class UsersService {
         user.tenantId, // Ensure tenant isolation
       );
 
-      console.log(`✅ Assigned role "${roleName}" to user ${user.email} via user_roles table`);
+      console.log(
+        `✅ Assigned role "${roleName}" to user ${user.email} via user_roles table`,
+      );
     } catch (error) {
       console.error(`❌ Error assigning role "${roleName}":`, error);
     }
@@ -912,6 +1289,8 @@ export class UsersService {
     await this.cacheService.del(`users:${userId}`);
     await this.cacheService.del(`users:email:${user.email}`);
 
-    console.log(`🔒 All tokens invalidated for user ${user.email} (tokenVersion: ${user.tokenVersion})`);
+    console.log(
+      `🔒 All tokens invalidated for user ${user.email} (tokenVersion: ${user.tokenVersion})`,
+    );
   }
 }

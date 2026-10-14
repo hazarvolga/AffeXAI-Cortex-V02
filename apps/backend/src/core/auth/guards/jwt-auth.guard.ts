@@ -12,6 +12,7 @@ import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { resolveAuthenticatedTenant } from "../../guards/tenant.guard";
 import { TenantRequest } from "../../tenant/tenant-request";
 import { isConfiguredPlatformAdmin } from "../platform-admin.policy";
+import { hasUsableMembership } from "../session-eligibility";
 
 interface AccessClaims {
   sub?: string;
@@ -56,27 +57,21 @@ export class JwtAuthGuard implements CanActivate, OnModuleInit {
         typeof payload.sub !== "string" ||
         !payload.sub ||
         payload.type !== "access" ||
-        !Number.isInteger(payload.tokenVersion) || payload.tokenVersion < 1
+        !Number.isInteger(payload.tokenVersion) ||
+        payload.tokenVersion < 1
       ) {
         throw new UnauthorizedException();
       }
       // Identity lookup is deliberately global, before a tenant is authorized.
       user = await this.usersService.findOne(payload.sub, undefined, true);
       if (
-        !user?.isActive || user.deletedAt ||
+        !user?.isActive ||
+        user.deletedAt ||
         payload.tokenVersion !== user.tokenVersion
       ) {
         throw new UnauthorizedException();
       }
-      const platformAdmin = isConfiguredPlatformAdmin(user.id);
-      if (
-        !platformAdmin &&
-        (!user.organizationId ||
-          !user.organization ||
-          user.organization.id !== user.organizationId ||
-          user.organization.isActive !== true ||
-          user.organization.slug !== user.tenantId)
-      ) {
+      if (!hasUsableMembership(user)) {
         throw new UnauthorizedException();
       }
     } catch {

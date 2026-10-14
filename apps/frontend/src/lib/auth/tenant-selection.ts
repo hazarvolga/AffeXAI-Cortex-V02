@@ -1,6 +1,8 @@
 import { isReservedTenantSlug } from "@affexai/shared-types";
 
-const TENANT_SLUG = /^[A-Za-z0-9_-]{1,128}$/;
+/** Backend-compatible workspace code; shared by every tenant selector. */
+export const TENANT_SLUG_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const TENANT_SLUG = TENANT_SLUG_PATTERN;
 /** A selector only; identity and tenant authority remain verified by the backend. */
 export function requireTenantSlug(value: unknown): string {
   if (typeof value !== "string" || !TENANT_SLUG.test(value)) {

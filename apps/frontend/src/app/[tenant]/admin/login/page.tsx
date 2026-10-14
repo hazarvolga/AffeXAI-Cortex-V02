@@ -1,1 +1,1 @@
-export { default } from "../../../admin/(auth)/login/page";
+export { default, metadata } from "../../../admin/(auth)/login/page";

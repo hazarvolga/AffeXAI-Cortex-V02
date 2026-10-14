@@ -96,6 +96,14 @@ export class AuthController {
     return result;
   }
 
+  /** Login without a workspace code; see AuthService.discoverLogin. */
+  @Post("login/discover")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async discoverLogin(@Body() loginDto: LoginDto) {
+    return this.authService.discoverLogin(loginDto.email, loginDto.password);
+  }
+
   @Post("check-email")
   async checkEmail(@Body("email") email: string) {
     const exists = await this.authService.checkEmailExists(email);
@@ -160,7 +168,10 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async acceptInvitation(@Body() dto: AcceptInvitationDto) {
     await this.authService.acceptInvitation(dto.token, dto.newPassword);
-    return { success: true, message: "Davet kabul edildi. Giriş yapabilirsiniz." };
+    return {
+      success: true,
+      message: "Davet kabul edildi. Giriş yapabilirsiniz.",
+    };
   }
 
   @Post("verify-email")
@@ -177,7 +188,8 @@ export class AuthController {
 
     return {
       success: true,
-      message: "Email adresiniz başarıyla doğrulandı. Şimdi giriş yapabilirsiniz.",
+      message:
+        "Email adresiniz başarıyla doğrulandı. Şimdi giriş yapabilirsiniz.",
     };
   }
 

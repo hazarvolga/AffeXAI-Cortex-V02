@@ -308,3 +308,32 @@ b932eb0 feat(marketing): unify narrative, tokens and early-access flow (F1)
 - Provider debug `console.log` gürültüsü.
 - Giriş ekranlarındaki jargon ve `QUANTUM_RESISTANT` iddiası (F2'de kalkacak).
 - graphify: bu repo için henüz graf üretilmedi (`graphify-out/` yok).
+
+## UI/UX F2 — tek giriş, tenant keşfi ve rol bazlı yönlendirme — 2026-10-14
+
+- **Tek giriş:** `/login`, `/admin/login` ve `/<tenant>/admin/login` aynı `components/auth/LoginForm` + `AuthShell` bileşenlerini kullanıyor (Cortex Editorial portal token'ları). Yeşil "portal gateway", amber "access protocol" ekranları, jargon ve `QUANTUM_RESISTANT` iddiası kalktı. `/portal/login` `/login`'e yönleniyor. Kullanılmayan `modules/auth/components/login-form.tsx` kaldırıldı.
+- **Tenant keşfi (B10):** çalışma alanı kodu artık isteğe bağlı.
+  - Yeni `POST /auth/login/discover` ucu yalnız şifresi eşleşen, aktif ve doğrulanmış hesapları değerlendiriyor. Tek eşleşme normal tenant giriş yolundan oturum açıyor; birden fazla eşleşme token vermeden çalışma alanı listesi döndürüyor.
+  - Bilinmeyen e-posta ile yanlış şifre aynı 401'i alıyor; zamanlama sahte bir bcrypt karşılaştırmasıyla eşitleniyor.
+  - Uç dakikada 10 istekle sınırlı.
+  - Adaylar `hasUsableMembership` kuralıyla süzülüyor. Bu kural `JwtAuthGuard` ile ortak (`core/auth/session-eligibility.ts`): kuruluşu pasif olan ya da üyeliği bulunmayan hesaplar seçim listesine girmiyor.
+- **Rol bazlı yönlendirme:** `lib/auth/post-login-destination.ts` tek kaynak.
+  - Platform yöneticisi → `/editorial-console`.
+  - Tenant ekibi → `/<tenant>/admin/...`.
+  - Portal kullanıcısı → `/portal/dashboard`; profili eksikse `/complete-profile`.
+  - `redirect` yalnız kullanıcının kendi kabuğunda ve tenant'ında kabul ediliyor; giriş sayfaları hedef olamıyor (döngü engeli).
+- **BFF:** `/api/auth/login` tenant başlığı varsa `/auth/login`'e, yoksa keşfe gidiyor. Seçim gerekiyorsa cookie yazmıyor. Gövdedeki `tenantId`'ye güvenilmiyor.
+- **Kayıt (D4):** `/signup`, `/admin/signup` ve `/<tenant>/signup` `/erken-erisim`'e yönleniyor. Eski `admin/(auth)/signup/actions.ts` kaldırıldı; hiçbir kayıt yapmadan "Kayıt başarılı" diyor ve şifre dahil form verisini sunucu loguna yazıyordu.
+- **Form davranışı:** blur ve submit'te alan hatası, inline özet, ilk hatalı alana odak, sade Türkçe hata mesajları (401/400, 429, 5xx, ağ hatası). Ham sunucu metni gösterilmiyor.
+
+Doğrulama:
+- typecheck 0; frontend unit 57/57; backend auth+organizations+forms 108/111. Kalan 3 hata bir HEAD worktree'sinde birebir tekrarlandı, önceden vardı.
+- Değişen backend dosyalarında yeni lint hatası yok.
+- İzole stack'te iki tenant'lı klavye E2E 6/6; giriş sayfalarında axe 0 ihlal.
+- E2E komutu: `LOGIN_ACCEPTANCE_ISOLATED=1 BASE_URL=http://localhost:19003 CHROME_PATH=<chromium> node apps/frontend/scripts/acceptance/login-two-tenants.cjs`. Önkoşul: güncel backend imajı ve frontend'in `:19003`'te sunulması. Keşif ucu oran sınırlı olduğu için dakikada en fazla bir tur çalıştırın.
+
+Açık:
+- Oturum hardening (HttpOnly cookie geçişi) ayrı bir auth dilimi olarak duruyor.
+- Backend `/auth/register` hâlâ self-serve kayıt kabul ediyor; D4 ile tutarlı hale getirilmeli.
+- Tenant girişi `/auth/login` kuruluş üyeliğini kontrol etmeden token veriyor; o token sonraki istekte reddediliyor.
+- `refreshAccessToken` ve kuyruk paneli testlerindeki 3 eski kırmızı test.

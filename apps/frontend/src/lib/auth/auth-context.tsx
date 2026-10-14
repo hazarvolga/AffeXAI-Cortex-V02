@@ -14,12 +14,12 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import type { LoginResponse } from "@affexai/shared-types";
 import { UserRole } from "@affexai/shared-types";
 import type { CurrentUser, TenantLoginCredentials } from "../api/authService";
 import { authService } from "../api/authService";
 import { hasPlatformAuthority } from "./platform-authority";
 import { tokenStorage } from "./token-storage";
+import { isTenantSelection, type LoginOutcome } from "./login-outcome";
 
 // ============================================================================
 // Types
@@ -41,7 +41,8 @@ export interface AuthState {
  */
 export interface AuthContextValue extends AuthState {
   // Authentication methods
-  login: (credentials: TenantLoginCredentials) => Promise<LoginResponse>;
+  /** Resolves to a session, or to a workspace choice when several accounts match. */
+  login: (credentials: TenantLoginCredentials) => Promise<LoginOutcome>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
 
@@ -99,34 +100,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Login with email and password
    */
   const login = useCallback(
-    async (credentials: TenantLoginCredentials): Promise<LoginResponse> => {
+    async (credentials: TenantLoginCredentials): Promise<LoginOutcome> => {
       try {
         setIsLoading(true);
         setError(null);
-
-        console.log("🔐 AuthContext: Starting login process");
-
-        // Call auth service (this will handle token storage internally)
-        const response: LoginResponse = await authService.login(credentials);
-
-        console.log("🔐 AuthContext: Login response received:", {
-          hasAccessToken: !!response.access_token,
-          hasUser: !!response.user,
-        });
-
-        console.log(
-          "🔐 AuthContext: Tokens stored by authService, updating user state",
-        );
-
-        // Update user state
-        setUser(response.user);
-
-        // Return the response so login page can access user data
-        return response;
+        // authService stores the tokens; a workspace choice carries none.
+        const outcome = await authService.login(credentials);
+        if (!isTenantSelection(outcome)) setUser(outcome.user);
+        return outcome;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Login failed";
-        setError(errorMessage);
+        setError(err instanceof Error ? err.message : "Login failed");
         throw err;
       } finally {
         setIsLoading(false);

@@ -1,42 +1,55 @@
-import { tenantHeaders } from '@/lib/auth/tenant-selection';
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import {
+  isTenantSelection,
+  resolveLoginTarget,
+  type LoginTarget,
+} from "@/lib/auth/login-outcome";
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 // Get API URL from environment - server-side route can use internal URL
 const getApiUrl = () => {
   // For server-side API routes, use BACKEND_URL (internal) or NEXT_PUBLIC_API_URL
-  let apiUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9006';
+  let apiUrl =
+    process.env.BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:9006";
 
   // Force internal IPv4 addressing for reliability
-  apiUrl = apiUrl.replace('localhost', '127.0.0.1');
-  if (apiUrl.includes('::1')) {
-    apiUrl = apiUrl.replace('::1', '127.0.0.1');
+  apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+  if (apiUrl.includes("::1")) {
+    apiUrl = apiUrl.replace("::1", "127.0.0.1");
   }
 
   // Ensure URL ends with /api
-  return apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`;
+  return apiUrl.endsWith("/api") ? apiUrl : `${apiUrl}/api`;
 };
 
 export async function POST(request: NextRequest) {
   try {
-    let selector: Record<'x-tenant-id', string>;
-    try { selector = tenantHeaders(request.headers.get('x-tenant-id')); }
-    catch { return NextResponse.json({ error: 'Geçerli bir çalışma alanı kodu girin.' }, { status: 400 }); }
+    // A workspace code selects the tenant login; without one the backend discovers it.
+    let target: LoginTarget;
+    try {
+      target = resolveLoginTarget(request.headers.get("x-tenant-id"));
+    } catch {
+      return NextResponse.json(
+        { error: "Geçerli bir çalışma alanı kodu girin." },
+        { status: 400 },
+      );
+    }
     const body = await request.json();
     const { email, password } = body;
 
     const apiUrl = getApiUrl();
 
     // Call backend API
-    const response = await fetch(`${apiUrl}/auth/login`, {
-      method: 'POST',
+    const response = await fetch(`${apiUrl}${target.path}`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        ...selector,
+        "Content-Type": "application/json",
+        ...target.headers,
       },
       body: JSON.stringify({ email, password }),
     });
-
 
     const responseData = await response.json();
 
@@ -46,11 +59,11 @@ export async function POST(request: NextRequest) {
         responseData.error?.message ||
         responseData.message ||
         responseData.error ||
-        'Login failed';
+        "Login failed";
 
       return NextResponse.json(
         { error: errorMessage },
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -60,74 +73,80 @@ export async function POST(request: NextRequest) {
         responseData.error?.message ||
         responseData.message ||
         responseData.error ||
-        'Login failed';
+        "Login failed";
 
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: errorMessage }, { status: 401 });
     }
 
     // Backend wraps response in { success, data, meta } format
     const data = responseData.data || responseData;
 
-    if (!data.access_token) {
-      return NextResponse.json(
-        { error: 'No access token received from server' },
-        { status: 500 }
-      );
+    // Several workspaces accepted the password: no session yet, so no cookies.
+    if (isTenantSelection(data)) {
+      return NextResponse.json({
+        requiresTenantSelection: true,
+        tenants: data.tenants,
+      });
     }
 
+    if (!data.access_token) {
+      return NextResponse.json(
+        { error: "No access token received from server" },
+        { status: 500 },
+      );
+    }
 
     // Set cookies server-side
     const cookieStore = await cookies();
 
-    cookieStore.set('auth_token', data.access_token, {
+    cookieStore.set("auth_token", data.access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
+      path: "/",
     });
 
-    cookieStore.set('aluplan_access_token', data.access_token, {
+    cookieStore.set("aluplan_access_token", data.access_token, {
       httpOnly: false, // Client-side accessible for API calls
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
-      path: '/',
+      path: "/",
     });
 
-    cookieStore.set('cortex_access_token', data.access_token, {
+    cookieStore.set("cortex_access_token", data.access_token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60,
-      path: '/',
+      path: "/",
     });
 
     if (data.refresh_token) {
-      cookieStore.set('aluplan_refresh_token', data.refresh_token, {
+      cookieStore.set("aluplan_refresh_token", data.refresh_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
         maxAge: 60 * 60 * 24 * 30, // 30 days
-        path: '/',
+        path: "/",
       });
-      cookieStore.set('cortex_refresh_token', data.refresh_token, {
+      cookieStore.set("cortex_refresh_token", data.refresh_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
         maxAge: 60 * 60 * 24 * 7,
-        path: '/',
+        path: "/",
       });
     }
 
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
     );
   }
 }
