@@ -1,4 +1,5 @@
-import mediaService, { Media } from '@/lib/api/mediaService';
+import mediaService, { Media } from "@/lib/api/mediaService";
+import { API_CONFIG } from "@/config/api.config";
 
 // Cache for media items to avoid repeated API calls
 const mediaCache = new Map<string, Media>();
@@ -6,8 +7,8 @@ const mediaCache = new Map<string, Media>();
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = API_CONFIG.API_URL;
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 /**
@@ -31,7 +32,7 @@ export async function getMediaUrl(mediaId: string): Promise<string | null> {
 
     return `${getMediaBaseUrl()}${media.url}`;
   } catch (error) {
-    console.error('Error fetching media:', error);
+    console.error("Error fetching media:", error);
     return null;
   }
 }
@@ -50,13 +51,13 @@ export async function getMedia(mediaId: string): Promise<Media | null> {
   try {
     // Fetch media from API
     const media = await mediaService.getMediaById(mediaId);
-    
+
     // Cache the media item
     mediaCache.set(mediaId, media);
-    
+
     return media;
   } catch (error) {
-    console.error('Error fetching media:', error);
+    console.error("Error fetching media:", error);
     return null;
   }
 }

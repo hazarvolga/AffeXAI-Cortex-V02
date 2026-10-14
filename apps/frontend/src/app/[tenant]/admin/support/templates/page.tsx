@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
 import {
   Card,
   CardContent,
@@ -59,7 +60,7 @@ export default function TemplatesPage() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/tickets/templates");
+      const response = await apiFetch("/api/tickets/templates");
       const data = await response.json();
       setTemplates(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -76,7 +77,7 @@ export default function TemplatesPage() {
 
   const handleCreateTemplate = async () => {
     try {
-      const response = await fetch("/api/tickets/templates", {
+      const response = await apiFetch("/api/tickets/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -109,7 +110,7 @@ export default function TemplatesPage() {
       return;
 
     try {
-      await fetch(`/api/tickets/templates/${id}`, {
+      await apiFetch(`/api/tickets/templates/${id}`, {
         method: "DELETE",
       });
       fetchTemplates();
@@ -120,7 +121,7 @@ export default function TemplatesPage() {
 
   const handleToggleTemplate = async (id: string) => {
     try {
-      await fetch(`/api/tickets/templates/${id}/toggle`, {
+      await apiFetch(`/api/tickets/templates/${id}/toggle`, {
         method: "PATCH",
       });
       fetchTemplates();

@@ -74,9 +74,10 @@ export const BccEditorialWrapper = ({
   const ticketId = isTicketPage ? pathParts[pathParts.length - 1] : undefined;
 
   return (
+    // `dark` switches the design tokens too, so cards, inputs and outline buttons match the dark shell.
     <div
       lang="tr"
-      className={`min-h-screen bg-[#080808] text-white font-sans ${spaceGrotesk.variable} overflow-hidden relative`}
+      className={`dark min-h-screen bg-[#080808] text-white font-sans ${spaceGrotesk.variable} overflow-hidden relative`}
     >
       <a
         href="#tenant-main-content"

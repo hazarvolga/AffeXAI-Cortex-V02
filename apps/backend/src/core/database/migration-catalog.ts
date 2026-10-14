@@ -19,6 +19,7 @@ import { TicketCsatTenantScope1791385200000 } from "./migrations/1791385200000-T
 import { TicketAttachments1791381600000 } from "./migrations/1791381600000-TicketAttachments";
 import { CortexOutbox1791378000000 } from "./migrations/1791378000000-CortexOutbox";
 import { SubscriberTenantEmailUnique1791374400000 } from "./migrations/1791374400000-SubscriberTenantEmailUnique";
+import { FaqPipelineState1791450000000 } from "./migrations/1791450000000-FaqPipelineState";
 import { InitialSchema1771006556552 } from "./migrations/1771006556552-InitialSchema";
 import { AddBccSignals1771008872029 } from "./migrations/1771008872029-AddBccSignals";
 import { AddFormsTable1771009842032 } from "./migrations/1771009842032-AddFormsTable";
@@ -55,4 +56,5 @@ export const activeMigrations = [
   AutomationApprovalPermission1791439200000,
   AutomationActionLeaseToken1791442800000,
   EventPermissionNormalization1791446400000,
+  FaqPipelineState1791450000000,
 ];

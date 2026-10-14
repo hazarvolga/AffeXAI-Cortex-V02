@@ -1,8 +1,10 @@
-'use client';
+"use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 import { use } from "react";
-import { notFound, useRouter } from 'next/navigation';
+import { notFound, useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -10,18 +12,18 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
 import {
   Clock,
   Brain,
@@ -39,19 +41,26 @@ import {
   Building,
   CheckCircle,
   XCircle,
-} from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { RichTextEditor } from '@/components/rich-text-editor';
-import { Toggle } from '@/components/ui/toggle';
-import { ticketsService, Ticket, TicketStatus, TicketPriority, NeuralTicketContext } from '@/lib/api/ticketsService';
-import { usersService, type User as ApiUser } from '@/lib/api/usersService';
-import { useToast } from '@/hooks/use-toast';
+} from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { Toggle } from "@/components/ui/toggle";
+import {
+  ticketsService,
+  Ticket,
+  TicketStatus,
+  TicketPriority,
+  NeuralTicketContext,
+} from "@/lib/api/ticketsService";
+import { usersService, type User as ApiUser } from "@/lib/api/usersService";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TicketDetailPage({
   params,
 }: {
   params: Promise<{ ticketId: string }>;
 }) {
+  const tenantHref = useTenantAdminHref();
   // Unwrap the params promise using React.use()
   const unwrappedParams = use(params);
   const { ticketId } = unwrappedParams;
@@ -61,17 +70,32 @@ export default function TicketDetailPage({
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [messageContent, setMessageContent] = useState('');
-  const [attachments, setAttachments] = useState<{ id: string, name: string, size: number, type: string }[]>([]);
+  const [messageContent, setMessageContent] = useState("");
+  const [attachments, setAttachments] = useState<
+    { id: string; name: string; size: number; type: string }[]
+  >([]);
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [supportUsers, setSupportUsers] = useState<ApiUser[]>([]);
   const [assigningTicket, setAssigningTicket] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState(false);
-  const [neuralContext, setNeuralContext] = useState<NeuralTicketContext | null>(null);
+  const [neuralContext, setNeuralContext] =
+    useState<NeuralTicketContext | null>(null);
   const [loadingNeural, setLoadingNeural] = useState(false);
   const hasFetchedTicket = useRef(false);
   const hasFetchedUsers = useRef(false);
+
+  const fetchNeuralInsight = async () => {
+    try {
+      setLoadingNeural(true);
+      const insight = await ticketsService.getNeuralContext(ticketId);
+      setNeuralContext(insight);
+    } catch (err) {
+      console.error("Failed to fetch neural insight:", err);
+    } finally {
+      setLoadingNeural(false);
+    }
+  };
 
   // Fetch ticket data
   useEffect(() => {
@@ -89,8 +113,8 @@ export default function TicketDetailPage({
         // Fetch Neural Insight concurrently
         fetchNeuralInsight();
       } catch (err: any) {
-        console.error('Error fetching ticket:', err);
-        setError('Talep bilgileri yüklenirken bir hata oluştu.');
+        console.error("Error fetching ticket:", err);
+        setError("Talep bilgileri yüklenirken bir hata oluştu.");
       } finally {
         setLoading(false);
       }
@@ -98,18 +122,6 @@ export default function TicketDetailPage({
 
     fetchTicket();
   }, [ticketId]);
-
-  const fetchNeuralInsight = async () => {
-    try {
-      setLoadingNeural(true);
-      const insight = await ticketsService.getNeuralContext(ticketId);
-      setNeuralContext(insight);
-    } catch (err) {
-      console.error('Failed to fetch neural insight:', err);
-    } finally {
-      setLoadingNeural(false);
-    }
-  };
 
   // Fetch support team users
   useEffect(() => {
@@ -122,15 +134,20 @@ export default function TicketDetailPage({
         const users = response.data || [];
 
         // Filter for support team members (admin, support_manager, support_agent)
-        const supportTeam = users.filter(user =>
-          user.roles?.some(role =>
-            ['admin', 'support_manager', 'support_agent', 'support_team'].includes(role.name)
-          )
+        const supportTeam = users.filter((user) =>
+          user.roles?.some((role) =>
+            [
+              "admin",
+              "support_manager",
+              "support_agent",
+              "support_team",
+            ].includes(role.name),
+          ),
         );
 
         setSupportUsers(supportTeam);
       } catch (error) {
-        console.error('Failed to fetch support users:', error);
+        console.error("Failed to fetch support users:", error);
       }
     };
 
@@ -149,15 +166,17 @@ export default function TicketDetailPage({
       // Refresh ticket data to get updated messages
       const updatedTicket = await ticketsService.getTicketById(ticketId);
       setTicket(updatedTicket);
-      setMessageContent('');
+      setMessageContent("");
       setAttachments([]);
 
       toast({
         title: isInternalNote ? "Dahili not kaydedildi" : "Mesaj gönderildi",
-        description: isInternalNote ? "Dahili not başarıyla kaydedildi." : "Mesaj müşteriye başarıyla gönderildi.",
+        description: isInternalNote
+          ? "Dahili not başarıyla kaydedildi."
+          : "Mesaj müşteriye başarıyla gönderildi.",
       });
     } catch (err: any) {
-      console.error('Error adding message:', err);
+      console.error("Error adding message:", err);
       toast({
         title: "Hata",
         description: "Mesaj gönderilirken bir hata oluştu.",
@@ -171,7 +190,9 @@ export default function TicketDetailPage({
 
     try {
       setUpdatingStatus(true);
-      const updatedTicket = await ticketsService.updateTicketStatus(ticket.id, { status });
+      const updatedTicket = await ticketsService.updateTicketStatus(ticket.id, {
+        status,
+      });
       setTicket(updatedTicket);
 
       toast({
@@ -179,7 +200,7 @@ export default function TicketDetailPage({
         description: "Talep durumu başarıyla güncellendi.",
       });
     } catch (err: any) {
-      console.error('Error updating status:', err);
+      console.error("Error updating status:", err);
       toast({
         title: "Hata",
         description: "Durum güncellenirken bir hata oluştu.",
@@ -195,7 +216,9 @@ export default function TicketDetailPage({
 
     try {
       setUpdatingPriority(true);
-      const updatedTicket = await ticketsService.updateTicket(ticket.id, { priority });
+      const updatedTicket = await ticketsService.updateTicket(ticket.id, {
+        priority,
+      });
       setTicket(updatedTicket);
 
       toast({
@@ -203,7 +226,7 @@ export default function TicketDetailPage({
         description: "Talep önceliği başarıyla güncellendi.",
       });
     } catch (err: any) {
-      console.error('Error updating priority:', err);
+      console.error("Error updating priority:", err);
       toast({
         title: "Hata",
         description: "Öncelik güncellenirken bir hata oluştu.",
@@ -220,9 +243,10 @@ export default function TicketDetailPage({
     try {
       setAssigningTicket(true);
       // Convert "unassigned" to null
-      const actualAssignedId = assignedToId === 'unassigned' ? null : assignedToId;
+      const actualAssignedId =
+        assignedToId === "unassigned" ? null : assignedToId;
       const updatedTicket = await ticketsService.assignTicket(ticket.id, {
-        assignedToId: actualAssignedId as any
+        assignedToId: actualAssignedId as any,
       });
       setTicket(updatedTicket);
 
@@ -233,7 +257,7 @@ export default function TicketDetailPage({
           : "Talep ataması kaldırıldı.",
       });
     } catch (err: any) {
-      console.error('Error assigning ticket:', err);
+      console.error("Error assigning ticket:", err);
       toast({
         title: "Hata",
         description: "Atama yapılırken bir hata oluştu.",
@@ -246,24 +270,36 @@ export default function TicketDetailPage({
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(n => n[0])
-      .join('');
+      .split(" ")
+      .map((n) => n[0])
+      .join("");
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('tr-TR', {
-      dateStyle: 'long',
-      timeStyle: 'short',
+    return new Date(dateString).toLocaleString("tr-TR", {
+      dateStyle: "long",
+      timeStyle: "short",
     });
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Yükleniyor...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">Yükleniyor...</div>
+    );
   }
 
   if (error) {
-    return <div className="text-center text-red-500 py-12">{error}</div>;
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 px-4 py-12">
+        <h1 className="text-2xl font-semibold">Destek talebi</h1>
+        <p role="alert" className="text-red-700 dark:text-red-300">
+          {error}
+        </p>
+        <Button asChild variant="outline">
+          <Link href={tenantHref("/support")}>Talep listesine dön</Link>
+        </Button>
+      </div>
+    );
   }
 
   if (!ticket) {
@@ -279,9 +315,8 @@ export default function TicketDetailPage({
           <CardHeader>
             <CardTitle className="text-2xl">{ticket.subject}</CardTitle>
             <CardDescription>
-              {ticket.user?.firstName} {ticket.user?.lastName} tarafından{' '}
-              {formatDate(ticket.createdAt.toString())}{' '}
-              tarihinde oluşturuldu.
+              {ticket.user?.firstName} {ticket.user?.lastName} tarafından{" "}
+              {formatDate(ticket.createdAt.toString())} tarihinde oluşturuldu.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -289,17 +324,26 @@ export default function TicketDetailPage({
               {ticket.messages?.map((message, index) => (
                 <div key={index} className="flex items-start gap-4">
                   <Avatar>
-                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${message.user?.firstName} ${message.user?.lastName}`} />
+                    <AvatarImage
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${message.user?.firstName} ${message.user?.lastName}`}
+                    />
                     <AvatarFallback>
-                      {getInitials(`${message.user?.firstName} ${message.user?.lastName}`)}
+                      {getInitials(
+                        `${message.user?.firstName} ${message.user?.lastName}`,
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold">{message.user?.firstName} {message.user?.lastName}</p>
+                      <p className="font-semibold">
+                        {message.user?.firstName} {message.user?.lastName}
+                      </p>
                       <div className="flex items-center gap-2">
                         {message.isInternal && (
-                          <Badge variant="secondary" className="flex items-center gap-1">
+                          <Badge
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                          >
                             <EyeOff className="h-3 w-3" />
                             Dahili Not
                           </Badge>
@@ -309,8 +353,12 @@ export default function TicketDetailPage({
                         </p>
                       </div>
                     </div>
-                    <div className={`mt-2 p-4 rounded-lg text-sm ${message.isInternal ? 'bg-yellow-50 border border-yellow-200' : 'bg-secondary/50'}`}>
-                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div
+                      className={`mt-2 p-4 rounded-lg text-sm ${message.isInternal ? "bg-yellow-50 border border-yellow-200" : "bg-secondary/50"}`}
+                    >
+                      <div className="whitespace-pre-wrap">
+                        {message.content}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -348,7 +396,11 @@ export default function TicketDetailPage({
             <RichTextEditor
               content={messageContent}
               onChange={setMessageContent}
-              placeholder={isInternalNote ? "Dahili notunuzu buraya yazın..." : "Cevabınızı buraya yazın..."}
+              placeholder={
+                isInternalNote
+                  ? "Dahili notunuzu buraya yazın..."
+                  : "Cevabınızı buraya yazın..."
+              }
               className="min-h-[150px]"
               attachments={attachments}
               onAttachmentsChange={setAttachments}
@@ -361,9 +413,12 @@ export default function TicketDetailPage({
                 <span className="sr-only">Dosya Ekle</span>
               </Button>
             </div>
-            <Button onClick={handleAddMessage} disabled={!messageContent.trim()}>
+            <Button
+              onClick={handleAddMessage}
+              disabled={!messageContent.trim()}
+            >
               <Send className="mr-2 h-4 w-4" />
-              {isInternalNote ? 'Dahili Notu Kaydet' : 'Cevabı Gönder'}
+              {isInternalNote ? "Dahili Notu Kaydet" : "Cevabı Gönder"}
             </Button>
           </CardFooter>
         </Card>
@@ -380,7 +435,10 @@ export default function TicketDetailPage({
                 <CardTitle className="text-xs font-mono tracking-[0.2em] text-purple-400 flex items-center gap-2">
                   <Brain className="h-3.5 w-3.5" /> NEURAL_SYNAPSE
                 </CardTitle>
-                <Badge variant="outline" className="text-[8px] border-purple-500/30 text-purple-400 bg-purple-500/10">
+                <Badge
+                  variant="outline"
+                  className="text-[8px] border-purple-500/30 text-purple-400 bg-purple-500/10"
+                >
                   AUTONOMOUS_INSIGHT
                 </Badge>
               </div>
@@ -391,19 +449,23 @@ export default function TicketDetailPage({
             <CardContent className="pt-2">
               {loadingNeural ? (
                 <div className="flex items-center gap-2 text-[10px] font-mono text-purple-400/60 py-4 italic">
-                  <RefreshCw className="h-3 w-3 animate-spin" /> Analyzing_neural_pathways...
+                  <RefreshCw className="h-3 w-3 animate-spin" />{" "}
+                  Analyzing_neural_pathways...
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="p-3 bg-black/40 border border-purple-500/20 rounded font-mono text-[11px] leading-relaxed text-purple-100/90 shadow-inner">
-                    <span className="text-purple-400 uppercase font-bold mr-1">[AI_DIRECTIVE]:</span>
+                    <span className="text-purple-400 uppercase font-bold mr-1">
+                      [AI_DIRECTIVE]:
+                    </span>
                     {neuralContext?.aiInsight}
                   </div>
 
                   <div className="flex items-center justify-between text-[9px] font-mono text-white/30 uppercase tracking-widest">
                     <span>Source: {neuralContext?.learningSource}</span>
                     <span className="flex items-center gap-1">
-                      <Activity className="h-2.5 w-2.5 text-emerald-400" /> SYNC_ACTIVE
+                      <Activity className="h-2.5 w-2.5 text-emerald-400" />{" "}
+                      SYNC_ACTIVE
                     </span>
                   </div>
                 </div>
@@ -422,34 +484,50 @@ export default function TicketDetailPage({
               <div className="flex items-center gap-2">
                 <Badge
                   variant={
-                    ticket.status === 'new' ? 'default' :
-                      ticket.status === 'open' ? 'secondary' :
-                        ticket.status === 'pending_customer' ? 'outline' :
-                          ticket.status === 'pending_internal' ? 'outline' :
-                            ticket.status === 'pending_third_party' ? 'outline' :
-                              ticket.status === 'resolved' ? 'default' :
-                                ticket.status === 'closed' ? 'secondary' :
-                                  'destructive'
+                    ticket.status === "new"
+                      ? "default"
+                      : ticket.status === "open"
+                        ? "secondary"
+                        : ticket.status === "pending_customer"
+                          ? "outline"
+                          : ticket.status === "pending_internal"
+                            ? "outline"
+                            : ticket.status === "pending_third_party"
+                              ? "outline"
+                              : ticket.status === "resolved"
+                                ? "default"
+                                : ticket.status === "closed"
+                                  ? "secondary"
+                                  : "destructive"
                   }
                   className={
-                    ticket.status === 'new' ? 'bg-blue-500' :
-                      ticket.status === 'open' ? 'bg-green-500' :
-                        ticket.status === 'pending_customer' ? 'bg-yellow-500' :
-                          ticket.status === 'pending_internal' ? 'bg-orange-500' :
-                            ticket.status === 'pending_third_party' ? 'bg-purple-500' :
-                              ticket.status === 'resolved' ? 'bg-emerald-500' :
-                                ticket.status === 'closed' ? 'bg-gray-500' :
-                                  'bg-red-500'
+                    ticket.status === "new"
+                      ? "bg-blue-500"
+                      : ticket.status === "open"
+                        ? "bg-green-500"
+                        : ticket.status === "pending_customer"
+                          ? "bg-yellow-500"
+                          : ticket.status === "pending_internal"
+                            ? "bg-orange-500"
+                            : ticket.status === "pending_third_party"
+                              ? "bg-purple-500"
+                              : ticket.status === "resolved"
+                                ? "bg-emerald-500"
+                                : ticket.status === "closed"
+                                  ? "bg-gray-500"
+                                  : "bg-red-500"
                   }
                 >
-                  {ticket.status === 'new' && 'Yeni'}
-                  {ticket.status === 'open' && 'Açık'}
-                  {ticket.status === 'pending_customer' && 'Müşteri Yanıtı Bekleniyor'}
-                  {ticket.status === 'pending_internal' && 'İç Ekip Bekleniyor'}
-                  {ticket.status === 'pending_third_party' && 'Üçüncü Taraf Bekleniyor'}
-                  {ticket.status === 'resolved' && 'Çözüldü'}
-                  {ticket.status === 'closed' && 'Kapalı'}
-                  {ticket.status === 'cancelled' && 'İptal Edildi'}
+                  {ticket.status === "new" && "Yeni"}
+                  {ticket.status === "open" && "Açık"}
+                  {ticket.status === "pending_customer" &&
+                    "Müşteri Yanıtı Bekleniyor"}
+                  {ticket.status === "pending_internal" && "İç Ekip Bekleniyor"}
+                  {ticket.status === "pending_third_party" &&
+                    "Üçüncü Taraf Bekleniyor"}
+                  {ticket.status === "resolved" && "Çözüldü"}
+                  {ticket.status === "closed" && "Kapalı"}
+                  {ticket.status === "cancelled" && "İptal Edildi"}
                 </Badge>
               </div>
             </div>
@@ -459,81 +537,101 @@ export default function TicketDetailPage({
               <Label>Hızlı İşlemler</Label>
               <div className="flex flex-col gap-2">
                 {/* Mark as Pending Customer */}
-                {ticket.status !== TicketStatus.PENDING_CUSTOMER && ticket.status !== TicketStatus.RESOLVED && ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.CANCELLED && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleStatusChange(TicketStatus.PENDING_CUSTOMER)}
-                    disabled={updatingStatus}
-                    className="justify-start"
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Müşteri Yanıtı Bekle
-                  </Button>
-                )}
+                {ticket.status !== TicketStatus.PENDING_CUSTOMER &&
+                  ticket.status !== TicketStatus.RESOLVED &&
+                  ticket.status !== TicketStatus.CLOSED &&
+                  ticket.status !== TicketStatus.CANCELLED && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleStatusChange(TicketStatus.PENDING_CUSTOMER)
+                      }
+                      disabled={updatingStatus}
+                      className="justify-start"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Müşteri Yanıtı Bekle
+                    </Button>
+                  )}
 
                 {/* Mark as Pending Internal */}
-                {ticket.status !== TicketStatus.PENDING_INTERNAL && ticket.status !== TicketStatus.RESOLVED && ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.CANCELLED && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleStatusChange(TicketStatus.PENDING_INTERNAL)}
-                    disabled={updatingStatus}
-                    className="justify-start"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    İç Ekip Bekle
-                  </Button>
-                )}
+                {ticket.status !== TicketStatus.PENDING_INTERNAL &&
+                  ticket.status !== TicketStatus.RESOLVED &&
+                  ticket.status !== TicketStatus.CLOSED &&
+                  ticket.status !== TicketStatus.CANCELLED && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleStatusChange(TicketStatus.PENDING_INTERNAL)
+                      }
+                      disabled={updatingStatus}
+                      className="justify-start"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      İç Ekip Bekle
+                    </Button>
+                  )}
 
                 {/* Mark as Pending Third Party */}
-                {ticket.status !== TicketStatus.PENDING_THIRD_PARTY && ticket.status !== TicketStatus.RESOLVED && ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.CANCELLED && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleStatusChange(TicketStatus.PENDING_THIRD_PARTY)}
-                    disabled={updatingStatus}
-                    className="justify-start"
-                  >
-                    <Building className="h-4 w-4 mr-2" />
-                    Üçüncü Taraf Bekle
-                  </Button>
-                )}
+                {ticket.status !== TicketStatus.PENDING_THIRD_PARTY &&
+                  ticket.status !== TicketStatus.RESOLVED &&
+                  ticket.status !== TicketStatus.CLOSED &&
+                  ticket.status !== TicketStatus.CANCELLED && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleStatusChange(TicketStatus.PENDING_THIRD_PARTY)
+                      }
+                      disabled={updatingStatus}
+                      className="justify-start"
+                    >
+                      <Building className="h-4 w-4 mr-2" />
+                      Üçüncü Taraf Bekle
+                    </Button>
+                  )}
 
                 {/* Mark as Resolved */}
-                {ticket.status !== TicketStatus.RESOLVED && ticket.status !== TicketStatus.CLOSED && ticket.status !== TicketStatus.CANCELLED && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleStatusChange(TicketStatus.RESOLVED)}
-                    disabled={updatingStatus}
-                    className="justify-start bg-green-600 hover:bg-green-700"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Çözüldü Olarak İşaretle
-                  </Button>
-                )}
+                {ticket.status !== TicketStatus.RESOLVED &&
+                  ticket.status !== TicketStatus.CLOSED &&
+                  ticket.status !== TicketStatus.CANCELLED && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleStatusChange(TicketStatus.RESOLVED)}
+                      disabled={updatingStatus}
+                      className="justify-start bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Çözüldü Olarak İşaretle
+                    </Button>
+                  )}
 
                 {/* Cancel Ticket */}
-                {ticket.status !== TicketStatus.CANCELLED && ticket.status !== TicketStatus.CLOSED && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleStatusChange(TicketStatus.CANCELLED)}
-                    disabled={updatingStatus}
-                    className="justify-start"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    İptal Et
-                  </Button>
-                )}
+                {ticket.status !== TicketStatus.CANCELLED &&
+                  ticket.status !== TicketStatus.CLOSED && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleStatusChange(TicketStatus.CANCELLED)}
+                      disabled={updatingStatus}
+                      className="justify-start"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      İptal Et
+                    </Button>
+                  )}
               </div>
             </div>
             <div className="space-y-2">
               <Label>Öncelik</Label>
               <Select
                 value={ticket.priority}
-                onValueChange={(priority) => handlePriorityChange(priority as TicketPriority)}
+                onValueChange={(priority) =>
+                  handlePriorityChange(priority as TicketPriority)
+                }
                 disabled={updatingPriority}
               >
                 <SelectTrigger>
@@ -550,7 +648,7 @@ export default function TicketDetailPage({
             <div className="space-y-2">
               <Label>Atanan Kişi</Label>
               <Select
-                value={ticket.assignedToId || 'unassigned'}
+                value={ticket.assignedToId || "unassigned"}
                 onValueChange={handleAssignTicket}
                 disabled={assigningTicket}
               >
@@ -559,7 +657,7 @@ export default function TicketDetailPage({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Atanmamış</SelectItem>
-                  {supportUsers.map(user => (
+                  {supportUsers.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.firstName} {user.lastName} ({user.email})
                     </SelectItem>
@@ -578,20 +676,24 @@ export default function TicketDetailPage({
               <span className="text-muted-foreground flex items-center gap-2">
                 <Hash className="h-4 w-4" /> Talep ID
               </span>
-              <span className="font-mono text-xs">#{ticket.id.substring(0, 8)}</span>
+              <span className="font-mono text-xs">
+                #{ticket.id.substring(0, 8)}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-2">
                 <Tag className="h-4 w-4" /> Kategori
               </span>
-              <Badge variant="outline">{ticket.category?.name || 'Belirtilmemiş'}</Badge>
+              <Badge variant="outline">
+                {ticket.category?.name || "Belirtilmemiş"}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4" /> Oluşturulma
               </span>
               <span>
-                {new Date(ticket.createdAt).toLocaleDateString('tr-TR')}
+                {new Date(ticket.createdAt).toLocaleDateString("tr-TR")}
               </span>
             </div>
             <Separator />
@@ -599,7 +701,9 @@ export default function TicketDetailPage({
               <span className="text-muted-foreground flex items-center gap-2">
                 <UserIcon className="h-4 w-4" /> Müşteri
               </span>
-              <span>{ticket.user?.firstName} {ticket.user?.lastName}</span>
+              <span>
+                {ticket.user?.firstName} {ticket.user?.lastName}
+              </span>
             </div>
             <p className="text-muted-foreground">{ticket.user?.email}</p>
             <p className="text-muted-foreground text-xs">Şirket bilgisi yok</p>

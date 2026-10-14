@@ -1,32 +1,46 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { 
-  Search, 
-  Image as ImageIcon, 
-  FileText, 
-  Video, 
+import { useState, useRef } from "react";
+import { API_CONFIG } from "@/config/api.config";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Search,
+  Image as ImageIcon,
+  FileText,
+  Video,
   Music,
   Upload,
   Plus,
-  X
-} from 'lucide-react';
-import mediaService, { Media } from '@/lib/api/mediaService';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import Image from 'next/image';
-import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
-import { useToast } from '@/hooks/use-toast';
+  X,
+} from "lucide-react";
+import mediaService, { Media } from "@/lib/api/mediaService";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Image from "next/image";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = API_CONFIG.API_URL;
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 interface MediaPickerProps {
@@ -36,25 +50,26 @@ interface MediaPickerProps {
   filterType?: string; // 'image', 'video', 'audio', 'document', 'all'
 }
 
-export default function MediaPicker({ value, onChange, placeholder = "Medya seçin", filterType: initialFilterType = 'all' }: MediaPickerProps) {
+export default function MediaPicker({
+  value,
+  onChange,
+  placeholder = "Medya seçin",
+  filterType: initialFilterType = "all",
+}: MediaPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mediaItems, setMediaItems] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>(initialFilterType);
-  const [selectedMediaId, setSelectedMediaId] = useState<string | null>(value || null);
+  const [selectedMediaId, setSelectedMediaId] = useState<string | null>(
+    value || null,
+  );
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchMedia();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
+  useAsyncEffect(() => {
     setSelectedMediaId(value || null);
   }, [value]);
 
@@ -64,26 +79,36 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
       const data = await mediaService.getAllMedia();
       setMediaItems(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Error fetching media:', err);
+      console.error("Error fetching media:", err);
       setMediaItems([]); // Set to empty array on error
       toast({
         title: "Hata",
         description: "Medya dosyaları yüklenirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMedia = Array.isArray(mediaItems) ? mediaItems.filter(media => {
-    const matchesSearch = media.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (media.title && media.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesType = filterType === 'all' || media.type === filterType;
-    
-    return matchesSearch && matchesType;
-  }) : [];
+  useAsyncEffect(() => {
+    if (isOpen) {
+      fetchMedia();
+    }
+  }, [isOpen]);
+
+  const filteredMedia = Array.isArray(mediaItems)
+    ? mediaItems.filter((media) => {
+        const matchesSearch =
+          media.originalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (media.title &&
+            media.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        const matchesType = filterType === "all" || media.type === filterType;
+
+        return matchesSearch && matchesType;
+      })
+    : [];
 
   const handleSelect = (mediaId: string) => {
     setSelectedMediaId(mediaId);
@@ -116,19 +141,19 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
       // Clear the file input
       setSelectedFile(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
-      
+
       toast({
         title: "Başarılı",
-        description: "Dosya başarıyla yüklendi."
+        description: "Dosya başarıyla yüklendi.",
       });
     } catch (err) {
-      console.error('Error uploading file:', err);
+      console.error("Error uploading file:", err);
       toast({
         title: "Hata",
         description: "Dosya yüklenirken bir hata oluştu.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setUploading(false);
@@ -136,22 +161,22 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const getMediaTypeIcon = (type: string) => {
     switch (type) {
-      case 'image':
+      case "image":
         return <ImageIcon className="h-4 w-4" />;
-      case 'document':
+      case "document":
         return <FileText className="h-4 w-4" />;
-      case 'video':
+      case "video":
         return <Video className="h-4 w-4" />;
-      case 'audio':
+      case "audio":
         return <Music className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
@@ -160,20 +185,22 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
 
   const getMediaTypeLabel = (type: string) => {
     switch (type) {
-      case 'image':
-        return 'Resim';
-      case 'document':
-        return 'Belge';
-      case 'video':
-        return 'Video';
-      case 'audio':
-        return 'Ses';
+      case "image":
+        return "Resim";
+      case "document":
+        return "Belge";
+      case "video":
+        return "Video";
+      case "audio":
+        return "Ses";
       default:
         return type;
     }
   };
 
-  const selectedMedia = mediaItems.find(media => media.id === selectedMediaId);
+  const selectedMedia = mediaItems.find(
+    (media) => media.id === selectedMediaId,
+  );
 
   return (
     <div className="space-y-2">
@@ -183,13 +210,17 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
             <Button variant="outline" className="w-full justify-start">
               {selectedMedia ? (
                 <div className="flex items-center gap-2">
-                  {selectedMedia?.type === 'image' && selectedMedia?.url ? (
+                  {selectedMedia?.type === "image" && selectedMedia?.url ? (
                     <div className="relative h-6 w-6 rounded overflow-hidden">
                       <Image
-                        src={selectedMedia.url.startsWith('/uploads/')
-                          ? `${getMediaBaseUrl()}${selectedMedia.url}`
-                          : selectedMedia.url}
-                        alt={selectedMedia.altText || selectedMedia.originalName}
+                        src={
+                          selectedMedia.url.startsWith("/uploads/")
+                            ? `${getMediaBaseUrl()}${selectedMedia.url}`
+                            : selectedMedia.url
+                        }
+                        alt={
+                          selectedMedia.altText || selectedMedia.originalName
+                        }
                         width={24}
                         height={24}
                         className="object-cover"
@@ -200,7 +231,9 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
                       {getMediaTypeIcon(selectedMedia.type)}
                     </div>
                   ) : null}
-                  <span className="truncate">{selectedMedia?.title || selectedMedia?.originalName}</span>
+                  <span className="truncate">
+                    {selectedMedia?.title || selectedMedia?.originalName}
+                  </span>
                 </div>
               ) : (
                 <span className="text-muted-foreground">{placeholder}</span>
@@ -211,7 +244,7 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
             <DialogHeader>
               <DialogTitle>Medya Seç</DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               {/* Upload Section */}
               <div className="border rounded-lg p-4">
@@ -223,8 +256,8 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
                     onChange={handleFileChange}
                     ref={fileInputRef}
                   />
-                  <Button 
-                    onClick={handleUpload} 
+                  <Button
+                    onClick={handleUpload}
                     disabled={!selectedFile || uploading}
                   >
                     {uploading ? (
@@ -242,11 +275,12 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
                 </div>
                 {selectedFile && (
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Seçilen dosya: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                    Seçilen dosya: {selectedFile.name} (
+                    {formatFileSize(selectedFile.size)})
                   </div>
                 )}
               </div>
-              
+
               {/* Search and Filter */}
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
@@ -271,30 +305,34 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Media Grid */}
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="text-muted-foreground">Medya dosyaları yükleniyor...</div>
+                  <div className="text-muted-foreground">
+                    Medya dosyaları yükleniyor...
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {filteredMedia.map((media) => (
-                    <div 
+                    <div
                       key={media.id}
                       className={`border rounded-lg overflow-hidden cursor-pointer transition-colors ${
-                        selectedMediaId === media.id 
-                          ? 'border-primary ring-2 ring-primary/20' 
-                          : 'border-muted hover:border-primary/50'
+                        selectedMediaId === media.id
+                          ? "border-primary ring-2 ring-primary/20"
+                          : "border-muted hover:border-primary/50"
                       }`}
                       onClick={() => handleSelect(media.id)}
                     >
                       <div className="relative aspect-square">
-                        {media.type === 'image' && media.url ? (
+                        {media.type === "image" && media.url ? (
                           <Image
-                            src={media.url.startsWith('/uploads/')
-                              ? `${getMediaBaseUrl()}${media.url}`
-                              : media.url}
+                            src={
+                              media.url.startsWith("/uploads/")
+                                ? `${getMediaBaseUrl()}${media.url}`
+                                : media.url
+                            }
                             alt={media.altText || media.originalName}
                             width={200}
                             height={200}
@@ -316,13 +354,18 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
                           {media.title || media.originalName}
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1 py-0"
+                          >
                             {getMediaTypeLabel(media.type)}
                           </Badge>
                           <span>{formatFileSize(media.size)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {format(new Date(media.createdAt), 'dd.MM.yyyy', { locale: tr })}
+                          {format(new Date(media.createdAt), "dd.MM.yyyy", {
+                            locale: tr,
+                          })}
                         </div>
                       </div>
                     </div>
@@ -332,14 +375,14 @@ export default function MediaPicker({ value, onChange, placeholder = "Medya seç
             </div>
           </DialogContent>
         </Dialog>
-        
+
         {selectedMediaId && (
           <Button variant="outline" onClick={handleClear}>
             <X className="h-4 w-4" />
           </Button>
         )}
       </div>
-      
+
       {selectedMedia && (
         <div className="text-sm text-muted-foreground">
           Seçilen: {selectedMedia.title || selectedMedia.originalName}

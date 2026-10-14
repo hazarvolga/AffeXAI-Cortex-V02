@@ -1,11 +1,19 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sparkles, CheckCircle, XCircle, Loader2, Brain } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import React, { useState } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, CheckCircle, XCircle, Loader2, Brain } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface CategoryPrediction {
   categoryId: string;
@@ -30,43 +38,48 @@ export function AICategorySuggestions({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSuggestions();
-  }, [ticketId]);
-
   const fetchSuggestions = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/tickets/ai/${ticketId}/suggestions`);
+      const response = await apiFetch(
+        `/api/tickets/ai/${ticketId}/suggestions`,
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch suggestions');
+        throw new Error("Failed to fetch suggestions");
       }
 
       const data = await response.json();
       setSuggestions(Array.isArray(data) ? data : []);
     } catch (error: any) {
-      console.error('Failed to fetch AI suggestions:', error);
-      setError(error.message || 'Failed to load AI suggestions');
+      console.error("Failed to fetch AI suggestions:", error);
+      setError(error.message || "Failed to load AI suggestions");
       setSuggestions([]);
     } finally {
       setLoading(false);
     }
   };
 
+  useAsyncEffect(() => {
+    fetchSuggestions();
+  }, [ticketId]);
+
   const handleAutoCategorizе = async () => {
     try {
       setApplying(true);
       setError(null);
 
-      const response = await fetch(`/api/tickets/ai/${ticketId}/categorize`, {
-        method: 'POST',
-      });
+      const response = await apiFetch(
+        `/api/tickets/ai/${ticketId}/categorize`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to apply category');
+        throw new Error("Failed to apply category");
       }
 
       const result = await response.json();
@@ -78,11 +91,13 @@ export function AICategorySuggestions({
         // Refresh suggestions
         await fetchSuggestions();
       } else {
-        setError(result.message || 'Could not categorize with sufficient confidence');
+        setError(
+          result.message || "Could not categorize with sufficient confidence",
+        );
       }
     } catch (error: any) {
-      console.error('Failed to apply category:', error);
-      setError(error.message || 'Failed to apply category');
+      console.error("Failed to apply category:", error);
+      setError(error.message || "Failed to apply category");
     } finally {
       setApplying(false);
     }
@@ -95,15 +110,16 @@ export function AICategorySuggestions({
   };
 
   const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= 80) return 'text-green-600 bg-green-50 border-green-200';
-    if (confidence >= 60) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (confidence >= 80) return "text-green-600 bg-green-50 border-green-200";
+    if (confidence >= 60)
+      return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    return "text-orange-600 bg-orange-50 border-orange-200";
   };
 
   const getConfidenceLabel = (confidence: number): string => {
-    if (confidence >= 80) return 'Yüksek Güven';
-    if (confidence >= 60) return 'Orta Güven';
-    return 'Düşük Güven';
+    if (confidence >= 80) return "Yüksek Güven";
+    if (confidence >= 60) return "Orta Güven";
+    return "Düşük Güven";
   };
 
   if (loading) {
@@ -111,7 +127,9 @@ export function AICategorySuggestions({
       <Card>
         <CardContent className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">AI önerileri yükleniyor...</span>
+          <span className="ml-3 text-muted-foreground">
+            AI önerileri yükleniyor...
+          </span>
         </CardContent>
       </Card>
     );
@@ -181,8 +199,8 @@ export function AICategorySuggestions({
             key={suggestion.categoryId}
             className={`p-4 border rounded-lg transition-all hover:shadow-md cursor-pointer ${
               currentCategoryId === suggestion.categoryId
-                ? 'border-primary bg-primary/5'
-                : 'border-gray-200 hover:border-primary/50'
+                ? "border-primary bg-primary/5"
+                : "border-gray-200 hover:border-primary/50"
             }`}
             onClick={() => handleSelectSuggestion(suggestion.categoryId)}
           >
@@ -199,7 +217,7 @@ export function AICategorySuggestions({
                 <div className="flex items-center gap-2">
                   <span
                     className={`text-sm px-2 py-1 rounded border ${getConfidenceColor(
-                      suggestion.confidence
+                      suggestion.confidence,
                     )}`}
                   >
                     {getConfidenceLabel(suggestion.confidence)}
@@ -242,8 +260,8 @@ export function AICategorySuggestions({
         {/* Info Footer */}
         <div className="pt-4 border-t">
           <p className="text-xs text-muted-foreground text-center">
-            💡 AI önerileri, ticket içeriği analiz edilerek oluşturulur. %60+ güven ile
-            otomatik uygulanabilir.
+            💡 AI önerileri, ticket içeriği analiz edilerek oluşturulur. %60+
+            güven ile otomatik uygulanabilir.
           </p>
         </div>
       </CardContent>

@@ -1,11 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 interface ChatDetailProps {
   sessionId: string;
@@ -13,16 +20,22 @@ interface ChatDetailProps {
 
 export default function ChatDetail({ sessionId }: ChatDetailProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [session, setSession] = useState<{ id: string; userName?: string; status: string; messageCount?: number; assignedSupport?: { userName: string } } | null>(null);
+  const [session, setSession] = useState<{
+    id: string;
+    userName?: string;
+    status: string;
+    messageCount?: number;
+    assignedSupport?: { userName: string };
+  } | null>(null);
 
   useEffect(() => {
     const fetchSession = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/chat/sessions/${sessionId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+        const response = await apiFetch(`/api/chat/sessions/${sessionId}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -30,7 +43,7 @@ export default function ChatDetail({ sessionId }: ChatDetailProps) {
         const data = await response.json();
         setSession(data);
       } catch (error) {
-        console.error('Failed to fetch session:', error);
+        console.error("Failed to fetch session:", error);
         setSession(null);
       } finally {
         setIsLoading(false);
@@ -68,39 +81,49 @@ export default function ChatDetail({ sessionId }: ChatDetailProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <p className="text-sm"><strong>Session ID:</strong> {session.id}</p>
-          <p className="text-sm"><strong>Customer:</strong> {session.userName}</p>
-          <p className="text-sm"><strong>Status:</strong>
+          <p className="text-sm">
+            <strong>Session ID:</strong> {session.id}
+          </p>
+          <p className="text-sm">
+            <strong>Customer:</strong> {session.userName}
+          </p>
+          <p className="text-sm">
+            <strong>Status:</strong>
             <Badge
-              variant={session.status === 'active' ? 'default' :
-                     session.status === 'waiting' ? 'secondary' : 'destructive'}
+              variant={
+                session.status === "active"
+                  ? "default"
+                  : session.status === "waiting"
+                    ? "secondary"
+                    : "destructive"
+              }
             >
               {session.status}
             </Badge>
           </p>
-          <p className="text-sm"><strong>Message Count:</strong> {session.messageCount}</p>
-          <p className="text-sm"><strong>Assigned To:</strong>
-            {session.assignedSupport ? session.assignedSupport.userName : 'Unassigned'}
+          <p className="text-sm">
+            <strong>Message Count:</strong> {session.messageCount}
+          </p>
+          <p className="text-sm">
+            <strong>Assigned To:</strong>
+            {session.assignedSupport
+              ? session.assignedSupport.userName
+              : "Unassigned"}
           </p>
         </div>
 
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold mb-3">Conversation</h3>
           <div className="h-[200px] overflow-y-auto border p-3 rounded">
-            <p className="text-muted-italic">Message history would appear here</p>
+            <p className="text-muted-italic">
+              Message history would appear here
+            </p>
           </div>
 
           <div className="mt-4">
             <form className="flex space-x-3">
-              <Input
-                placeholder="Type a message..."
-                className="flex-1"
-              />
-              <Button
-                variant="default"
-              >
-                Send
-              </Button>
+              <Input placeholder="Type a message..." className="flex-1" />
+              <Button variant="default">Send</Button>
             </form>
           </div>
         </div>

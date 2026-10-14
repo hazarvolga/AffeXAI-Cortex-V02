@@ -1,430 +1,292 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { getQueueToken } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { EmailCampaignService } from '../email-campaign.service';
-import { EmailCampaign } from '../entities/email-campaign.entity';
-import { CacheService } from '../../../core/shared/services/cache.service';
-import { EventBusService } from '../../../platform-integration/services/event-bus.service';
-import { CreateCampaignDto } from '../dto/create-campaign.dto';
-import { UpdateCampaignDto } from '../dto/update-campaign.dto';
+import { NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { EmailCampaignService } from "./email-campaign.service";
 
-describe('EmailCampaignService', () => {
-    let service: EmailCampaignService;
-    let campaignRepository: Repository<EmailCampaign>;
-    let emailQueue: Queue;
-    let cacheService: CacheService;
-    let eventBusService: EventBusService;
+jest.mock("../commerce/services/commerce.service", () => ({
+  CommerceService: class {},
+}));
+jest.mock("../strategy/services/strategy.service", () => ({
+  StrategyService: class {},
+}));
+jest.mock("../../core/shared/services/cache.service", () => ({
+  CacheService: class {},
+}));
+jest.mock("../platform-integration/services/event-bus.service", () => ({
+  EventBusService: class {},
+}));
+jest.mock("./subscriber.service", () => ({ SubscriberService: class {} }));
 
-    const mockCampaign: Partial<EmailCampaign> = {
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        name: 'Test Campaign',
-        subject: 'Test Subject',
-        content: 'Test Content',
-        status: 'draft',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        sentCount: 0,
-        openedCount: 0,
-        clickedCount: 0,
-        totalRecipients: 0,
-    };
+const TENANT = "acme";
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        increment: jest.fn(),
-    };
+function setup(tenant: string | null = TENANT) {
+  const campaign = () => ({
+    id: "c-1",
+    tenantId: TENANT,
+    name: "Ekim Bülteni",
+    slug: "ekim-bulteni",
+    subject: "Merhaba",
+    content: "<p>İçerik</p>",
+    status: "draft",
+    totalRecipients: 0,
+    sentCount: 0,
+    deliveredCount: 0,
+    openedCount: 0,
+    clickedCount: 0,
+    bounceCount: 0,
+    complainedCount: 0,
+  });
+  const repository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+    find: jest.fn(async () => [campaign()]),
+    findOne: jest.fn(async () => campaign()),
+    update: jest.fn(),
+    delete: jest.fn(),
+    increment: jest.fn(),
+  };
+  const queue = { add: jest.fn() };
+  const cache = {
+    get: jest.fn(async () => null),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+  const eventBus = { publishCampaignSent: jest.fn() };
+  const subscribers = {
+    findAll: jest.fn(async () => [
+      { email: "a@acme.test", status: "active" },
+      { email: "b@acme.test", status: "active" },
+      { email: "c@acme.test", status: "unsubscribed" },
+    ]),
+    isEmailSuppressed: jest.fn(
+      async (email: string) => email === "b@acme.test",
+    ),
+  };
+  const tenantService = { getTenantId: () => tenant };
+  const strategy = { emitSignal: jest.fn(async () => undefined) };
+  const commerce = { checkLimit: jest.fn(async () => ({ allowed: true })) };
+  const service = new EmailCampaignService(
+    repository as never,
+    queue as never,
+    cache as never,
+    eventBus as never,
+    subscribers as never,
+    tenantService as never,
+    strategy as never,
+    commerce as never,
+  );
+  return {
+    service,
+    repository,
+    queue,
+    cache,
+    eventBus,
+    subscribers,
+    strategy,
+    commerce,
+    campaign,
+  };
+}
 
-    const mockQueue = {
-        add: jest.fn(),
-    };
+describe("EmailCampaignService", () => {
+  it("refuses to work without a tenant context", async () => {
+    const { service } = setup(null);
+    await expect(service.findAll()).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
 
-    const mockCacheService = {
-        get: jest.fn(),
-        set: jest.fn(),
-        del: jest.fn(),
-    };
+  describe("create", () => {
+    it("stores the campaign under the tenant with a generated slug and clears the list cache", async () => {
+      const { service, repository, cache } = setup();
+      const created = await service.create({
+        name: "Yeni Kampanya",
+        subject: "S",
+        content: "C",
+      } as never);
+      expect(created).toMatchObject({
+        tenantId: TENANT,
+        name: "Yeni Kampanya",
+      });
+      expect(created.slug).toMatch(/^yeni-kampanya-[a-z0-9]+$/);
+      expect(repository.save).toHaveBeenCalled();
+      expect(cache.del).toHaveBeenCalledWith(`email-campaigns:${TENANT}:all`);
+    });
+  });
 
-    const mockEventBusService = {
-        publishCampaignSent: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                EmailCampaignService,
-                {
-                    provide: getRepositoryToken(EmailCampaign),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getQueueToken('email'),
-                    useValue: mockQueue,
-                },
-                {
-                    provide: CacheService,
-                    useValue: mockCacheService,
-                },
-                {
-                    provide: EventBusService,
-                    useValue: mockEventBusService,
-                },
-            ],
-        }).compile();
-
-        service = module.get<EmailCampaignService>(EmailCampaignService);
-        campaignRepository = module.get<Repository<EmailCampaign>>(
-            getRepositoryToken(EmailCampaign),
-        );
-        emailQueue = module.get<Queue>(getQueueToken('email'));
-        cacheService = module.get<CacheService>(CacheService);
-        eventBusService = module.get<EventBusService>(EventBusService);
-
-        // Clear all mocks before each test
-        jest.clearAllMocks();
+  describe("findAll / findOne", () => {
+    it("serves the cached list when present", async () => {
+      const { service, repository, cache, campaign } = setup();
+      cache.get.mockResolvedValueOnce([campaign()] as never);
+      await service.findAll();
+      expect(repository.find).not.toHaveBeenCalled();
     });
 
-    afterEach(() => {
-        jest.clearAllMocks();
+    it("loads only this tenant from the database and caches it", async () => {
+      const { service, repository, cache } = setup();
+      await service.findAll();
+      expect(repository.find).toHaveBeenCalledWith({
+        where: { tenantId: TENANT },
+        order: { createdAt: "DESC" },
+      });
+      expect(cache.set).toHaveBeenCalledWith(
+        `email-campaigns:${TENANT}:all`,
+        expect.any(Array),
+        30,
+      );
     });
 
-    describe('create', () => {
-        it('should create a new campaign', async () => {
-            const createDto: CreateCampaignDto = {
-                name: 'New Campaign',
-                subject: 'New Subject',
-                content: 'New Content',
-            };
-
-            mockRepository.create.mockReturnValue(mockCampaign);
-            mockRepository.save.mockResolvedValue(mockCampaign);
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            const result = await service.create(createDto);
-
-            expect(mockRepository.create).toHaveBeenCalledWith(createDto);
-            expect(mockRepository.save).toHaveBeenCalledWith(mockCampaign);
-            expect(mockCacheService.del).toHaveBeenCalledWith('email-campaigns:all');
-            expect(result).toEqual(mockCampaign);
-        });
-
-        it('should clear cache after creating campaign', async () => {
-            const createDto: CreateCampaignDto = {
-                name: 'New Campaign',
-                subject: 'New Subject',
-                content: 'New Content',
-            };
-
-            mockRepository.create.mockReturnValue(mockCampaign);
-            mockRepository.save.mockResolvedValue(mockCampaign);
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.create(createDto);
-
-            expect(mockCacheService.del).toHaveBeenCalledTimes(1);
-            expect(mockCacheService.del).toHaveBeenCalledWith('email-campaigns:all');
-        });
+    it("answers a missing or foreign campaign with 404", async () => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValueOnce(null as never);
+      await expect(service.findOne("missing")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: { id: "missing", tenantId: TENANT },
+      });
     });
 
-    describe('findAll', () => {
-        it('should return cached campaigns if available', async () => {
-            const campaigns = [mockCampaign];
-            mockCacheService.get.mockResolvedValue(campaigns);
+    it("answers an unknown slug with 404", async () => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValueOnce(null as never);
+      await expect(service.findBySlug("yok")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
 
-            const result = await service.findAll();
-
-            expect(mockCacheService.get).toHaveBeenCalledWith('email-campaigns:all');
-            expect(mockRepository.find).not.toHaveBeenCalled();
-            expect(result).toEqual(campaigns);
-        });
-
-        it('should fetch from database and cache if not cached', async () => {
-            const campaigns = [mockCampaign];
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.find.mockResolvedValue(campaigns);
-            mockCacheService.set.mockResolvedValue(undefined);
-
-            const result = await service.findAll();
-
-            expect(mockCacheService.get).toHaveBeenCalledWith('email-campaigns:all');
-            expect(mockRepository.find).toHaveBeenCalledWith({
-                order: { createdAt: 'DESC' },
-            });
-            expect(mockCacheService.set).toHaveBeenCalledWith(
-                'email-campaigns:all',
-                campaigns,
-                30,
-            );
-            expect(result).toEqual(campaigns);
-        });
+  describe("update / remove", () => {
+    it("updates within the tenant and clears id, slug and list caches", async () => {
+      const { service, repository, cache } = setup();
+      await service.update("c-1", { subject: "Yeni konu" } as never);
+      expect(repository.update).toHaveBeenCalledWith(
+        { id: "c-1", tenantId: TENANT },
+        { subject: "Yeni konu" },
+      );
+      expect(cache.del).toHaveBeenCalledWith(`email-campaigns:${TENANT}:c-1`);
+      expect(cache.del).toHaveBeenCalledWith(
+        `email-campaigns:${TENANT}:slug:ekim-bulteni`,
+      );
+      expect(cache.del).toHaveBeenCalledWith(`email-campaigns:${TENANT}:all`);
     });
 
-    describe('findOne', () => {
-        it('should return cached campaign if available', async () => {
-            mockCacheService.get.mockResolvedValue(mockCampaign);
-
-            const result = await service.findOne(mockCampaign.id);
-
-            expect(mockCacheService.get).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-            expect(mockRepository.findOne).not.toHaveBeenCalled();
-            expect(result).toEqual(mockCampaign);
-        });
-
-        it('should fetch from database and cache if not cached', async () => {
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(mockCampaign);
-            mockCacheService.set.mockResolvedValue(undefined);
-
-            const result = await service.findOne(mockCampaign.id);
-
-            expect(mockCacheService.get).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-            expect(mockRepository.findOne).toHaveBeenCalledWith({
-                where: { id: mockCampaign.id },
-            });
-            expect(mockCacheService.set).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-                mockCampaign,
-                60,
-            );
-            expect(result).toEqual(mockCampaign);
-        });
-
-        it('should throw error if campaign not found', async () => {
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.findOne('non-existent-id')).rejects.toThrow(
-                'Campaign not found',
-            );
-        });
+    it("rejects an update of a campaign that does not exist", async () => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValueOnce(null as never);
+      await expect(
+        service.update("missing", {} as never),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    describe('update', () => {
-        it('should update campaign and clear cache', async () => {
-            const updateDto: UpdateCampaignDto = {
-                name: 'Updated Campaign',
-            };
+    it("deletes only within the tenant", async () => {
+      const { service, repository } = setup();
+      await service.remove("c-1");
+      expect(repository.delete).toHaveBeenCalledWith({
+        id: "c-1",
+        tenantId: TENANT,
+      });
+    });
+  });
 
-            mockRepository.update.mockResolvedValue({ affected: 1 });
-            mockRepository.findOne.mockResolvedValue({
-                ...mockCampaign,
-                ...updateDto,
-            });
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            const result = await service.update(mockCampaign.id, updateDto);
-
-            expect(mockRepository.update).toHaveBeenCalledWith(
-                mockCampaign.id,
-                updateDto,
-            );
-            expect(mockRepository.findOne).toHaveBeenCalledWith({
-                where: { id: mockCampaign.id },
-            });
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith('email-campaigns:all');
-            expect(result).toEqual({ ...mockCampaign, ...updateDto });
-        });
-
-        it('should throw error if campaign not found', async () => {
-            const updateDto: UpdateCampaignDto = {
-                name: 'Updated Campaign',
-            };
-
-            mockRepository.update.mockResolvedValue({ affected: 1 });
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(
-                service.update('non-existent-id', updateDto),
-            ).rejects.toThrow('Campaign not found');
-        });
+  describe("sendCampaign", () => {
+    it("queues one idempotent job per active, non-suppressed subscriber", async () => {
+      const { service, queue, eventBus } = setup();
+      await service.sendCampaign("c-1");
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(queue.add).toHaveBeenCalledWith(
+        "sendCampaignEmail",
+        expect.objectContaining({
+          to: "a@acme.test",
+          campaignId: "c-1",
+          tenantId: TENANT,
+        }),
+        { jobId: expect.stringMatching(/^campaign-c-1-[0-9a-f]{64}$/) },
+      );
+      expect(eventBus.publishCampaignSent).toHaveBeenCalledWith(
+        "c-1",
+        1,
+        TENANT,
+        "system",
+      );
     });
 
-    describe('remove', () => {
-        it('should delete campaign and clear cache', async () => {
-            mockRepository.delete.mockResolvedValue({ affected: 1 });
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.remove(mockCampaign.id);
-
-            expect(mockRepository.delete).toHaveBeenCalledWith(mockCampaign.id);
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith('email-campaigns:all');
-        });
+    it("clears the tenant-scoped cache entry so the new status is visible", async () => {
+      const { service, cache } = setup();
+      await service.sendCampaign("c-1");
+      expect(cache.del).toHaveBeenCalledWith(`email-campaigns:${TENANT}:c-1`);
     });
 
-    describe('sendCampaign', () => {
-        it('should send campaign and queue emails', async () => {
-            const campaignToSend = { ...mockCampaign };
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(campaignToSend);
-            mockRepository.save.mockResolvedValue(campaignToSend);
-            mockQueue.add.mockResolvedValue({});
-            mockEventBusService.publishCampaignSent.mockResolvedValue(undefined);
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.sendCampaign(mockCampaign.id);
-
-            expect(mockRepository.save).toHaveBeenCalledTimes(2);
-            expect(mockQueue.add).toHaveBeenCalledTimes(3); // 3 recipients
-            expect(mockEventBusService.publishCampaignSent).toHaveBeenCalledWith(
-                mockCampaign.id,
-                3,
-                'system',
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-        });
-
-        it('should throw error if campaign not found', async () => {
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.sendCampaign('non-existent-id')).rejects.toThrow(
-                'Campaign not found',
-            );
-        });
-
-        it('should update campaign status to sending', async () => {
-            const campaignToSend = { ...mockCampaign };
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(campaignToSend);
-            mockRepository.save.mockResolvedValue(campaignToSend);
-            mockQueue.add.mockResolvedValue({});
-            mockEventBusService.publishCampaignSent.mockResolvedValue(undefined);
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.sendCampaign(mockCampaign.id);
-
-            expect(mockRepository.save).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    status: 'sending',
-                    sentAt: expect.any(Date),
-                }),
-            );
-        });
+    it("stops before sending when the plan limit is exhausted", async () => {
+      const { service, commerce, queue } = setup();
+      commerce.checkLimit.mockResolvedValueOnce({ allowed: false } as never);
+      await expect(service.sendCampaign("c-1")).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
     });
 
-    describe('incrementSentCount', () => {
-        it('should increment sent count and clear cache', async () => {
-            mockRepository.increment.mockResolvedValue({ affected: 1 });
-            mockCacheService.del.mockResolvedValue(undefined);
+    it("completes immediately when nobody can receive it", async () => {
+      const { service, subscribers, repository, queue } = setup();
+      subscribers.findAll.mockResolvedValueOnce([] as never);
+      await service.sendCampaign("c-1");
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(repository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "completed" }),
+      );
+    });
+  });
 
-            await service.incrementSentCount(mockCampaign.id);
+  it("increments delivery counters within the tenant", async () => {
+    const { service, repository } = setup();
+    await service.incrementSentCount("c-1");
+    await service.incrementOpenedCount("c-1");
+    await service.incrementClickedCount("c-1");
+    expect(repository.increment).toHaveBeenNthCalledWith(
+      1,
+      { id: "c-1", tenantId: TENANT },
+      "sentCount",
+      1,
+    );
+    expect(repository.increment).toHaveBeenNthCalledWith(
+      2,
+      { id: "c-1", tenantId: TENANT },
+      "openedCount",
+      1,
+    );
+    expect(repository.increment).toHaveBeenNthCalledWith(
+      3,
+      { id: "c-1", tenantId: TENANT },
+      "clickedCount",
+      1,
+    );
+  });
 
-            expect(mockRepository.increment).toHaveBeenCalledWith(
-                { id: mockCampaign.id },
-                'sentCount',
-                1,
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-        });
+  describe("getCampaignStats", () => {
+    it("derives rates from stored counters", async () => {
+      const { service, repository, campaign } = setup();
+      repository.findOne.mockResolvedValueOnce({
+        ...campaign(),
+        totalRecipients: 100,
+        sentCount: 100,
+        deliveredCount: 80,
+        openedCount: 40,
+        clickedCount: 10,
+      } as never);
+      await expect(service.getCampaignStats("c-1")).resolves.toMatchObject({
+        completionRate: 100,
+        deliveryRate: 80,
+        openRate: 50,
+        clickRate: 25,
+      });
     });
 
-    describe('incrementOpenedCount', () => {
-        it('should increment opened count and clear cache', async () => {
-            mockRepository.increment.mockResolvedValue({ affected: 1 });
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.incrementOpenedCount(mockCampaign.id);
-
-            expect(mockRepository.increment).toHaveBeenCalledWith(
-                { id: mockCampaign.id },
-                'openedCount',
-                1,
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-        });
+    it("reports zero rates when nothing was sent", async () => {
+      const { service } = setup();
+      await expect(service.getCampaignStats("c-1")).resolves.toMatchObject({
+        completionRate: 0,
+        deliveryRate: 0,
+        openRate: 0,
+        clickRate: 0,
+      });
     });
-
-    describe('incrementClickedCount', () => {
-        it('should increment clicked count and clear cache', async () => {
-            mockRepository.increment.mockResolvedValue({ affected: 1 });
-            mockCacheService.del.mockResolvedValue(undefined);
-
-            await service.incrementClickedCount(mockCampaign.id);
-
-            expect(mockRepository.increment).toHaveBeenCalledWith(
-                { id: mockCampaign.id },
-                'clickedCount',
-                1,
-            );
-            expect(mockCacheService.del).toHaveBeenCalledWith(
-                `email-campaigns:${mockCampaign.id}`,
-            );
-        });
-    });
-
-    describe('getCampaignStats', () => {
-        it('should return campaign statistics', async () => {
-            const campaign = {
-                ...mockCampaign,
-                totalRecipients: 100,
-                sentCount: 95,
-                openedCount: 50,
-                clickedCount: 25,
-            };
-
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(campaign);
-            mockCacheService.set.mockResolvedValue(undefined);
-
-            const result = await service.getCampaignStats(mockCampaign.id);
-
-            expect(result).toEqual({
-                id: campaign.id,
-                name: campaign.name,
-                status: campaign.status,
-                totalRecipients: 100,
-                sentCount: 95,
-                openedCount: 50,
-                clickedCount: 25,
-                completionRate: 95,
-            });
-        });
-
-        it('should handle zero recipients', async () => {
-            const campaign = {
-                ...mockCampaign,
-                totalRecipients: 0,
-                sentCount: 0,
-            };
-
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(campaign);
-            mockCacheService.set.mockResolvedValue(undefined);
-
-            const result = await service.getCampaignStats(mockCampaign.id);
-
-            expect(result.completionRate).toBe(0);
-        });
-
-        it('should throw error if campaign not found', async () => {
-            mockCacheService.get.mockResolvedValue(null);
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(
-                service.getCampaignStats('non-existent-id'),
-            ).rejects.toThrow('Campaign not found');
-        });
-    });
+  });
 });

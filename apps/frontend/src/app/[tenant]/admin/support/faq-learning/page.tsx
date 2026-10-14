@@ -248,6 +248,7 @@ export default function FaqLearningDashboard() {
               {stats.averageConfidence}%
             </div>
             <Progress
+              aria-label="Ortalama güven skoru"
               value={stats.averageConfidence}
               className="mt-3 h-1 bg-white/5"
             />
@@ -360,6 +361,7 @@ export default function FaqLearningDashboard() {
                           </span>
                         </div>
                         <Progress
+                          aria-label={item.label}
                           value={
                             item.val > 0
                               ? Math.min(

@@ -1,179 +1,189 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { generateSmartStructure } from '@/lib/email-template-designer';
+import { useState } from "react";
+import { httpClient } from "@/lib/api/http-client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { generateSmartStructure } from "@/lib/email-template-designer";
 
 const DEFAULT_EMAIL_BUILDER_STRUCTURE = {
   rows: [
     {
-      id: 'row-header',
-      type: 'section',
+      id: "row-header",
+      type: "section",
       columns: [
         {
-          id: 'col-header',
-          width: '100%',
+          id: "col-header",
+          width: "100%",
           blocks: [
             {
-              id: 'block-heading',
-              type: 'heading',
+              id: "block-heading",
+              type: "heading",
               properties: {
                 level: 1,
-                content: '{{subject}}',
+                content: "{{subject}}",
               },
               styles: {
-                color: '#1a202c',
-                fontSize: '28px',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                marginTop: '0',
-                marginBottom: '16px',
+                color: "#1a202c",
+                fontSize: "28px",
+                fontWeight: "bold",
+                textAlign: "center",
+                marginTop: "0",
+                marginBottom: "16px",
               },
             },
           ],
         },
       ],
       settings: {
-        padding: '32px 24px',
-        backgroundColor: '#f7fafc',
+        padding: "32px 24px",
+        backgroundColor: "#f7fafc",
       },
     },
     {
-      id: 'row-content',
-      type: 'section',
+      id: "row-content",
+      type: "section",
       columns: [
         {
-          id: 'col-content',
-          width: '100%',
+          id: "col-content",
+          width: "100%",
           blocks: [
             {
-              id: 'block-text',
-              type: 'text',
+              id: "block-text",
+              type: "text",
               properties: {
-                content: '{{content}}',
+                content: "{{content}}",
               },
               styles: {
-                color: '#4a5568',
-                fontSize: '16px',
-                fontWeight: 'normal',
-                textAlign: 'left',
-                lineHeight: '1.6',
+                color: "#4a5568",
+                fontSize: "16px",
+                fontWeight: "normal",
+                textAlign: "left",
+                lineHeight: "1.6",
               },
             },
           ],
         },
       ],
       settings: {
-        padding: '24px',
-        backgroundColor: '#ffffff',
+        padding: "24px",
+        backgroundColor: "#ffffff",
       },
     },
     {
-      id: 'row-cta',
-      type: 'section',
+      id: "row-cta",
+      type: "section",
       columns: [
         {
-          id: 'col-cta',
-          width: '100%',
+          id: "col-cta",
+          width: "100%",
           blocks: [
             {
-              id: 'block-button',
-              type: 'button',
+              id: "block-button",
+              type: "button",
               properties: {
-                text: 'Take Action',
-                url: '#',
+                text: "Take Action",
+                url: "#",
               },
               styles: {
-                backgroundColor: '#3182ce',
-                color: '#ffffff',
-                fontSize: '16px',
-                fontWeight: '600',
-                borderRadius: '6px',
-                paddingX: '32px',
-                paddingY: '14px',
-                align: 'center',
+                backgroundColor: "#3182ce",
+                color: "#ffffff",
+                fontSize: "16px",
+                fontWeight: "600",
+                borderRadius: "6px",
+                paddingX: "32px",
+                paddingY: "14px",
+                align: "center",
               },
             },
           ],
         },
       ],
       settings: {
-        padding: '24px',
-        backgroundColor: '#ffffff',
+        padding: "24px",
+        backgroundColor: "#ffffff",
       },
     },
     {
-      id: 'row-divider',
-      type: 'section',
+      id: "row-divider",
+      type: "section",
       columns: [
         {
-          id: 'col-divider',
-          width: '100%',
+          id: "col-divider",
+          width: "100%",
           blocks: [
             {
-              id: 'block-divider',
-              type: 'divider',
+              id: "block-divider",
+              type: "divider",
               properties: {},
               styles: {
-                color: '#e2e8f0',
-                height: '1px',
-                marginTop: '24px',
-                marginBottom: '24px',
-                borderStyle: 'solid',
+                color: "#e2e8f0",
+                height: "1px",
+                marginTop: "24px",
+                marginBottom: "24px",
+                borderStyle: "solid",
               },
             },
           ],
         },
       ],
       settings: {
-        padding: '0 24px',
-        backgroundColor: '#ffffff',
+        padding: "0 24px",
+        backgroundColor: "#ffffff",
       },
     },
     {
-      id: 'row-footer',
-      type: 'section',
+      id: "row-footer",
+      type: "section",
       columns: [
         {
-          id: 'col-footer',
-          width: '100%',
+          id: "col-footer",
+          width: "100%",
           blocks: [
             {
-              id: 'block-footer-text',
-              type: 'text',
+              id: "block-footer-text",
+              type: "text",
               properties: {
-                content: '© 2025 Your Company. All rights reserved.',
+                content: "© 2025 Your Company. All rights reserved.",
               },
               styles: {
-                color: '#a0aec0',
-                fontSize: '12px',
-                fontWeight: 'normal',
-                textAlign: 'center',
-                lineHeight: '1.5',
+                color: "#a0aec0",
+                fontSize: "12px",
+                fontWeight: "normal",
+                textAlign: "center",
+                lineHeight: "1.5",
               },
             },
           ],
         },
       ],
       settings: {
-        padding: '24px',
-        backgroundColor: '#f7fafc',
+        padding: "24px",
+        backgroundColor: "#f7fafc",
       },
     },
   ],
   settings: {
-    backgroundColor: '#f5f5f5',
-    contentWidth: '600px',
-    fonts: ['Inter', 'Roboto'],
+    backgroundColor: "#f5f5f5",
+    contentWidth: "600px",
+    fonts: ["Inter", "Roboto"],
   },
 };
 
 export default function TemplateUtilitiesPage() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ updated: number; total: number } | null>(null);
+  const [result, setResult] = useState<{
+    updated: number;
+    total: number;
+  } | null>(null);
   const { toast } = useToast();
 
   const updateEmptyTemplates = async () => {
@@ -182,10 +192,9 @@ export default function TemplateUtilitiesPage() {
       setResult(null);
 
       // Fetch all templates
-      const response = await fetch('http://localhost:9006/api/email-templates');
-      if (!response.ok) throw new Error('Failed to fetch templates');
-
-      const data = await response.json();
+      const data = {
+        data: await httpClient.getWrapped<any>("/email-templates"),
+      };
 
       // Handle API response format: { success: true, data: { dbTemplates: [], fileTemplates: [] } }
       let templates = [];
@@ -201,9 +210,11 @@ export default function TemplateUtilitiesPage() {
       console.log(`📊 Total database templates: ${templates.length}`);
 
       // Filter empty templates (no structure or empty structure)
-      const emptyTemplates = templates.filter((t: any) =>
-        !t.structure ||
-        (typeof t.structure === 'object' && Object.keys(t.structure).length === 0)
+      const emptyTemplates = templates.filter(
+        (t: any) =>
+          !t.structure ||
+          (typeof t.structure === "object" &&
+            Object.keys(t.structure).length === 0),
       );
 
       console.log(`📦 Empty templates to update: ${emptyTemplates.length}`);
@@ -224,29 +235,28 @@ export default function TemplateUtilitiesPage() {
 
           console.log(`🎨 Generating smart design for: ${template.name}`);
 
-          const updateResponse = await fetch(
-            `http://localhost:9006/api/email-templates/${template.id}`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                structure: smartStructure,
-                type: 'custom',
-                variables: ['subject', 'content', 'profileUrl', 'resetUrl', 'shopUrl'],
-              }),
-            }
-          );
+          const updateOk = await httpClient
+            .patchWrapped(`/email-templates/${template.id}`, {
+              structure: smartStructure,
+              type: "custom",
+              variables: [
+                "subject",
+                "content",
+                "profileUrl",
+                "resetUrl",
+                "shopUrl",
+              ],
+            })
+            .then(
+              () => true,
+              () => false,
+            );
 
-          if (updateResponse.ok) {
+          if (updateOk) {
             updated++;
             console.log(`✅ Updated: ${template.name}`);
           } else {
-            const errorData = await updateResponse.json().catch(() => ({}));
-            console.error(`❌ Failed to update: ${template.name}`, {
-              status: updateResponse.status,
-              statusText: updateResponse.statusText,
-              error: errorData
-            });
+            console.error(`❌ Failed to update: ${template.name}`);
           }
         } catch (error) {
           console.error(`❌ Error updating ${template.name}:`, error);
@@ -256,16 +266,15 @@ export default function TemplateUtilitiesPage() {
       setResult({ updated, total: emptyTemplates.length });
 
       toast({
-        title: 'Başarılı!',
+        title: "Başarılı!",
         description: `${updated} şablon Email Builder yapısı ile güncellendi.`,
       });
-
     } catch (error) {
-      console.error('Update failed:', error);
+      console.error("Update failed:", error);
       toast({
-        title: 'Hata',
-        description: 'Şablonlar güncellenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Şablonlar güncellenirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -288,17 +297,14 @@ export default function TemplateUtilitiesPage() {
             Boş Şablonları Güncelle
           </CardTitle>
           <CardDescription>
-            Yapısı boş olan tüm email şablonlarına varsayılan Email Builder yapısı ekler.
-            Bu işlem şablonların preview ve edit sayfalarında düzgün görünmesini sağlar.
+            Yapısı boş olan tüm email şablonlarına varsayılan Email Builder
+            yapısı ekler. Bu işlem şablonların preview ve edit sayfalarında
+            düzgün görünmesini sağlar.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <Button
-              onClick={updateEmptyTemplates}
-              disabled={loading}
-              size="lg"
-            >
+            <Button onClick={updateEmptyTemplates} disabled={loading} size="lg">
               {loading ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -327,7 +333,8 @@ export default function TemplateUtilitiesPage() {
                     <strong>{result.total}</strong> boş şablon bulundu
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>{result.updated}</strong> şablon başarıyla güncellendi
+                    <strong>{result.updated}</strong> şablon başarıyla
+                    güncellendi
                   </p>
                   {result.updated > 0 && (
                     <p className="text-sm text-green-600 mt-2">
@@ -340,11 +347,13 @@ export default function TemplateUtilitiesPage() {
           )}
 
           <div className="mt-6 p-4 rounded-lg border bg-blue-50 border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-2">📝 Yapılan Değişiklikler</h4>
+            <h4 className="font-semibold text-blue-900 mb-2">
+              📝 Yapılan Değişiklikler
+            </h4>
             <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
               <li>5 satırlı Email Builder yapısı eklenir</li>
               <li>Header, content, button, divider ve footer blokları</li>
-              <li>Template type 'custom' olarak ayarlanır</li>
+              <li>Template type &apos;custom&apos; olarak ayarlanır</li>
               <li>Değişkenler: subject, content</li>
               <li>Preview ve edit sayfaları düzgün çalışır</li>
             </ul>

@@ -1,39 +1,68 @@
-'use client';
+"use client";
 
-import { toPropertySchema } from '../schemas/property-schema-adapter';
+import { toPropertySchema } from "../schemas/property-schema-adapter";
+import { apiFetch } from "@/lib/api/api-fetch";
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import NextImage from 'next/image';
-import MediaPicker from '@/components/media/MediaPicker';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, ArrowUp, ArrowDown, X, Image as ImageIcon, Plus, GripVertical, Trash2, Video as VideoIcon, Play, Loader2, Save } from 'lucide-react';
-import { LucideIconPicker } from './lucide-icon-picker';
-import { allBlockSchemas } from '@/components/cms/schemas';
-import { blockRegistry } from '@/components/cms/block-registry';
-import { DynamicFormGenerator } from '@/components/cms/reusable/dynamic-form-generator';
-import { ReusableComponentsService } from '@/services/reusable-content.service';
-import { Media } from '@/lib/media/types';
-import { Skeleton } from '@/components/loading/skeleton';
-import { useToast } from '@/hooks/use-toast';
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import NextImage from "next/image";
+import MediaPicker from "@/components/media/MediaPicker";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Lock,
+  ArrowUp,
+  ArrowDown,
+  X,
+  Image as ImageIcon,
+  Plus,
+  GripVertical,
+  Trash2,
+  Video as VideoIcon,
+  Play,
+  Loader2,
+  Save,
+} from "lucide-react";
+import { LucideIconPicker } from "./lucide-icon-picker";
+import { allBlockSchemas } from "@/components/cms/schemas";
+import { blockRegistry } from "@/components/cms/block-registry";
+import { DynamicFormGenerator } from "@/components/cms/reusable/dynamic-form-generator";
+import { ReusableComponentsService } from "@/services/reusable-content.service";
+import { Media } from "@/lib/media/types";
+import { Skeleton } from "@/components/loading/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Lazy load MediaLibrary - only loaded when media selector is opened
 const MediaLibrary = dynamic(
-  () => import('@/components/cms/editor/media-library').then(mod => ({ default: mod.MediaLibrary })),
+  () =>
+    import("@/components/cms/editor/media-library").then((mod) => ({
+      default: mod.MediaLibrary,
+    })),
   {
     loading: () => <Skeleton className="h-[400px] w-full" />,
     ssr: false,
-  }
+  },
 );
 
 interface ComponentProps {
@@ -64,8 +93,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   reusableComponentId,
 }) => {
   const [localProps, setLocalProps] = useState<ComponentProps>(componentProps);
-  const [activeTab, setActiveTab] = useState<'content' | 'style' | 'advanced'>('content');
-  const [mediaModalOpen, setMediaModalOpen] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">(
+    "content",
+  );
+  const [mediaModalOpen, setMediaModalOpen] = useState<Record<string, boolean>>(
+    {},
+  );
   const [loadingMedia, setLoadingMedia] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -92,7 +125,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         description: "Component changes have been saved to the library",
       });
     } catch (error) {
-      console.error('Failed to save reusable component:', error);
+      console.error("Failed to save reusable component:", error);
       toast({
         title: "Save Failed",
         description: "Failed to save component changes. Please try again.",
@@ -105,7 +138,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   // Normalize component type - detect if it's a block component
   const normalizedComponentType = (() => {
-    const knownTypes = ['text', 'button', 'image', 'video', 'container', 'gallery'];
+    const knownTypes = [
+      "text",
+      "button",
+      "image",
+      "video",
+      "container",
+      "gallery",
+    ];
 
     // If it's a known basic type, return as is
     if (knownTypes.includes(componentType)) {
@@ -114,8 +154,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
     // If it's not a known type, it's likely a block component (nav-logo-cta, hero-split, etc.)
     // Check if componentProps has blockId or if componentType looks like a block ID
-    if (componentType.includes('-') || componentProps.blockId) {
-      return 'block';
+    if (componentType.includes("-") || componentProps.blockId) {
+      return "block";
     }
 
     // Fallback to original type
@@ -124,7 +164,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   // ✅ FIXED: Only sync when component selection changes, not on every prop update
   // This prevents race condition where parent updates overwrite user's rapid edits
-  useEffect(() => {
+  useAsyncEffect(() => {
     setLocalProps(componentProps);
   }, [componentType]); // Use componentType instead of selectedComponentId
 
@@ -132,17 +172,20 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   // Batches rapid changes into single history entry after 500ms of inactivity
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const debouncedPropsChange = useCallback((props: any) => {
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
+  const debouncedPropsChange = useCallback(
+    (props: any) => {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
 
-    // Set new timer (500ms debounce)
-    debounceTimerRef.current = setTimeout(() => {
-      onPropsChange(props);
-    }, 500);
-  }, [onPropsChange]);
+      // Set new timer (500ms debounce)
+      debounceTimerRef.current = setTimeout(() => {
+        onPropsChange(props);
+      }, 500);
+    },
+    [onPropsChange],
+  );
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -160,8 +203,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     let newProps = { ...localProps };
 
     // Handle nested properties (for list items)
-    if (key.includes('.')) {
-      const parts = key.split('.');
+    if (key.includes(".")) {
+      const parts = key.split(".");
       if (parts.length === 3) {
         // Format: "items.0.question" - updating a specific item in a list
         const [listKey, indexStr, itemKey] = parts;
@@ -202,8 +245,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="content">Content</Label>
         <Textarea
           id="content"
-          value={localProps.content || ''}
-          onChange={(e) => updateProp('content', e.target.value)}
+          value={localProps.content || ""}
+          onChange={(e) => updateProp("content", e.target.value)}
           disabled={isLocked}
           rows={4}
         />
@@ -220,8 +263,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="variant">Typography Variant</Label>
         <Select
-          value={localProps.variant || 'body'}
-          onValueChange={(value) => updateProp('variant', value)}
+          value={localProps.variant || "body"}
+          onValueChange={(value) => updateProp("variant", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -240,8 +283,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="align">Text Alignment</Label>
         <Select
-          value={localProps.align || 'left'}
-          onValueChange={(value) => updateProp('align', value)}
+          value={localProps.align || "left"}
+          onValueChange={(value) => updateProp("align", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -259,8 +302,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="color">Text Color</Label>
         <Select
-          value={localProps.color || 'primary'}
-          onValueChange={(value) => updateProp('color', value)}
+          value={localProps.color || "primary"}
+          onValueChange={(value) => updateProp("color", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -280,8 +323,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="weight">Font Weight</Label>
         <Select
-          value={localProps.weight || 'normal'}
-          onValueChange={(value) => updateProp('weight', value)}
+          value={localProps.weight || "normal"}
+          onValueChange={(value) => updateProp("weight", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -308,8 +351,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="text">Button Text</Label>
         <Input
           id="text"
-          value={localProps.text || ''}
-          onChange={(e) => updateProp('text', e.target.value)}
+          value={localProps.text || ""}
+          onChange={(e) => updateProp("text", e.target.value)}
           disabled={isLocked}
         />
       </div>
@@ -318,8 +361,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="href">Link URL (optional)</Label>
         <Input
           id="href"
-          value={localProps.href || ''}
-          onChange={(e) => updateProp('href', e.target.value)}
+          value={localProps.href || ""}
+          onChange={(e) => updateProp("href", e.target.value)}
           placeholder="https://example.com or /page"
           disabled={isLocked}
         />
@@ -332,8 +375,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="variant">Button Variant</Label>
         <Select
-          value={localProps.variant || 'default'}
-          onValueChange={(value) => updateProp('variant', value)}
+          value={localProps.variant || "default"}
+          onValueChange={(value) => updateProp("variant", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -353,8 +396,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="size">Button Size</Label>
         <Select
-          value={localProps.size || 'default'}
-          onValueChange={(value) => updateProp('size', value)}
+          value={localProps.size || "default"}
+          onValueChange={(value) => updateProp("size", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -372,7 +415,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Checkbox
           id="disabled"
           checked={localProps.disabled || false}
-          onCheckedChange={(checked) => updateProp('disabled', checked)}
+          onCheckedChange={(checked) => updateProp("disabled", checked)}
           disabled={isLocked}
         />
         <Label htmlFor="disabled">Disabled State</Label>
@@ -394,14 +437,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             if (mediaId) {
               setLoadingMedia({ ...loadingMedia, image: true });
               try {
-                const res = await fetch(`/api/media/${mediaId}`);
-                if (!res.ok) throw new Error('Failed to fetch media');
+                const res = await apiFetch(`/api/media/${mediaId}`);
+                if (!res.ok) throw new Error("Failed to fetch media");
 
                 const media = await res.json();
-                updateProp('mediaId', mediaId);
-                updateProp('src', media.url);
+                updateProp("mediaId", mediaId);
+                updateProp("src", media.url);
                 if (!localProps.alt) {
-                  updateProp('alt', media.title || media.originalName);
+                  updateProp("alt", media.title || media.originalName);
                 }
 
                 toast({
@@ -409,7 +452,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   description: media.title || media.originalName,
                 });
               } catch (err) {
-                console.error('Failed to fetch media:', err);
+                console.error("Failed to fetch media:", err);
                 toast({
                   title: "Error",
                   description: "Failed to load image. Please try again.",
@@ -419,8 +462,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 setLoadingMedia({ ...loadingMedia, image: false });
               }
             } else {
-              updateProp('mediaId', null);
-              updateProp('src', '');
+              updateProp("mediaId", null);
+              updateProp("src", "");
             }
           }}
           placeholder="Select an image"
@@ -440,7 +483,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <div className="relative w-full h-48 border rounded-md overflow-hidden bg-muted">
             <NextImage
               src={localProps.src}
-              alt={localProps.alt || 'Image preview'}
+              alt={localProps.alt || "Image preview"}
               fill
               className="object-contain"
             />
@@ -453,8 +496,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="src">Image URL (Manual)</Label>
         <Input
           id="src"
-          value={localProps.src || ''}
-          onChange={(e) => updateProp('src', e.target.value)}
+          value={localProps.src || ""}
+          onChange={(e) => updateProp("src", e.target.value)}
           disabled={isLocked}
           placeholder="https://example.com/image.jpg"
         />
@@ -467,8 +510,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="alt">Alt Text</Label>
         <Input
           id="alt"
-          value={localProps.alt || ''}
-          onChange={(e) => updateProp('alt', e.target.value)}
+          value={localProps.alt || ""}
+          onChange={(e) => updateProp("alt", e.target.value)}
           disabled={isLocked}
           placeholder="Describe the image"
         />
@@ -478,8 +521,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="caption">Caption (optional)</Label>
         <Input
           id="caption"
-          value={localProps.caption || ''}
-          onChange={(e) => updateProp('caption', e.target.value)}
+          value={localProps.caption || ""}
+          onChange={(e) => updateProp("caption", e.target.value)}
           disabled={isLocked}
           placeholder="Image caption"
         />
@@ -495,8 +538,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Input
             type="text"
             id="width"
-            value={localProps.width || ''}
-            onChange={(e) => updateProp('width', e.target.value)}
+            value={localProps.width || ""}
+            onChange={(e) => updateProp("width", e.target.value)}
             disabled={isLocked}
             placeholder="auto or 500px"
           />
@@ -507,8 +550,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Input
             type="text"
             id="height"
-            value={localProps.height || ''}
-            onChange={(e) => updateProp('height', e.target.value)}
+            value={localProps.height || ""}
+            onChange={(e) => updateProp("height", e.target.value)}
             disabled={isLocked}
             placeholder="auto or 300px"
           />
@@ -518,8 +561,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="objectFit">Object Fit</Label>
         <Select
-          value={localProps.objectFit || 'cover'}
-          onValueChange={(value) => updateProp('objectFit', value)}
+          value={localProps.objectFit || "cover"}
+          onValueChange={(value) => updateProp("objectFit", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -537,8 +580,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="rounded">Border Radius</Label>
         <Select
-          value={localProps.rounded || 'none'}
-          onValueChange={(value) => updateProp('rounded', value)}
+          value={localProps.rounded || "none"}
+          onValueChange={(value) => updateProp("rounded", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -571,8 +614,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="padding">Padding</Label>
         <Select
-          value={localProps.padding || 'md'}
-          onValueChange={(value) => updateProp('padding', value)}
+          value={localProps.padding || "md"}
+          onValueChange={(value) => updateProp("padding", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -593,8 +636,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-2">
         <Label htmlFor="background">Background</Label>
         <Select
-          value={localProps.background || 'none'}
-          onValueChange={(value) => updateProp('background', value)}
+          value={localProps.background || "none"}
+          onValueChange={(value) => updateProp("background", value)}
           disabled={isLocked}
         >
           <SelectTrigger>
@@ -623,35 +666,76 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   // Content properties keywords
   const isContentProperty = (propName: string): boolean => {
     const contentKeywords = [
-      'text', 'title', 'subtitle', 'description', 'content',
-      'url', 'href', 'link', 'alt', 'caption', 'author', 'role',
-      'items', 'nav', 'cta', 'button', 'logo', 'social',
-      'heading', 'subheading', 'label', 'placeholder', 'name',
-      'email', 'phone', 'address', 'company', 'position', 'type'
+      "text",
+      "title",
+      "subtitle",
+      "description",
+      "content",
+      "url",
+      "href",
+      "link",
+      "alt",
+      "caption",
+      "author",
+      "role",
+      "items",
+      "nav",
+      "cta",
+      "button",
+      "logo",
+      "social",
+      "heading",
+      "subheading",
+      "label",
+      "placeholder",
+      "name",
+      "email",
+      "phone",
+      "address",
+      "company",
+      "position",
+      "type",
     ];
 
     const lowerProp = propName.toLowerCase();
-    return contentKeywords.some(keyword => lowerProp.includes(keyword));
+    return contentKeywords.some((keyword) => lowerProp.includes(keyword));
   };
 
   // Style properties keywords
   const isStyleProperty = (propName: string): boolean => {
     const styleKeywords = [
-      'color', 'background', 'padding', 'margin', 'width', 'height',
-      'size', 'variant', 'align', 'weight', 'border', 'shadow',
-      'opacity', 'radius', 'rounded', 'spacing', 'gap', 'font'
+      "color",
+      "background",
+      "padding",
+      "margin",
+      "width",
+      "height",
+      "size",
+      "variant",
+      "align",
+      "weight",
+      "border",
+      "shadow",
+      "opacity",
+      "radius",
+      "rounded",
+      "spacing",
+      "gap",
+      "font",
     ];
 
     const lowerProp = propName.toLowerCase();
-    return styleKeywords.some(keyword => lowerProp.includes(keyword));
+    return styleKeywords.some((keyword) => lowerProp.includes(keyword));
   };
 
   // Helper function to render a single property input (moved to component level)
   const renderPropertyInput = (key: string, propConfig: any, value: any) => {
     // Special handling for mediaId fields (logoMediaId, imageMediaId, etc.)
-    if (key.toLowerCase().includes('mediaid')) {
+    if (key.toLowerCase().includes("mediaid")) {
       // Determine the corresponding URL field name (logoMediaId -> logoUrl, imageMediaId -> imageUrl)
-      const urlFieldName = key.replace(/MediaId$/i, 'Url').replace(/mediaid$/i, 'url');
+      const urlFieldName = key
+        .replace(/MediaId$/i, "Url")
+        .replace(/mediaid$/i, "url");
       const currentUrl = localProps[urlFieldName];
 
       return (
@@ -666,10 +750,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                   // Fetch and update corresponding URL field
                   try {
-                    const response = await fetch(`/api/media/${mediaId}`);
+                    const response = await apiFetch(`/api/media/${mediaId}`);
 
                     if (!response.ok) {
-                      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                      throw new Error(
+                        `HTTP ${response.status}: ${response.statusText}`,
+                      );
                     }
 
                     const data = await response.json();
@@ -682,25 +768,30 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       updateProp(urlFieldName, mediaUrl);
                     } else {
                       // Log full response for debugging
-                      console.warn('Media response missing URL:', data);
-                      throw new Error('Media URL not found in response');
+                      console.warn("Media response missing URL:", data);
+                      throw new Error("Media URL not found in response");
                     }
                   } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                    console.error('Error fetching media URL:', errorMessage, err);
+                    const errorMessage =
+                      err instanceof Error ? err.message : "Unknown error";
+                    console.error(
+                      "Error fetching media URL:",
+                      errorMessage,
+                      err,
+                    );
                     toast({
-                      title: 'Medya Yükleme Hatası',
+                      title: "Medya Yükleme Hatası",
                       description: `URL alınamadı: ${errorMessage}`,
-                      variant: 'destructive',
+                      variant: "destructive",
                     });
                   }
                 } else {
                   // Clear both mediaId and URL
                   updateProp(key, null);
-                  updateProp(urlFieldName, '');
+                  updateProp(urlFieldName, "");
                 }
               }}
-              placeholder={`Select ${propConfig.label || 'media'}`}
+              placeholder={`Select ${propConfig.label || "media"}`}
             />
           </div>
           {currentUrl && (
@@ -715,7 +806,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <button
                 onClick={() => {
                   updateProp(key, null);
-                  updateProp(urlFieldName, '');
+                  updateProp(urlFieldName, "");
                 }}
                 className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-80 hover:opacity-100"
                 disabled={isLocked}
@@ -734,38 +825,42 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     }
 
     // Debug: Log propConfig.type for troubleshooting
-    console.log('[DEBUG] renderPropertyInput:', { key, type: propConfig.type, propConfig });
+    console.log("[DEBUG] renderPropertyInput:", {
+      key,
+      type: propConfig.type,
+      propConfig,
+    });
 
     switch (propConfig.type) {
-      case 'text':
+      case "text":
         return (
           <Input
             id={key}
-            value={value || ''}
+            value={value || ""}
             onChange={(e) => updateProp(key, e.target.value)}
             disabled={isLocked}
           />
         );
-      case 'textarea':
+      case "textarea":
         return (
           <Textarea
             id={key}
-            value={value || ''}
+            value={value || ""}
             onChange={(e) => updateProp(key, e.target.value)}
             disabled={isLocked}
           />
         );
-      case 'number':
+      case "number":
         return (
           <Input
             id={key}
             type="number"
-            value={value || ''}
+            value={value || ""}
             onChange={(e) => updateProp(key, parseFloat(e.target.value) || 0)}
             disabled={isLocked}
           />
         );
-      case 'boolean':
+      case "boolean":
         return (
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -777,30 +872,30 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <Label htmlFor={key}>{propConfig.label}</Label>
           </div>
         );
-      case 'color':
+      case "color":
         return (
           <div className="flex items-center space-x-2">
             <Input
               id={key}
               type="color"
-              value={value || '#000000'}
+              value={value || "#000000"}
               onChange={(e) => updateProp(key, e.target.value)}
               className="w-16 h-10 p-1"
               disabled={isLocked}
             />
             <Input
               type="text"
-              value={value || '#000000'}
+              value={value || "#000000"}
               onChange={(e) => updateProp(key, e.target.value)}
               className="flex-1"
               disabled={isLocked}
             />
           </div>
         );
-      case 'select':
+      case "select":
         return (
           <Select
-            value={value || propConfig.options?.[0] || ''}
+            value={value || propConfig.options?.[0] || ""}
             onValueChange={(newValue) => updateProp(key, newValue)}
             disabled={isLocked}
           >
@@ -816,7 +911,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </SelectContent>
           </Select>
         );
-      case 'icon':
+      case "icon":
         return (
           <LucideIconPicker
             value={value || null}
@@ -824,9 +919,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             disabled={isLocked}
           />
         );
-      case 'image':
+      case "image":
         // Special handling for logo images - use MediaPicker
-        if (key.toLowerCase().includes('logo')) {
+        if (key.toLowerCase().includes("logo")) {
           return (
             <div className="space-y-2">
               <div className="border rounded-lg p-3 bg-gray-50">
@@ -834,16 +929,18 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   value={undefined}
                   onChange={(mediaId) => {
                     if (mediaId) {
-                      fetch(`/api/media/${mediaId}`)
-                        .then(res => res.json())
-                        .then(data => {
+                      apiFetch(`/api/media/${mediaId}`)
+                        .then((res) => res.json())
+                        .then((data) => {
                           if (data.url) {
                             updateProp(key, data.url);
                           }
                         })
-                        .catch(err => console.error('Error fetching media URL:', err));
+                        .catch((err) =>
+                          console.error("Error fetching media URL:", err),
+                        );
                     } else {
-                      updateProp(key, '');
+                      updateProp(key, "");
                     }
                   }}
                   placeholder="Select logo image"
@@ -899,7 +996,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </div>
             )}
             <Button
-              onClick={() => setMediaModalOpen(prev => ({ ...prev, [key]: true }))}
+              onClick={() =>
+                setMediaModalOpen((prev) => ({ ...prev, [key]: true }))
+              }
               className="text-xs text-blue-600 underline"
               variant="link"
               size="sm"
@@ -909,7 +1008,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </Button>
             <Dialog
               open={mediaModalOpen[key] || false}
-              onOpenChange={(open) => setMediaModalOpen(prev => ({ ...prev, [key]: open }))}
+              onOpenChange={(open) =>
+                setMediaModalOpen((prev) => ({ ...prev, [key]: open }))
+              }
             >
               <DialogContent className="max-w-4xl max-h-[80vh]">
                 <DialogHeader>
@@ -918,14 +1019,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <MediaLibrary
                   onMediaSelect={(media: Media) => {
                     updateProp(key, media.url);
-                    setMediaModalOpen(prev => ({ ...prev, [key]: false }));
+                    setMediaModalOpen((prev) => ({ ...prev, [key]: false }));
                   }}
                 />
               </DialogContent>
             </Dialog>
           </div>
         );
-      case 'list':
+      case "list":
         const list = value || [];
         return (
           <div className="space-y-3">
@@ -942,7 +1043,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const updated = list.filter((_: any, i: number) => i !== index);
+                      const updated = list.filter(
+                        (_: any, i: number) => i !== index,
+                      );
                       updateProp(key, updated);
                     }}
                     className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
@@ -951,18 +1054,31 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     ×
                   </Button>
                 </div>
-                {propConfig.itemSchema && Object.entries(propConfig.itemSchema).map(([subKey, subConfig]: [string, any]) => {
-                  // Debug log for icon type issue
-                  if (subConfig.type === 'icon') {
-                    console.log('[DEBUG] Icon field found:', { subKey, subConfig, value: item[subKey] });
-                  }
-                  return (
-                    <div key={subKey}>
-                      <Label className="text-xs text-gray-500">{subConfig.label}</Label>
-                      {renderPropertyInput(`${key}.${index}.${subKey}`, subConfig, item[subKey])}
-                    </div>
-                  );
-                })}
+                {propConfig.itemSchema &&
+                  Object.entries(propConfig.itemSchema).map(
+                    ([subKey, subConfig]: [string, any]) => {
+                      // Debug log for icon type issue
+                      if (subConfig.type === "icon") {
+                        console.log("[DEBUG] Icon field found:", {
+                          subKey,
+                          subConfig,
+                          value: item[subKey],
+                        });
+                      }
+                      return (
+                        <div key={subKey}>
+                          <Label className="text-xs text-gray-500">
+                            {subConfig.label}
+                          </Label>
+                          {renderPropertyInput(
+                            `${key}.${index}.${subKey}`,
+                            subConfig,
+                            item[subKey],
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
               </div>
             ))}
             <Button
@@ -971,9 +1087,11 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               onClick={() => {
                 const newItem: Record<string, any> = {};
                 if (propConfig.itemSchema) {
-                  Object.entries(propConfig.itemSchema).forEach(([subKey, subConfig]: [string, any]) => {
-                    newItem[subKey] = subConfig.defaultValue || '';
-                  });
+                  Object.entries(propConfig.itemSchema).forEach(
+                    ([subKey, subConfig]: [string, any]) => {
+                      newItem[subKey] = subConfig.defaultValue || "";
+                    },
+                  );
                 }
                 const updated = [...list, newItem];
                 updateProp(key, updated);
@@ -989,7 +1107,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         return (
           <Input
             id={key}
-            value={value || ''}
+            value={value || ""}
             onChange={(e) => updateProp(key, e.target.value)}
             disabled={isLocked}
           />
@@ -1011,7 +1129,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
     // Get block configuration from V2 schema registry
     const blockSchema = allBlockSchemas[blockId];
-    const blockConfig = blockSchema ? toPropertySchema(blockSchema.propSchema) : undefined;
+    const blockConfig = blockSchema
+      ? toPropertySchema(blockSchema.propSchema)
+      : undefined;
 
     if (!blockConfig) {
       return (
@@ -1061,14 +1181,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     }
 
     // Get all content properties from block config (not just from localProps)
-    const contentPropertyKeys = Object.keys(blockConfig).filter(key => {
+    const contentPropertyKeys = Object.keys(blockConfig).filter((key) => {
       // Exclude style properties and className
-      if (isStyleProperty(key) || key === 'className') return false;
+      if (isStyleProperty(key) || key === "className") return false;
 
       // Exclude URL fields if corresponding mediaId field exists
       // (logoUrl hidden if logoMediaId exists, imageUrl hidden if imageMediaId exists)
-      if (key.toLowerCase().endsWith('url')) {
-        const mediaIdKey = key.replace(/Url$/i, 'MediaId');
+      if (key.toLowerCase().endsWith("url")) {
+        const mediaIdKey = key.replace(/Url$/i, "MediaId");
         if (blockConfig[mediaIdKey]) {
           return false; // Hide URL field, use MediaPicker via mediaId instead
         }
@@ -1093,14 +1213,17 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         </div>
 
         {/* Render all properties from block config */}
-        {contentPropertyKeys.map(propKey => {
+        {contentPropertyKeys.map((propKey) => {
           const propConfig = blockConfig[propKey];
-          const propValue = localProps[propKey] !== undefined ? localProps[propKey] : propConfig.defaultValue;
+          const propValue =
+            localProps[propKey] !== undefined
+              ? localProps[propKey]
+              : propConfig.defaultValue;
 
           return (
             <div key={propKey} className="space-y-2">
               <Label htmlFor={propKey} className="text-sm font-medium">
-                {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                {propConfig.label || propKey.replace(/([A-Z])/g, " $1").trim()}
               </Label>
               {renderPropertyInput(propKey, propConfig, propValue)}
             </div>
@@ -1124,7 +1247,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
     // Get block configuration from V2 schema registry
     const blockSchema = allBlockSchemas[blockId];
-    const blockConfig = blockSchema ? toPropertySchema(blockSchema.propSchema) : undefined;
+    const blockConfig = blockSchema
+      ? toPropertySchema(blockSchema.propSchema)
+      : undefined;
 
     if (!blockConfig) {
       return (
@@ -1137,8 +1262,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     // Filter style properties from block configuration
     // For reusable components (blockId exists), we still show style properties here
     // instead of relegating them to Content tab for better UX
-    const stylePropertyKeys = Object.keys(blockConfig).filter(key =>
-      isStyleProperty(key) && key !== 'className'
+    const stylePropertyKeys = Object.keys(blockConfig).filter(
+      (key) => isStyleProperty(key) && key !== "className",
     );
 
     if (stylePropertyKeys.length === 0) {
@@ -1155,19 +1280,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
           Block: {blockId}
         </div>
-        {stylePropertyKeys.map(propKey => {
+        {stylePropertyKeys.map((propKey) => {
           const propConfig = blockConfig[propKey];
-          const propValue = localProps[propKey] !== undefined ? localProps[propKey] : propConfig.defaultValue;
+          const propValue =
+            localProps[propKey] !== undefined
+              ? localProps[propKey]
+              : propConfig.defaultValue;
 
           // Skip undefined/null values
           if (propValue === undefined || propValue === null) return null;
 
           // Handle color
-          if (propKey.toLowerCase().includes('color')) {
+          if (propKey.toLowerCase().includes("color")) {
             return (
               <div key={propKey} className="space-y-2">
                 <Label htmlFor={propKey}>
-                  {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                  {propConfig.label ||
+                    propKey.replace(/([A-Z])/g, " $1").trim()}
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -1191,11 +1320,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           }
 
           // Handle number
-          if (typeof propValue === 'number') {
+          if (typeof propValue === "number") {
             return (
               <div key={propKey} className="space-y-2">
                 <Label htmlFor={propKey}>
-                  {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                  {propConfig.label ||
+                    propKey.replace(/([A-Z])/g, " $1").trim()}
                 </Label>
                 <Input
                   id={propKey}
@@ -1209,7 +1339,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           }
 
           // Handle boolean
-          if (typeof propValue === 'boolean') {
+          if (typeof propValue === "boolean") {
             return (
               <div key={propKey} className="flex items-center space-x-2">
                 <Checkbox
@@ -1219,18 +1349,20 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   disabled={isLocked}
                 />
                 <Label htmlFor={propKey} className="text-sm">
-                  {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                  {propConfig.label ||
+                    propKey.replace(/([A-Z])/g, " $1").trim()}
                 </Label>
               </div>
             );
           }
 
           // Handle select
-          if (propConfig.type === 'select' && propConfig.options) {
+          if (propConfig.type === "select" && propConfig.options) {
             return (
               <div key={propKey} className="space-y-2">
                 <Label htmlFor={propKey}>
-                  {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                  {propConfig.label ||
+                    propKey.replace(/([A-Z])/g, " $1").trim()}
                 </Label>
                 <Select
                   value={String(propValue)}
@@ -1256,7 +1388,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           return (
             <div key={propKey} className="space-y-2">
               <Label htmlFor={propKey}>
-                {propConfig.label || propKey.replace(/([A-Z])/g, ' $1').trim()}
+                {propConfig.label || propKey.replace(/([A-Z])/g, " $1").trim()}
               </Label>
               <Input
                 id={propKey}
@@ -1280,23 +1412,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         ...items,
         {
           mediaId: null,
-          image: '/placeholder-image.jpg',
+          image: "/placeholder-image.jpg",
           title: `Item ${items.length + 1}`,
-          caption: '',
+          caption: "",
         },
       ];
-      updateProp('items', newItems);
+      updateProp("items", newItems);
     };
 
     const removeItem = (index: number) => {
       const newItems = items.filter((_: any, i: number) => i !== index);
-      updateProp('items', newItems);
+      updateProp("items", newItems);
     };
 
     const updateItem = (index: number, field: string, value: any) => {
       const newItems = [...items];
       newItems[index] = { ...newItems[index], [field]: value };
-      updateProp('items', newItems);
+      updateProp("items", newItems);
     };
 
     const moveItem = (fromIndex: number, toIndex: number) => {
@@ -1304,7 +1436,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       const newItems = [...items];
       const [movedItem] = newItems.splice(fromIndex, 1);
       newItems.splice(toIndex, 0, movedItem);
-      updateProp('items', newItems);
+      updateProp("items", newItems);
     };
 
     return (
@@ -1314,8 +1446,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Label htmlFor="title">Gallery Title</Label>
           <Input
             id="title"
-            value={localProps.title || ''}
-            onChange={(e) => updateProp('title', e.target.value)}
+            value={localProps.title || ""}
+            onChange={(e) => updateProp("title", e.target.value)}
             disabled={isLocked}
             placeholder="Featured Highlights"
           />
@@ -1408,19 +1540,25 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   value={item.mediaId || null}
                   onChange={(mediaId) => {
                     if (mediaId) {
-                      fetch(`/api/media/${mediaId}`)
+                      apiFetch(`/api/media/${mediaId}`)
                         .then((res) => res.json())
                         .then((media) => {
-                          updateItem(index, 'mediaId', mediaId);
-                          updateItem(index, 'image', media.url);
+                          updateItem(index, "mediaId", mediaId);
+                          updateItem(index, "image", media.url);
                           if (!item.title) {
-                            updateItem(index, 'title', media.title || media.originalName);
+                            updateItem(
+                              index,
+                              "title",
+                              media.title || media.originalName,
+                            );
                           }
                         })
-                        .catch((err) => console.error('Failed to fetch media:', err));
+                        .catch((err) =>
+                          console.error("Failed to fetch media:", err),
+                        );
                     } else {
-                      updateItem(index, 'mediaId', null);
-                      updateItem(index, 'image', '');
+                      updateItem(index, "mediaId", null);
+                      updateItem(index, "image", "");
                     }
                   }}
                   placeholder="Select an image"
@@ -1443,8 +1581,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <div className="space-y-2">
                 <Label>Title</Label>
                 <Input
-                  value={item.title || ''}
-                  onChange={(e) => updateItem(index, 'title', e.target.value)}
+                  value={item.title || ""}
+                  onChange={(e) => updateItem(index, "title", e.target.value)}
                   disabled={isLocked}
                   placeholder="Image title"
                 />
@@ -1454,8 +1592,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <div className="space-y-2">
                 <Label>Caption (optional)</Label>
                 <Textarea
-                  value={item.caption || ''}
-                  onChange={(e) => updateItem(index, 'caption', e.target.value)}
+                  value={item.caption || ""}
+                  onChange={(e) => updateItem(index, "caption", e.target.value)}
                   disabled={isLocked}
                   placeholder="Image caption or description"
                   rows={2}
@@ -1479,14 +1617,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             if (mediaId) {
               setLoadingMedia({ ...loadingMedia, video: true });
               try {
-                const res = await fetch(`/api/media/${mediaId}`);
-                if (!res.ok) throw new Error('Failed to fetch media');
+                const res = await apiFetch(`/api/media/${mediaId}`);
+                if (!res.ok) throw new Error("Failed to fetch media");
 
                 const media = await res.json();
-                updateProp('mediaId', mediaId);
-                updateProp('src', media.url);
+                updateProp("mediaId", mediaId);
+                updateProp("src", media.url);
                 if (!localProps.title) {
-                  updateProp('title', media.title || media.originalName);
+                  updateProp("title", media.title || media.originalName);
                 }
 
                 toast({
@@ -1494,7 +1632,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   description: media.title || media.originalName,
                 });
               } catch (err) {
-                console.error('Failed to fetch media:', err);
+                console.error("Failed to fetch media:", err);
                 toast({
                   title: "Error",
                   description: "Failed to load video. Please try again.",
@@ -1504,8 +1642,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 setLoadingMedia({ ...loadingMedia, video: false });
               }
             } else {
-              updateProp('mediaId', null);
-              updateProp('src', '');
+              updateProp("mediaId", null);
+              updateProp("src", "");
             }
           }}
           filterType="video"
@@ -1529,7 +1667,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               poster={localProps.poster}
               controls
               className="w-full"
-              style={{ maxHeight: '300px' }}
+              style={{ maxHeight: "300px" }}
             >
               Your browser does not support the video tag.
             </video>
@@ -1542,8 +1680,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="src">Video URL (Manual)</Label>
         <Input
           id="src"
-          value={localProps.src || ''}
-          onChange={(e) => updateProp('src', e.target.value)}
+          value={localProps.src || ""}
+          onChange={(e) => updateProp("src", e.target.value)}
           disabled={isLocked}
           placeholder="https://example.com/video.mp4"
         />
@@ -1561,19 +1699,19 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             if (mediaId) {
               setLoadingMedia({ ...loadingMedia, poster: true });
               try {
-                const res = await fetch(`/api/media/${mediaId}`);
-                if (!res.ok) throw new Error('Failed to fetch media');
+                const res = await apiFetch(`/api/media/${mediaId}`);
+                if (!res.ok) throw new Error("Failed to fetch media");
 
                 const media = await res.json();
-                updateProp('posterMediaId', mediaId);
-                updateProp('poster', media.url);
+                updateProp("posterMediaId", mediaId);
+                updateProp("poster", media.url);
 
                 toast({
                   title: "Poster image selected",
                   description: media.title || media.originalName,
                 });
               } catch (err) {
-                console.error('Failed to fetch media:', err);
+                console.error("Failed to fetch media:", err);
                 toast({
                   title: "Error",
                   description: "Failed to load poster image. Please try again.",
@@ -1583,8 +1721,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 setLoadingMedia({ ...loadingMedia, poster: false });
               }
             } else {
-              updateProp('posterMediaId', null);
-              updateProp('poster', '');
+              updateProp("posterMediaId", null);
+              updateProp("poster", "");
             }
           }}
           filterType="image"
@@ -1618,8 +1756,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="title">Title</Label>
         <Input
           id="title"
-          value={localProps.title || ''}
-          onChange={(e) => updateProp('title', e.target.value)}
+          value={localProps.title || ""}
+          onChange={(e) => updateProp("title", e.target.value)}
           disabled={isLocked}
           placeholder="Video title"
         />
@@ -1630,8 +1768,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <Label htmlFor="caption">Caption (optional)</Label>
         <Textarea
           id="caption"
-          value={localProps.caption || ''}
-          onChange={(e) => updateProp('caption', e.target.value)}
+          value={localProps.caption || ""}
+          onChange={(e) => updateProp("caption", e.target.value)}
           disabled={isLocked}
           placeholder="Video description"
           rows={2}
@@ -1646,7 +1784,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Checkbox
             id="controls"
             checked={localProps.controls !== false}
-            onCheckedChange={(checked) => updateProp('controls', checked)}
+            onCheckedChange={(checked) => updateProp("controls", checked)}
             disabled={isLocked}
           />
           <Label htmlFor="controls" className="font-normal cursor-pointer">
@@ -1658,7 +1796,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Checkbox
             id="autoplay"
             checked={localProps.autoplay || false}
-            onCheckedChange={(checked) => updateProp('autoplay', checked)}
+            onCheckedChange={(checked) => updateProp("autoplay", checked)}
             disabled={isLocked}
           />
           <Label htmlFor="autoplay" className="font-normal cursor-pointer">
@@ -1670,7 +1808,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Checkbox
             id="loop"
             checked={localProps.loop || false}
-            onCheckedChange={(checked) => updateProp('loop', checked)}
+            onCheckedChange={(checked) => updateProp("loop", checked)}
             disabled={isLocked}
           />
           <Label htmlFor="loop" className="font-normal cursor-pointer">
@@ -1682,7 +1820,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Checkbox
             id="muted"
             checked={localProps.muted || false}
-            onCheckedChange={(checked) => updateProp('muted', checked)}
+            onCheckedChange={(checked) => updateProp("muted", checked)}
             disabled={isLocked}
           />
           <Label htmlFor="muted" className="font-normal cursor-pointer">
@@ -1697,8 +1835,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Label>Width</Label>
           <Input
             type="text"
-            value={localProps.width || ''}
-            onChange={(e) => updateProp('width', e.target.value)}
+            value={localProps.width || ""}
+            onChange={(e) => updateProp("width", e.target.value)}
             disabled={isLocked}
             placeholder="100% or 800px"
           />
@@ -1708,8 +1846,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <Label>Height</Label>
           <Input
             type="text"
-            value={localProps.height || ''}
-            onChange={(e) => updateProp('height', e.target.value)}
+            value={localProps.height || ""}
+            onChange={(e) => updateProp("height", e.target.value)}
             disabled={isLocked}
             placeholder="auto or 450px"
           />
@@ -1730,17 +1868,17 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
    */
   const getContentProperties = () => {
     switch (normalizedComponentType) {
-      case 'text':
+      case "text":
         return renderTextProperties();
-      case 'button':
+      case "button":
         return renderButtonProperties();
-      case 'image':
+      case "image":
         return renderImageProperties();
-      case 'video':
+      case "video":
         return renderVideoProperties();
-      case 'container':
+      case "container":
         return renderContainerProperties();
-      case 'block':
+      case "block":
         // Block content properties - dynamic based on blockId
         return renderBlockContentProperties();
       default:
@@ -1761,15 +1899,15 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
    */
   const getStyleProperties = () => {
     switch (normalizedComponentType) {
-      case 'text':
+      case "text":
         return renderTextStyleProperties();
-      case 'button':
+      case "button":
         return renderButtonStyleProperties();
-      case 'image':
+      case "image":
         return renderImageStyleProperties();
-      case 'container':
+      case "container":
         return renderContainerStyleProperties();
-      case 'block':
+      case "block":
         // Block styling properties - dynamic based on blockId
         return renderBlockStyleProperties();
       default:
@@ -1784,7 +1922,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   /**
    * TAB 3: ADVANCED PROPERTIES
    * Purpose: "Layout & advanced styling" - Developer features
-   * Properties: margin, padding, width, height, gridItem, position, 
+   * Properties: margin, padding, width, height, gridItem, position,
    *            motionEffects, transform, background, border, shadow,
    *            mask, responsive attributes (mobile/tablet/desktop)
    */
@@ -1793,7 +1931,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       <div className="space-y-6">
         <div className="text-center text-muted-foreground py-2">
           <p className="font-medium">Advanced Properties</p>
-          <p className="text-xs mt-1">Layout, effects, and responsive settings</p>
+          <p className="text-xs mt-1">
+            Layout, effects, and responsive settings
+          </p>
         </div>
 
         {/* CSS Classes */}
@@ -1803,8 +1943,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             <Label htmlFor="className">CSS Classes</Label>
             <Input
               id="className"
-              value={localProps.className || ''}
-              onChange={(e) => updateProp('className', e.target.value)}
+              value={localProps.className || ""}
+              onChange={(e) => updateProp("className", e.target.value)}
               placeholder="custom-class another-class"
               disabled={isLocked}
             />
@@ -1824,8 +1964,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="marginTop"
                 type="text"
-                value={localProps.marginTop || ''}
-                onChange={(e) => updateProp('marginTop', e.target.value)}
+                value={localProps.marginTop || ""}
+                onChange={(e) => updateProp("marginTop", e.target.value)}
                 placeholder="0, 4, 8, 16..."
                 disabled={isLocked}
               />
@@ -1835,8 +1975,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="marginBottom"
                 type="text"
-                value={localProps.marginBottom || ''}
-                onChange={(e) => updateProp('marginBottom', e.target.value)}
+                value={localProps.marginBottom || ""}
+                onChange={(e) => updateProp("marginBottom", e.target.value)}
                 placeholder="0, 4, 8, 16..."
                 disabled={isLocked}
               />
@@ -1849,8 +1989,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="paddingTop"
                 type="text"
-                value={localProps.paddingTop || ''}
-                onChange={(e) => updateProp('paddingTop', e.target.value)}
+                value={localProps.paddingTop || ""}
+                onChange={(e) => updateProp("paddingTop", e.target.value)}
                 placeholder="0, 4, 8, 16..."
                 disabled={isLocked}
               />
@@ -1860,8 +2000,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="paddingBottom"
                 type="text"
-                value={localProps.paddingBottom || ''}
-                onChange={(e) => updateProp('paddingBottom', e.target.value)}
+                value={localProps.paddingBottom || ""}
+                onChange={(e) => updateProp("paddingBottom", e.target.value)}
                 placeholder="0, 4, 8, 16..."
                 disabled={isLocked}
               />
@@ -1876,8 +2016,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <div className="space-y-2">
             <Label htmlFor="display">Display</Label>
             <Select
-              value={localProps.display || 'block'}
-              onValueChange={(value) => updateProp('display', value)}
+              value={localProps.display || "block"}
+              onValueChange={(value) => updateProp("display", value)}
               disabled={isLocked}
             >
               <SelectTrigger>
@@ -1899,8 +2039,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="maxWidth"
                 type="text"
-                value={localProps.maxWidth || ''}
-                onChange={(e) => updateProp('maxWidth', e.target.value)}
+                value={localProps.maxWidth || ""}
+                onChange={(e) => updateProp("maxWidth", e.target.value)}
                 placeholder="container, 7xl, 1200px"
                 disabled={isLocked}
               />
@@ -1910,8 +2050,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Input
                 id="minHeight"
                 type="text"
-                value={localProps.minHeight || ''}
-                onChange={(e) => updateProp('minHeight', e.target.value)}
+                value={localProps.minHeight || ""}
+                onChange={(e) => updateProp("minHeight", e.target.value)}
                 placeholder="screen, 500px"
                 disabled={isLocked}
               />
@@ -1926,8 +2066,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <div className="space-y-2">
             <Label htmlFor="shadow">Box Shadow</Label>
             <Select
-              value={localProps.shadow || 'none'}
-              onValueChange={(value) => updateProp('shadow', value)}
+              value={localProps.shadow || "none"}
+              onValueChange={(value) => updateProp("shadow", value)}
               disabled={isLocked}
             >
               <SelectTrigger>
@@ -1947,8 +2087,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           <div className="space-y-2">
             <Label htmlFor="opacity">Opacity</Label>
             <Select
-              value={localProps.opacity || '100'}
-              onValueChange={(value) => updateProp('opacity', value)}
+              value={localProps.opacity || "100"}
+              onValueChange={(value) => updateProp("opacity", value)}
               disabled={isLocked}
             >
               <SelectTrigger>
@@ -1967,7 +2107,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         {/* Coming Soon - Animation/Motion */}
         <div className="space-y-2 opacity-50 border-t pt-3">
-          <h4 className="text-sm font-medium">Animation & Motion (Coming Soon)</h4>
+          <h4 className="text-sm font-medium">
+            Animation & Motion (Coming Soon)
+          </h4>
           <p className="text-xs text-muted-foreground">
             Motion effects, transforms, and transitions will be available here
           </p>
@@ -1975,7 +2117,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         {/* Coming Soon - Responsive */}
         <div className="space-y-2 opacity-50">
-          <h4 className="text-sm font-medium">Responsive Settings (Coming Soon)</h4>
+          <h4 className="text-sm font-medium">
+            Responsive Settings (Coming Soon)
+          </h4>
           <p className="text-xs text-muted-foreground">
             Breakpoint-specific settings for mobile, tablet, desktop
           </p>
@@ -1999,27 +2143,27 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     // Note: renderPropertyInput is now defined at component level (above)
 
     switch (normalizedComponentType) {
-      case 'text':
+      case "text":
         return renderTextProperties();
-      case 'button':
+      case "button":
         return renderButtonProperties();
-      case 'image':
+      case "image":
         return renderImageProperties();
-      case 'video':
+      case "video":
         return renderVideoProperties();
-      case 'container':
+      case "container":
         return renderContainerProperties();
-      case 'block':
+      case "block":
         // Get block config based on blockId
         const blockId = componentProps.blockId;
 
         // Check if this is a gallery block
-        if (blockId && blockId.toLowerCase().includes('gallery')) {
+        if (blockId && blockId.toLowerCase().includes("gallery")) {
           return renderGalleryProperties();
         }
 
         // Check if this is a video block
-        if (blockId && blockId.toLowerCase().includes('video')) {
+        if (blockId && blockId.toLowerCase().includes("video")) {
           return renderVideoProperties();
         }
 
@@ -2029,22 +2173,29 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           return (
             <div className="space-y-4">
               <div className="text-center text-muted-foreground py-4">
-                <p>Block components are pre-built designs with limited editable properties.</p>
+                <p>
+                  Block components are pre-built designs with limited editable
+                  properties.
+                </p>
               </div>
 
               {/* Editable properties for blocks */}
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="blockId">Block ID</Label>
-                  <Input id="blockId" value={componentProps.blockId || ''} readOnly />
+                  <Input
+                    id="blockId"
+                    value={componentProps.blockId || ""}
+                    readOnly
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="blockClass">CSS Classes</Label>
                   <Input
                     id="blockClass"
-                    value={componentProps.className || ''}
-                    onChange={(e) => updateProp('className', e.target.value)}
+                    value={componentProps.className || ""}
+                    onChange={(e) => updateProp("className", e.target.value)}
                     placeholder="Additional CSS classes"
                   />
                 </div>
@@ -2052,8 +2203,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <div className="space-y-2">
                   <Label htmlFor="blockMargin">Margin</Label>
                   <Select
-                    value={componentProps.margin || 'default'}
-                    onValueChange={(value) => updateProp('margin', value)}
+                    value={componentProps.margin || "default"}
+                    onValueChange={(value) => updateProp("margin", value)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -2071,8 +2222,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 <div className="space-y-2">
                   <Label htmlFor="blockPadding">Padding</Label>
                   <Select
-                    value={componentProps.padding || 'default'}
-                    onValueChange={(value) => updateProp('padding', value)}
+                    value={componentProps.padding || "default"}
+                    onValueChange={(value) => updateProp("padding", value)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -2099,12 +2250,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </div>
 
             <div className="space-y-4">
-              {Object.entries(blockConfig).map(([key, config]: [string, any]) => (
-                <div key={key} className="space-y-2">
-                  <Label htmlFor={key}>{config.label}</Label>
-                  {renderPropertyInput(key, config, componentProps[key])}
-                </div>
-              ))}
+              {Object.entries(blockConfig).map(
+                ([key, config]: [string, any]) => (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={key}>{config.label}</Label>
+                    {renderPropertyInput(key, config, componentProps[key])}
+                  </div>
+                ),
+              )}
             </div>
           </div>
         );
@@ -2117,16 +2270,23 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           return (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground py-2 border-b">
-                <p className="font-medium">{componentType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</p>
+                <p className="font-medium">
+                  {componentType
+                    .split("-")
+                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(" ")}
+                </p>
               </div>
 
               <div className="space-y-4">
-                {Object.entries(prebuildConfig).map(([key, config]: [string, any]) => (
-                  <div key={key} className="space-y-2">
-                    <Label htmlFor={key}>{config.label}</Label>
-                    {renderPropertyInput(key, config, localProps[key])}
-                  </div>
-                ))}
+                {Object.entries(prebuildConfig).map(
+                  ([key, config]: [string, any]) => (
+                    <div key={key} className="space-y-2">
+                      <Label htmlFor={key}>{config.label}</Label>
+                      {renderPropertyInput(key, config, localProps[key])}
+                    </div>
+                  ),
+                )}
               </div>
             </div>
           );
@@ -2145,7 +2305,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>
-          {componentType ? `${componentType.charAt(0).toUpperCase() + componentType.slice(1)} Properties` : 'Properties'}
+          {componentType
+            ? `${componentType.charAt(0).toUpperCase() + componentType.slice(1)} Properties`
+            : "Properties"}
           {isLocked && <Lock className="inline-block ml-2 h-4 w-4" />}
         </CardTitle>
       </CardHeader>
@@ -2185,7 +2347,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             </AlertDescription>
           </Alert>
         ) : componentType ? (
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'content' | 'style' | 'advanced')} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as "content" | "style" | "advanced")
+            }
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="content">Content</TabsTrigger>
               <TabsTrigger value="style">Style</TabsTrigger>

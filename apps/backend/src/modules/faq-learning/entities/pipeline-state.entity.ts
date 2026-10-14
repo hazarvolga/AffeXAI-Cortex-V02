@@ -1,49 +1,56 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from "typeorm";
 
 export enum PipelineStatus {
-  RUNNING = 'running',
-  STOPPED = 'stopped',
-  ERROR = 'error',
+  RUNNING = "running",
+  STOPPED = "stopped",
+  ERROR = "error",
 }
 
-@Entity('faq_pipeline_state')
+@Entity("faq_pipeline_state")
 export class PipelineState {
-
-  @Column({ type: 'uuid', nullable: true })
+  // Tenant ids are slugs (varchar) everywhere else; a uuid column rejected every lookup.
+  @Column({ type: "varchar", length: 255, nullable: true })
   @Index()
   tenantId: string;
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: PipelineStatus,
     default: PipelineStatus.STOPPED,
   })
   status: PipelineStatus;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   lastRun: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   nextScheduledRun: Date;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   dailyProcessingCount: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   totalFaqsGenerated: number;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: "jsonb", nullable: true })
   lastError: {
     message: string;
     timestamp: Date;
     stack?: string;
   };
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: "jsonb", nullable: true })
   processingConfig: {
-    mode: 'manual' | 'real-time' | 'batch' | 'scheduled';
+    mode: "manual" | "real-time" | "batch" | "scheduled";
     batchSize: number;
     scheduleInterval: number;
   };

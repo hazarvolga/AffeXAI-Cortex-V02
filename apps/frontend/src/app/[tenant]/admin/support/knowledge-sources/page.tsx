@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { API_CONFIG } from "@/config/api.config";
+import { apiFetch } from "@/lib/api/api-fetch";
 import {
   Card,
   CardContent,
@@ -58,7 +60,7 @@ import {
 import { useAsyncEffect } from "@/hooks/use-async-effect";
 import { confirmDialog } from "@/lib/dialogs/dialog-queue";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+const API_URL = API_CONFIG.API_URL;
 
 interface KnowledgeSource {
   id: string;
@@ -151,12 +153,10 @@ export default function KnowledgeSourcesPage() {
       if (searchQuery) params.append("search", searchQuery);
       params.append("limit", "50");
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/knowledge-sources?${params.toString()}`,
         {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
+          headers: {},
         },
       );
 
@@ -173,12 +173,10 @@ export default function KnowledgeSourcesPage() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/knowledge-sources/stats/overview`,
         {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
+          headers: {},
         },
       );
 
@@ -212,11 +210,10 @@ export default function KnowledgeSourcesPage() {
         enableForChat: urlForm.enableForChat,
       };
 
-      const response = await fetch(`${API_URL}/knowledge-sources`, {
+      const response = await apiFetch(`${API_URL}/knowledge-sources`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify(requestBody),
       });
@@ -243,11 +240,10 @@ export default function KnowledgeSourcesPage() {
 
   const addTextSource = async () => {
     try {
-      const response = await fetch(`${API_URL}/knowledge-sources`, {
+      const response = await apiFetch(`${API_URL}/knowledge-sources`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
           title: textForm.title,
@@ -308,11 +304,9 @@ export default function KnowledgeSourcesPage() {
       );
       formData.append("enableForChat", String(fileForm.enableForChat));
 
-      const response = await fetch(`${API_URL}/knowledge-sources/upload`, {
+      const response = await apiFetch(`${API_URL}/knowledge-sources/upload`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+        headers: {},
         body: formData,
       });
 
@@ -346,11 +340,9 @@ export default function KnowledgeSourcesPage() {
       return;
 
     try {
-      const response = await fetch(`/api/knowledge-sources/${id}`, {
+      const response = await apiFetch(`/api/knowledge-sources/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+        headers: {},
       });
 
       if (!response.ok) throw new Error("Failed to delete source");
@@ -366,11 +358,9 @@ export default function KnowledgeSourcesPage() {
 
   const archiveSource = async (id: string) => {
     try {
-      const response = await fetch(`/api/knowledge-sources/${id}/archive`, {
+      const response = await apiFetch(`/api/knowledge-sources/${id}/archive`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
+        headers: {},
       });
 
       if (!response.ok) throw new Error("Failed to archive source");

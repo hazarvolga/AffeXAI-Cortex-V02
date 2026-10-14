@@ -1,6 +1,8 @@
 "use client";
 
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useParams, useRouter } from "next/navigation";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
+import { httpClient } from "@/lib/api/http-client";
 import {
   Card,
   CardContent,
@@ -26,6 +28,8 @@ export default function EditEmailTemplatePage({
 }: {
   params: Promise<{ templateId: string }>;
 }) {
+  const tenantHref = useTenantAdminHref();
+  const { tenant } = useParams<{ tenant: string }>();
   const unwrappedParams = use(params);
   const { templateId } = unwrappedParams;
   const router = useRouter();
@@ -47,16 +51,10 @@ export default function EditEmailTemplatePage({
       try {
         setLoading(true);
 
-        // Fetch unified template
-        const response = await fetch(
-          `http://localhost:9006/api/email-templates/unified/${templateId}`,
+        // Fetch unified template (authenticated, same API base as the rest of the app)
+        const data = await httpClient.getWrapped<any>(
+          `/email-templates/unified/${templateId}`,
         );
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
         setTemplate(data);
         setTemplateName(data.name);
 
@@ -95,20 +93,10 @@ export default function EditEmailTemplatePage({
       });
       if (!cloneName) return;
 
-      const response = await fetch(
-        `http://localhost:9006/api/email-templates/${templateId}/clone`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: cloneName }),
-        },
+      const newTemplate = await httpClient.postWrapped<{ id: string }>(
+        `/email-templates/${templateId}/clone`,
+        { name: cloneName },
       );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const newTemplate = await response.json();
 
       toast({
         title: "Başarılı!",
@@ -116,7 +104,7 @@ export default function EditEmailTemplatePage({
       });
 
       // Redirect to new template edit page
-      router.push(`/admin/email-marketing/templates/${newTemplate.id}/edit`);
+      router.push(`/${tenant}/admin/email/templates/${newTemplate.id}/edit`);
     } catch (error: any) {
       toast({
         title: "Hata",
@@ -145,21 +133,10 @@ export default function EditEmailTemplatePage({
         return;
       }
 
-      const response = await fetch(
-        `http://localhost:9006/api/email-templates/${templateId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: templateName,
-            structure,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      await httpClient.patchWrapped(`/email-templates/${templateId}`, {
+        name: templateName,
+        structure,
+      });
 
       toast({
         title: "Başarılı!",
@@ -196,7 +173,7 @@ export default function EditEmailTemplatePage({
         </CardHeader>
         <CardFooter>
           <Button variant="outline" asChild>
-            <Link href="/admin/email-marketing/templates">
+            <Link href={tenantHref("/email/templates")}>
               Şablonlara Geri Dön
             </Link>
           </Button>
@@ -304,7 +281,7 @@ export default function EditEmailTemplatePage({
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline" asChild>
-            <Link href="/admin/email-marketing/templates">Geri Dön</Link>
+            <Link href={tenantHref("/email/templates")}>Geri Dön</Link>
           </Button>
 
           <div className="flex gap-2">

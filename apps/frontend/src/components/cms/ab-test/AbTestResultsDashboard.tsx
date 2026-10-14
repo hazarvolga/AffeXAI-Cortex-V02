@@ -1,13 +1,20 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import React, { useState, useEffect } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +22,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
+} from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
 import {
   BarChart,
   Bar,
@@ -31,8 +38,9 @@ import {
   PieChart,
   Pie,
   Cell,
-} from 'recharts';
-import { Loader2,
+} from "recharts";
+import {
+  Loader2,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -44,7 +52,8 @@ import { Loader2,
   Trophy,
   Clock,
   Users,
-} from 'lucide-react';
+} from "lucide-react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Types
 interface Variant {
@@ -55,7 +64,7 @@ interface Variant {
   fromName?: string;
   sendTimeOffset?: number;
   splitPercentage: number;
-  status: 'draft' | 'testing' | 'winner' | 'loser';
+  status: "draft" | "testing" | "winner" | "loser";
   sentCount: number;
   openedCount: number;
   clickedCount: number;
@@ -95,7 +104,7 @@ interface AbTestResults {
     testDuration: number;
     confidenceLevel: number;
     minSampleSize: number;
-    testStatus: 'draft' | 'testing' | 'completed' | 'cancelled';
+    testStatus: "draft" | "testing" | "completed" | "cancelled";
     selectedWinnerId?: string;
     winnerSelectionDate?: string;
     createdAt: string;
@@ -107,21 +116,21 @@ interface AbTestResults {
   recommendedWinner?: string;
 }
 
-const VARIANT_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#ec4899'];
+const VARIANT_COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f97316", "#ec4899"];
 
 const TEST_TYPE_LABELS: Record<string, string> = {
-  subject: 'Subject Line',
-  content: 'Email Content',
-  send_time: 'Send Time',
-  from_name: 'From Name',
-  combined: 'Combined Test',
+  subject: "Subject Line",
+  content: "Email Content",
+  send_time: "Send Time",
+  from_name: "From Name",
+  combined: "Combined Test",
 };
 
 const WINNER_CRITERIA_LABELS: Record<string, string> = {
-  open_rate: 'Open Rate',
-  click_rate: 'Click Rate',
-  conversion_rate: 'Conversion Rate',
-  revenue: 'Revenue',
+  open_rate: "Open Rate",
+  click_rate: "Click Rate",
+  conversion_rate: "Conversion Rate",
+  revenue: "Revenue",
 };
 
 interface AbTestResultsDashboardProps {
@@ -140,7 +149,9 @@ export default function AbTestResultsDashboard({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showWinnerDialog, setShowWinnerDialog] = useState(false);
-  const [selectedWinnerVariantId, setSelectedWinnerVariantId] = useState<string | null>(null);
+  const [selectedWinnerVariantId, setSelectedWinnerVariantId] = useState<
+    string | null
+  >(null);
   const [isSelectingWinner, setIsSelectingWinner] = useState(false);
 
   // Fetch results
@@ -152,20 +163,22 @@ export default function AbTestResultsDashboard({
     }
 
     try {
-      const response = await fetch(`/api/email-marketing/ab-test/${campaignId}/results`);
+      const response = await apiFetch(
+        `/api/email-marketing/ab-test/${campaignId}/results`,
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch A/B test results');
+        throw new Error("Failed to fetch A/B test results");
       }
 
       const data = await response.json();
       setResults(data);
     } catch (error) {
-      console.error('Error fetching results:', error);
+      console.error("Error fetching results:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load A/B test results',
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load A/B test results",
       });
     } finally {
       setLoading(false);
@@ -174,13 +187,13 @@ export default function AbTestResultsDashboard({
   };
 
   // Initial load
-  useEffect(() => {
+  useAsyncEffect(() => {
     fetchResults();
   }, [campaignId]);
 
   // Auto-refresh for active tests
   useEffect(() => {
-    if (!autoRefresh || !results || results.campaign.testStatus !== 'testing') {
+    if (!autoRefresh || !results || results.campaign.testStatus !== "testing") {
       return;
     }
 
@@ -198,31 +211,34 @@ export default function AbTestResultsDashboard({
     setIsSelectingWinner(true);
 
     try {
-      const response = await fetch(`/api/email-marketing/ab-test/${campaignId}/select-winner`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await apiFetch(
+        `/api/email-marketing/ab-test/${campaignId}/select-winner`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ variantId: selectedWinnerVariantId }),
         },
-        body: JSON.stringify({ variantId: selectedWinnerVariantId }),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to select winner');
+        throw new Error("Failed to select winner");
       }
 
       toast({
-        title: 'Winner Selected',
-        description: 'The winning variant has been applied to the campaign',
+        title: "Winner Selected",
+        description: "The winning variant has been applied to the campaign",
       });
 
       setShowWinnerDialog(false);
       fetchResults();
     } catch (error) {
-      console.error('Error selecting winner:', error);
+      console.error("Error selecting winner:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to select winner',
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to select winner",
       });
     } finally {
       setIsSelectingWinner(false);
@@ -234,7 +250,18 @@ export default function AbTestResultsDashboard({
     if (!results) return;
 
     const csvData = [
-      ['Variant', 'Subject', 'Sent', 'Opened', 'Clicked', 'Converted', 'Revenue', 'Open Rate', 'Click Rate', 'Conversion Rate'],
+      [
+        "Variant",
+        "Subject",
+        "Sent",
+        "Opened",
+        "Clicked",
+        "Converted",
+        "Revenue",
+        "Open Rate",
+        "Click Rate",
+        "Conversion Rate",
+      ],
       ...results.variants.map((v) => [
         v.label,
         v.subject,
@@ -249,10 +276,10 @@ export default function AbTestResultsDashboard({
       ]),
     ];
 
-    const csv = csvData.map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = csvData.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `ab-test-results-${campaignId}.csv`;
     a.click();
@@ -264,11 +291,13 @@ export default function AbTestResultsDashboard({
     if (!results) return null;
 
     const createdAt = new Date(results.campaign.createdAt);
-    const endTime = new Date(createdAt.getTime() + results.campaign.testDuration * 60 * 60 * 1000);
+    const endTime = new Date(
+      createdAt.getTime() + results.campaign.testDuration * 60 * 60 * 1000,
+    );
     const now = new Date();
     const remaining = endTime.getTime() - now.getTime();
 
-    if (remaining <= 0) return 'Completed';
+    if (remaining <= 0) return "Completed";
 
     const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
@@ -335,7 +364,9 @@ export default function AbTestResultsDashboard({
     );
   }
 
-  const winner = results.variants.find((v) => v.id === results.campaign.selectedWinnerId);
+  const winner = results.variants.find(
+    (v) => v.id === results.campaign.selectedWinnerId,
+  );
   const timeRemaining = getTimeRemaining();
 
   return (
@@ -345,19 +376,21 @@ export default function AbTestResultsDashboard({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl">{results.campaign.name}</CardTitle>
+              <CardTitle className="text-2xl">
+                {results.campaign.name}
+              </CardTitle>
               <CardDescription className="mt-2 flex items-center gap-4">
                 <span>
-                  {TEST_TYPE_LABELS[results.campaign.testType]} |{' '}
+                  {TEST_TYPE_LABELS[results.campaign.testType]} |{" "}
                   {WINNER_CRITERIA_LABELS[results.campaign.winnerCriteria]}
                 </span>
                 <Badge
                   variant={
-                    results.campaign.testStatus === 'completed'
-                      ? 'default'
-                      : results.campaign.testStatus === 'testing'
-                        ? 'secondary'
-                        : 'outline'
+                    results.campaign.testStatus === "completed"
+                      ? "default"
+                      : results.campaign.testStatus === "testing"
+                        ? "secondary"
+                        : "outline"
                   }
                 >
                   {results.campaign.testStatus.toUpperCase()}
@@ -371,7 +404,9 @@ export default function AbTestResultsDashboard({
                 onClick={() => fetchResults(true)}
                 disabled={refreshing}
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
               </Button>
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
@@ -394,15 +429,21 @@ export default function AbTestResultsDashboard({
               <div>
                 <p className="text-sm text-muted-foreground">Total Sent</p>
                 <p className="text-lg font-semibold">
-                  {results.variants.reduce((sum, v) => sum + v.sentCount, 0).toLocaleString()}
+                  {results.variants
+                    .reduce((sum, v) => sum + v.sentCount, 0)
+                    .toLocaleString()}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <TrendingUp className="h-8 w-8 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Confidence Level</p>
-                <p className="text-lg font-semibold">{results.campaign.confidenceLevel}%</p>
+                <p className="text-sm text-muted-foreground">
+                  Confidence Level
+                </p>
+                <p className="text-lg font-semibold">
+                  {results.campaign.confidenceLevel}%
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -410,7 +451,7 @@ export default function AbTestResultsDashboard({
               <div>
                 <p className="text-sm text-muted-foreground">Winner</p>
                 <p className="text-lg font-semibold">
-                  {winner ? `Variant ${winner.label}` : 'Not Selected'}
+                  {winner ? `Variant ${winner.label}` : "Not Selected"}
                 </p>
               </div>
             </div>
@@ -420,7 +461,9 @@ export default function AbTestResultsDashboard({
 
       {/* Statistical Significance */}
       {results.statistics && (
-        <Alert variant={results.statistics.isSignificant ? 'default' : 'destructive'}>
+        <Alert
+          variant={results.statistics.isSignificant ? "default" : "destructive"}
+        >
           {results.statistics.isSignificant ? (
             <CheckCircle2 className="h-4 w-4" />
           ) : (
@@ -429,13 +472,17 @@ export default function AbTestResultsDashboard({
           <AlertDescription>
             {results.statistics.isSignificant ? (
               <>
-                <strong>Statistically Significant!</strong> Chi-square: {results.statistics.chiSquare.toFixed(2)},
-                p-value: {results.statistics.pValue.toFixed(4)} (threshold: {(1 - results.campaign.confidenceLevel / 100).toFixed(4)})
+                <strong>Statistically Significant!</strong> Chi-square:{" "}
+                {results.statistics.chiSquare.toFixed(2)}, p-value:{" "}
+                {results.statistics.pValue.toFixed(4)} (threshold:{" "}
+                {(1 - results.campaign.confidenceLevel / 100).toFixed(4)})
               </>
             ) : (
               <>
-                <strong>Not Statistically Significant</strong> - Chi-square: {results.statistics.chiSquare.toFixed(2)},
-                p-value: {results.statistics.pValue.toFixed(4)} (needs &lt; {(1 - results.campaign.confidenceLevel / 100).toFixed(4)})
+                <strong>Not Statistically Significant</strong> - Chi-square:{" "}
+                {results.statistics.chiSquare.toFixed(2)}, p-value:{" "}
+                {results.statistics.pValue.toFixed(4)} (needs &lt;{" "}
+                {(1 - results.campaign.confidenceLevel / 100).toFixed(4)})
               </>
             )}
           </AlertDescription>
@@ -446,13 +493,19 @@ export default function AbTestResultsDashboard({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {results.variants.map((variant, index) => {
           const isWinner = variant.id === results.campaign.selectedWinnerId;
-          const isLoser = variant.status === 'loser';
+          const isLoser = variant.status === "loser";
 
           return (
             <Card
               key={variant.id}
-              className={`border-l-4 ${isWinner ? 'border-l-green-500' : isLoser ? 'border-l-red-500' : ''}`}
-              style={{ borderLeftColor: isWinner ? undefined : isLoser ? undefined : VARIANT_COLORS[index] }}
+              className={`border-l-4 ${isWinner ? "border-l-green-500" : isLoser ? "border-l-red-500" : ""}`}
+              style={{
+                borderLeftColor: isWinner
+                  ? undefined
+                  : isLoser
+                    ? undefined
+                    : VARIANT_COLORS[index],
+              }}
             >
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -472,27 +525,39 @@ export default function AbTestResultsDashboard({
                     </Badge>
                   )}
                 </div>
-                <CardTitle className="text-base mt-2">{variant.subject}</CardTitle>
-                <CardDescription>{variant.splitPercentage}% traffic split</CardDescription>
+                <CardTitle className="text-base mt-2">
+                  {variant.subject}
+                </CardTitle>
+                <CardDescription>
+                  {variant.splitPercentage}% traffic split
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Counts */}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <p className="text-muted-foreground">Sent</p>
-                    <p className="font-semibold">{variant.sentCount.toLocaleString()}</p>
+                    <p className="font-semibold">
+                      {variant.sentCount.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Opened</p>
-                    <p className="font-semibold">{variant.openedCount.toLocaleString()}</p>
+                    <p className="font-semibold">
+                      {variant.openedCount.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Clicked</p>
-                    <p className="font-semibold">{variant.clickedCount.toLocaleString()}</p>
+                    <p className="font-semibold">
+                      {variant.clickedCount.toLocaleString()}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Converted</p>
-                    <p className="font-semibold">{variant.conversionCount.toLocaleString()}</p>
+                    <p className="font-semibold">
+                      {variant.conversionCount.toLocaleString()}
+                    </p>
                   </div>
                 </div>
 
@@ -501,23 +566,32 @@ export default function AbTestResultsDashboard({
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Open Rate</span>
-                      <span className="font-semibold">{(variant.openRate * 100).toFixed(2)}%</span>
+                      <span className="font-semibold">
+                        {(variant.openRate * 100).toFixed(2)}%
+                      </span>
                     </div>
                     <Progress value={variant.openRate * 100} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Click Rate</span>
-                      <span className="font-semibold">{(variant.clickRate * 100).toFixed(2)}%</span>
+                      <span className="font-semibold">
+                        {(variant.clickRate * 100).toFixed(2)}%
+                      </span>
                     </div>
                     <Progress value={variant.clickRate * 100} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Conversion Rate</span>
-                      <span className="font-semibold">{(variant.conversionRate * 100).toFixed(2)}%</span>
+                      <span className="font-semibold">
+                        {(variant.conversionRate * 100).toFixed(2)}%
+                      </span>
                     </div>
-                    <Progress value={variant.conversionRate * 100} className="h-2" />
+                    <Progress
+                      value={variant.conversionRate * 100}
+                      className="h-2"
+                    />
                   </div>
                 </div>
 
@@ -526,7 +600,8 @@ export default function AbTestResultsDashboard({
                   <Alert variant="destructive" className="py-2">
                     <AlertTriangle className="h-3 w-3" />
                     <AlertDescription className="text-xs">
-                      Need {results.campaign.minSampleSize - variant.sentCount} more samples
+                      Need {results.campaign.minSampleSize - variant.sentCount}{" "}
+                      more samples
                     </AlertDescription>
                   </Alert>
                 )}
@@ -553,7 +628,11 @@ export default function AbTestResultsDashboard({
                 <Legend />
                 <Bar dataKey="openRate" fill="#3b82f6" name="Open Rate %" />
                 <Bar dataKey="clickRate" fill="#10b981" name="Click Rate %" />
-                <Bar dataKey="conversionRate" fill="#8b5cf6" name="Conversion Rate %" />
+                <Bar
+                  dataKey="conversionRate"
+                  fill="#8b5cf6"
+                  name="Conversion Rate %"
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -562,7 +641,9 @@ export default function AbTestResultsDashboard({
         {/* Confidence Intervals */}
         <Card>
           <CardHeader>
-            <CardTitle>Confidence Intervals ({results.campaign.confidenceLevel}%)</CardTitle>
+            <CardTitle>
+              Confidence Intervals ({results.campaign.confidenceLevel}%)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -572,9 +653,27 @@ export default function AbTestResultsDashboard({
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="rate" stroke="#3b82f6" name="Rate %" strokeWidth={2} />
-                <Line type="monotone" dataKey="lower" stroke="#ef4444" name="Lower Bound" strokeDasharray="5 5" />
-                <Line type="monotone" dataKey="upper" stroke="#10b981" name="Upper Bound" strokeDasharray="5 5" />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="#3b82f6"
+                  name="Rate %"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="lower"
+                  stroke="#ef4444"
+                  name="Lower Bound"
+                  strokeDasharray="5 5"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="upper"
+                  stroke="#10b981"
+                  name="Upper Bound"
+                  strokeDasharray="5 5"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -623,11 +722,13 @@ export default function AbTestResultsDashboard({
                   </span>
                 </div>
                 <Progress
-                  value={(variant.sentCount / results.campaign.minSampleSize) * 100}
+                  value={
+                    (variant.sentCount / results.campaign.minSampleSize) * 100
+                  }
                   className="h-2"
                   style={{
                     // @ts-ignore
-                    '--progress-background': VARIANT_COLORS[index]
+                    "--progress-background": VARIANT_COLORS[index],
                   }}
                 />
               </div>
@@ -637,7 +738,7 @@ export default function AbTestResultsDashboard({
       </div>
 
       {/* Actions */}
-      {results.campaign.testStatus === 'testing' &&
+      {results.campaign.testStatus === "testing" &&
         !results.campaign.selectedWinnerId &&
         results.canDeclareWinner && (
           <Card>
@@ -647,7 +748,8 @@ export default function AbTestResultsDashboard({
                 Ready to Declare Winner
               </CardTitle>
               <CardDescription>
-                The test has reached statistical significance. You can now select a winner.
+                The test has reached statistical significance. You can now
+                select a winner.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -655,7 +757,11 @@ export default function AbTestResultsDashboard({
                 {results.variants.map((variant, index) => (
                   <Button
                     key={variant.id}
-                    variant={variant.id === results.recommendedWinner ? 'default' : 'outline'}
+                    variant={
+                      variant.id === results.recommendedWinner
+                        ? "default"
+                        : "outline"
+                    }
                     onClick={() => {
                       setSelectedWinnerVariantId(variant.id);
                       setShowWinnerDialog(true);
@@ -678,8 +784,8 @@ export default function AbTestResultsDashboard({
           <DialogHeader>
             <DialogTitle>Confirm Winner Selection</DialogTitle>
             <DialogDescription>
-              Are you sure you want to select this variant as the winner? This will update the
-              campaign with the winning variant's content.
+              Are you sure you want to select this variant as the winner? This
+              will update the campaign with the winning variant&apos;s content.
             </DialogDescription>
           </DialogHeader>
           {selectedWinnerVariantId && (
@@ -689,26 +795,41 @@ export default function AbTestResultsDashboard({
                 .map((variant) => (
                   <Card key={variant.id}>
                     <CardHeader>
-                      <Badge style={{ backgroundColor: VARIANT_COLORS[results.variants.indexOf(variant)] }}>
+                      <Badge
+                        style={{
+                          backgroundColor:
+                            VARIANT_COLORS[results.variants.indexOf(variant)],
+                        }}
+                      >
                         Variant {variant.label}
                       </Badge>
-                      <CardTitle className="text-base mt-2">{variant.subject}</CardTitle>
+                      <CardTitle className="text-base mt-2">
+                        {variant.subject}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
                       <p>Open Rate: {(variant.openRate * 100).toFixed(2)}%</p>
                       <p>Click Rate: {(variant.clickRate * 100).toFixed(2)}%</p>
-                      <p>Conversion Rate: {(variant.conversionRate * 100).toFixed(2)}%</p>
+                      <p>
+                        Conversion Rate:{" "}
+                        {(variant.conversionRate * 100).toFixed(2)}%
+                      </p>
                     </CardContent>
                   </Card>
                 ))}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWinnerDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowWinnerDialog(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleSelectWinner} disabled={isSelectingWinner}>
-              {isSelectingWinner && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSelectingWinner && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Confirm Winner
             </Button>
           </DialogFooter>

@@ -1,23 +1,28 @@
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
+  preset: "ts-jest",
+  testEnvironment: "node",
+  // Each ts-jest worker type-checks a large slice of the backend; unbounded
+  // workers (one per core) exhausted machine RAM. Cap parallelism and recycle
+  // workers whose heap grows past the limit.
+  maxWorkers: 2,
+  workerIdleMemoryLimit: "1GB",
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
   testPathIgnorePatterns: [
-    '<rootDir>/.next/',
-    '<rootDir>/node_modules/',
-    '<rootDir>/coverage/',
-    '<rootDir>/dist/',
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    "<rootDir>/coverage/",
+    "<rootDir>/dist/",
   ],
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts',
-    '!src/**/*.stories.tsx',
-    '!src/**/*.test.tsx',
-    '!src/**/*.test.ts',
-    '!src/setupTests.ts',
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/**/index.ts",
+    "!src/**/*.stories.tsx",
+    "!src/**/*.test.tsx",
+    "!src/**/*.test.ts",
+    "!src/setupTests.ts",
   ],
   coverageThreshold: {
     global: {
@@ -28,11 +33,11 @@ module.exports = {
     },
   },
   transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest',
-    '^.+\\.(js|jsx)$': 'babel-jest',
+    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.(js|jsx)$": "babel-jest",
   },
   transformIgnorePatterns: [
-    '/node_modules/',
-    '^.+\\.module\\.(css|sass|scss)$',
+    "/node_modules/",
+    "^.+\\.module\\.(css|sass|scss)$",
   ],
 };

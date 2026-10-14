@@ -1,19 +1,34 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { TemplateLibrary } from '@/components/cms/template-library/template-library';
-import { TemplateImportExport } from '@/components/cms/template-library/template-import-export';
-import { TemplatePartsLibrary } from '@/components/cms/template-library/template-parts-library';
-import { TemplatePreviewDialog } from '@/components/cms/template-library/template-preview-dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FileStack, FileDown, FileUp, Layers, Plus, RefreshCw } from 'lucide-react';
-import { templateService } from '@/lib/api/templateService';
-import { getSeedTemplatesWithIds } from '@/lib/cms/seed-templates';
-import type { PageTemplate, TemplatePart } from '@/types/cms-template';
+import React, { useState } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import { useRouter } from "next/navigation";
+import { TemplateLibrary } from "@/components/cms/template-library/template-library";
+import { TemplateImportExport } from "@/components/cms/template-library/template-import-export";
+import { TemplatePartsLibrary } from "@/components/cms/template-library/template-parts-library";
+import { TemplatePreviewDialog } from "@/components/cms/template-library/template-preview-dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  FileStack,
+  FileDown,
+  FileUp,
+  Layers,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
+import { templateService } from "@/lib/api/templateService";
+import { getSeedTemplatesWithIds } from "@/lib/cms/seed-templates";
+import type { PageTemplate, TemplatePart } from "@/types/cms-template";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 /**
  * CMS Templates Management Page
@@ -30,13 +45,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<PageTemplate[]>([]);
   const [templateParts, setTemplateParts] = useState<TemplatePart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('library');
-
-  // Load templates and parts
-  useEffect(() => {
-    loadTemplates();
-    loadTemplateParts();
-  }, []);
+  const [activeTab, setActiveTab] = useState("library");
 
   const loadTemplates = async () => {
     try {
@@ -47,13 +56,13 @@ export default function TemplatesPage() {
       if (data && data.length > 0) {
         setTemplates(data);
       } else {
-        console.log('No templates from API, using seed templates');
+        console.log("No templates from API, using seed templates");
         setTemplates(getSeedTemplatesWithIds());
       }
     } catch (error) {
-      console.error('Error loading templates:', error);
+      console.error("Error loading templates:", error);
       // Fallback to seed templates on error
-      console.log('API error, using seed templates as fallback');
+      console.log("API error, using seed templates as fallback");
       setTemplates(getSeedTemplatesWithIds());
     } finally {
       setIsLoading(false);
@@ -63,20 +72,26 @@ export default function TemplatesPage() {
   const loadTemplateParts = async () => {
     try {
       // TODO: Implement API call to fetch template parts
-      // const response = await fetch('/api/cms/template-parts');
+      // const response = await apiFetch('/api/cms/template-parts');
       // const data = await response.json();
       // setTemplateParts(data);
 
       // For now, use empty array until backend API is implemented
       setTemplateParts([]);
     } catch (error) {
-      console.error('Error loading template parts:', error);
+      console.error("Error loading template parts:", error);
     }
   };
 
+  // Load templates and parts
+  useAsyncEffect(() => {
+    loadTemplates();
+    loadTemplateParts();
+  }, []);
+
   const handleApplyTemplate = async (template: PageTemplate) => {
     // TODO: Implement template application logic
-    console.log('Applying template:', template.name);
+    console.log("Applying template:", template.name);
     // Navigate to CMS editor with template
     router.push(`/admin/cms/editor?template=${template.id}`);
   };
@@ -89,26 +104,28 @@ export default function TemplatesPage() {
   const handleImportTemplate = async (template: PageTemplate) => {
     try {
       // TODO: Validate and save template to backend
-      console.log('Imported template:', template.name);
+      console.log("Imported template:", template.name);
 
       // For now, just add to local state
-      setTemplates(prev => [...prev, template]);
+      setTemplates((prev) => [...prev, template]);
 
       // Reload templates from backend
       await loadTemplates();
     } catch (error) {
-      console.error('Error importing template:', error);
+      console.error("Error importing template:", error);
     }
   };
 
   const handleExportTemplate = async (template: PageTemplate) => {
     // TODO: Implement template export logic
-    console.log('Exporting template:', template.name);
+    console.log("Exporting template:", template.name);
 
     // Create download
-    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(template, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `${template.id}.json`;
     a.click();
@@ -120,7 +137,9 @@ export default function TemplatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sayfa Şablonları</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Sayfa Şablonları
+          </h1>
           <p className="text-muted-foreground mt-1">
             Hazır şablonlarla hızlı sayfa oluşturun, şablonlarınızı yönetin
           </p>
@@ -208,7 +227,10 @@ export default function TemplatesPage() {
             <Layers className="h-4 w-4" />
             Şablon Parçaları
           </TabsTrigger>
-          <TabsTrigger value="import-export" className="flex items-center gap-2">
+          <TabsTrigger
+            value="import-export"
+            className="flex items-center gap-2"
+          >
             <FileDown className="h-4 w-4" />
             İçe/Dışa Aktarım
           </TabsTrigger>
@@ -222,10 +244,11 @@ export default function TemplatesPage() {
                 <div>
                   <CardTitle>Sayfa Şablonları</CardTitle>
                   <CardDescription>
-                    Hazır şablonları inceleyin, önizleyin ve sayfa oluşturmak için kullanın
+                    Hazır şablonları inceleyin, önizleyin ve sayfa oluşturmak
+                    için kullanın
                   </CardDescription>
                 </div>
-                <Button onClick={() => router.push('/admin/cms/editor')}>
+                <Button onClick={() => router.push("/admin/cms/editor")}>
                   <Plus className="h-4 w-4 mr-2" />
                   Yeni Şablon
                 </Button>
@@ -248,7 +271,7 @@ export default function TemplatesPage() {
                       <FileUp className="h-4 w-4 mr-2" />
                       Şablon İçe Aktar
                     </Button>
-                    <Button onClick={() => router.push('/admin/cms/editor')}>
+                    <Button onClick={() => router.push("/admin/cms/editor")}>
                       <Plus className="h-4 w-4 mr-2" />
                       Yeni Şablon
                     </Button>
@@ -274,7 +297,8 @@ export default function TemplatesPage() {
                 <div>
                   <CardTitle>Şablon Parçaları</CardTitle>
                   <CardDescription>
-                    Yeniden kullanılabilir header, footer, sidebar gibi bölümleri yönetin
+                    Yeniden kullanılabilir header, footer, sidebar gibi
+                    bölümleri yönetin
                   </CardDescription>
                 </div>
                 <Button>
@@ -289,7 +313,8 @@ export default function TemplatesPage() {
                   <Layers className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">Henüz parça yok</h3>
                   <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                    Şablon parçaları header, footer gibi tekrar kullanılabilir bölümlerdir
+                    Şablon parçaları header, footer gibi tekrar kullanılabilir
+                    bölümlerdir
                   </p>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -299,7 +324,7 @@ export default function TemplatesPage() {
               ) : (
                 <TemplatePartsLibrary
                   parts={templateParts}
-                  onSelectPart={(part) => console.log('Selected part:', part)}
+                  onSelectPart={(part) => console.log("Selected part:", part)}
                 />
               )}
             </CardContent>
@@ -332,13 +357,17 @@ export default function TemplatesPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            <strong>Şablonlar:</strong> Tamamen yapılandırılmış sayfa düzenleri. Hızlıca yeni sayfalar oluşturmak için kullanın.
+            <strong>Şablonlar:</strong> Tamamen yapılandırılmış sayfa düzenleri.
+            Hızlıca yeni sayfalar oluşturmak için kullanın.
           </p>
           <p>
-            <strong>Şablon Parçaları:</strong> Header, footer gibi tekrar kullanılabilir bölümler. Birden fazla şablonda kullanabilirsiniz.
+            <strong>Şablon Parçaları:</strong> Header, footer gibi tekrar
+            kullanılabilir bölümler. Birden fazla şablonda kullanabilirsiniz.
           </p>
           <p>
-            <strong>Design Tokens:</strong> Tüm şablonlar tasarım sistemi token'larını kullanır, tema değişikliklerinde otomatik güncellenir.
+            <strong>Design Tokens:</strong> Tüm şablonlar tasarım sistemi
+            token&apos;larını kullanır, tema değişikliklerinde otomatik
+            güncellenir.
           </p>
         </CardContent>
       </Card>

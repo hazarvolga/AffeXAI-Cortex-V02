@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { API_CONFIG } from "@/config/api.config";
 import {
   Card,
   CardHeader,
@@ -57,7 +58,7 @@ import { useAsyncEffect } from "@/hooks/use-async-effect";
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+  const apiUrl = API_CONFIG.API_URL;
   return apiUrl.replace(/\/api\/?$/, "");
 }
 

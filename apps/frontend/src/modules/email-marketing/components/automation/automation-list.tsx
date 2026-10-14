@@ -148,7 +148,10 @@ export function AutomationList({ tenant }: AutomationListProps) {
                 value={statusFilter}
                 onValueChange={(value) => setStatusFilter(value as any)}
               >
-                <SelectTrigger className="w-[160px] h-9 rounded-none bg-white/5 border-white/10 text-[9px] font-mono uppercase tracking-widest">
+                <SelectTrigger
+                  aria-label="Duruma göre filtrele"
+                  className="w-[160px] h-9 rounded-none bg-white/5 border-white/10 text-[9px] font-mono uppercase tracking-widest"
+                >
                   <Filter className="mr-2 h-3 w-3 opacity-40" />
                   <SelectValue placeholder="STATE" />
                 </SelectTrigger>
@@ -176,7 +179,10 @@ export function AutomationList({ tenant }: AutomationListProps) {
                 value={triggerFilter}
                 onValueChange={(value) => setTriggerFilter(value as any)}
               >
-                <SelectTrigger className="w-[160px] h-9 rounded-none bg-white/5 border-white/10 text-[9px] font-mono uppercase tracking-widest">
+                <SelectTrigger
+                  aria-label="Tetikleyiciye göre filtrele"
+                  className="w-[160px] h-9 rounded-none bg-white/5 border-white/10 text-[9px] font-mono uppercase tracking-widest"
+                >
                   <Zap className="mr-2 h-3 w-3 opacity-40" />
                   <SelectValue placeholder="TRIGGER" />
                 </SelectTrigger>

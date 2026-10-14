@@ -1,22 +1,30 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Loader2, Eye } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Save, Loader2, Eye } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface Category {
   id: string;
@@ -28,31 +36,31 @@ export default function NewArticlePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    title: '',
-    summary: '',
-    content: '',
-    categoryId: '',
-    tags: '',
+    title: "",
+    summary: "",
+    content: "",
+    categoryId: "",
+    tags: "",
     isFeatured: false,
     isPublished: false,
   });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/admin/knowledge-base/categories');
+      const response = await apiFetch("/api/admin/knowledge-base/categories");
 
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
       }
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
+      console.error("Failed to fetch categories:", error);
     }
   };
+
+  useAsyncEffect(() => {
+    fetchCategories();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,14 +69,14 @@ export default function NewArticlePage() {
       setLoading(true);
 
       const tagsArray = formData.tags
-        .split(',')
+        .split(",")
         .map((tag) => tag.trim())
         .filter((tag) => tag);
 
-      const response = await fetch('/api/admin/knowledge-base', {
-        method: 'POST',
+      const response = await apiFetch("/api/admin/knowledge-base", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...formData,
@@ -77,10 +85,10 @@ export default function NewArticlePage() {
       });
 
       if (response.ok) {
-        router.push('/admin/support/knowledge-base');
+        router.push("/admin/support/knowledge-base");
       }
     } catch (error) {
-      console.error('Failed to create article:', error);
+      console.error("Failed to create article:", error);
     } finally {
       setLoading(false);
     }
@@ -92,7 +100,9 @@ export default function NewArticlePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Yeni Makale Oluştur</h1>
-          <p className="text-muted-foreground mt-2">Yeni bir yardım makalesi ekleyin</p>
+          <p className="text-muted-foreground mt-2">
+            Yeni bir yardım makalesi ekleyin
+          </p>
         </div>
         <Link href="/admin/support/knowledge-base">
           <Button variant="ghost">
@@ -116,7 +126,9 @@ export default function NewArticlePage() {
                 id="title"
                 placeholder="Makale başlığını girin"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
                 required
               />
             </div>
@@ -127,7 +139,9 @@ export default function NewArticlePage() {
                 id="summary"
                 placeholder="Makale özeti (1-2 cümle)"
                 value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, summary: e.target.value })
+                }
                 rows={3}
                 required
               />
@@ -137,10 +151,12 @@ export default function NewArticlePage() {
               <Label htmlFor="category">Kategori *</Label>
               <Select
                 value={formData.categoryId}
-                onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, categoryId: value })
+                }
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger id="category">
                   <SelectValue placeholder="Kategori seçin" />
                 </SelectTrigger>
                 <SelectContent>
@@ -159,7 +175,9 @@ export default function NewArticlePage() {
                 id="tags"
                 placeholder="Etiketleri virgülle ayırın (örn: fatura, ödeme, kredi kartı)"
                 value={formData.tags}
-                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, tags: e.target.value })
+                }
               />
               <p className="text-xs text-muted-foreground">
                 Etiketler arama sonuçlarını iyileştirir
@@ -172,7 +190,9 @@ export default function NewArticlePage() {
         <Card>
           <CardHeader>
             <CardTitle>İçerik</CardTitle>
-            <CardDescription>Makale içeriği (Markdown desteklenir)</CardDescription>
+            <CardDescription>
+              Makale içeriği (Markdown desteklenir)
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -181,14 +201,17 @@ export default function NewArticlePage() {
                 id="content"
                 placeholder="Makale içeriğini girin (HTML veya Markdown)"
                 value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, content: e.target.value })
+                }
                 rows={20}
                 className="font-mono"
                 required
               />
               <p className="text-xs text-muted-foreground">
-                HTML etiketleri kullanabilirsiniz: &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;,
-                &lt;strong&gt;, &lt;em&gt;, &lt;code&gt;, &lt;pre&gt;
+                HTML etiketleri kullanabilirsiniz: &lt;h2&gt;, &lt;p&gt;,
+                &lt;ul&gt;, &lt;ol&gt;, &lt;strong&gt;, &lt;em&gt;,
+                &lt;code&gt;, &lt;pre&gt;
               </p>
             </div>
           </CardContent>
@@ -203,27 +226,33 @@ export default function NewArticlePage() {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Öne Çıkan Makale</Label>
+                <Label htmlFor="kb-featured">Öne Çıkan Makale</Label>
                 <p className="text-sm text-muted-foreground">
                   Öne çıkan makaleler ana sayfada gösterilir
                 </p>
               </div>
               <Switch
+                id="kb-featured"
                 checked={formData.isFeatured}
-                onCheckedChange={(checked) => setFormData({ ...formData, isFeatured: checked })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isFeatured: checked })
+                }
               />
             </div>
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Yayınla</Label>
+                <Label htmlFor="kb-published">Yayınla</Label>
                 <p className="text-sm text-muted-foreground">
                   Makaleyi hemen yayınla veya taslak olarak kaydet
                 </p>
               </div>
               <Switch
+                id="kb-published"
                 checked={formData.isPublished}
-                onCheckedChange={(checked) => setFormData({ ...formData, isPublished: checked })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isPublished: checked })
+                }
               />
             </div>
           </CardContent>
@@ -247,7 +276,7 @@ export default function NewArticlePage() {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  {formData.isPublished ? 'Yayınla' : 'Taslak Olarak Kaydet'}
+                  {formData.isPublished ? "Yayınla" : "Taslak Olarak Kaydet"}
                 </>
               )}
             </Button>

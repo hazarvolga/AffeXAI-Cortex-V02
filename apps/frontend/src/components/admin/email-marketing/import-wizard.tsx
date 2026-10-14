@@ -1,24 +1,37 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  Settings, 
-  Users, 
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  Settings,
+  Users,
   Filter,
   Download,
   X,
@@ -27,52 +40,34 @@ import {
   RefreshCw,
   BarChart3,
   Clock,
-  Zap
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { 
-  ImportOptions, 
-  ImportResult as ImportResultType
-} from '@affexai/shared-types';
-import bulkImportService, { ImportJob, ImportJobStatus } from '@/lib/api/bulkImportService';
-import { ImportProgressTracker } from './import-progress-tracker';
-import { ValidationResultsDisplay } from './validation-results-display';
-import { ImportResultsDashboard } from './import-results-dashboard';
-import { useImportProgress } from '@/hooks/useImportProgress';
-import { useCustomFields, MappingField } from '@/hooks/useCustomFields';
-import { useGroupsAndSegments, ImportGroup, ImportSegment } from '@/hooks/useGroupsAndSegments';
+  Zap,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ImportOptions,
+  ImportResult as ImportResultType,
+} from "@affexai/shared-types";
+import bulkImportService, {
+  ImportJob,
+  ImportJobStatus,
+} from "@/lib/api/bulkImportService";
+import { ImportProgressTracker } from "./import-progress-tracker";
+import { ValidationResultsDisplay } from "./validation-results-display";
+import { ImportResultsDashboard } from "./import-results-dashboard";
+import { useImportProgress } from "@/hooks/useImportProgress";
+import { useCustomFields, MappingField } from "@/hooks/useCustomFields";
+import {
+  useGroupsAndSegments,
+  ImportGroup,
+  ImportSegment,
+} from "@/hooks/useGroupsAndSegments";
 
 // Note: Using ImportJob and ImportJobStatus from bulkImportService as the source of truth
 
-// Animated counter hook
-function useAnimatedCounter(targetValue: number, duration: number = 300) {
-  const [displayValue, setDisplayValue] = useState(targetValue);
-  
-  useEffect(() => {
-    const start = displayValue;
-    const diff = targetValue - start;
-    const increment = diff / (duration / 16); // 60fps
-    
-    if (Math.abs(diff) < 1) {
-      setDisplayValue(targetValue);
-      return;
-    }
-    
-    const timer = setInterval(() => {
-      setDisplayValue(prev => {
-        const next = prev + increment;
-        if ((increment > 0 && next >= targetValue) || (increment < 0 && next <= targetValue)) {
-          clearInterval(timer);
-          return targetValue;
-        }
-        return next;
-      });
-    }, 16);
-    
-    return () => clearInterval(timer);
-  }, [targetValue, duration]);
-  
-  return Math.round(displayValue);
+// Counts are shown as they arrive; the old tween animation ignored reduced-motion
+// preferences and re-rendered every 16 ms. The duration argument is kept for callers.
+function useAnimatedCounter(targetValue: number, _duration: number = 300) {
+  return Math.round(targetValue);
 }
 
 interface ImportWizardProps {
@@ -80,7 +75,7 @@ interface ImportWizardProps {
   onCancel: () => void;
 }
 
-type WizardStep = 'upload' | 'configure' | 'validate' | 'results';
+type WizardStep = "upload" | "configure" | "validate" | "results";
 
 interface CsvPreviewData {
   headers: string[];
@@ -97,24 +92,27 @@ interface ValidationStats {
 }
 
 export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
-  const [currentStep, setCurrentStep] = useState<WizardStep>('upload');
+  const [currentStep, setCurrentStep] = useState<WizardStep>("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CsvPreviewData | null>(null);
-  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>(
+    {},
+  );
   const [importOptions, setImportOptions] = useState<ImportOptions>({
     groupIds: [],
     segmentIds: [],
-    duplicateHandling: 'skip',
+    duplicateHandling: "skip",
     validationThreshold: 70,
     batchSize: 1000,
-    columnMapping: {}
+    columnMapping: {},
   });
   const [importJob, setImportJob] = useState<ImportJob | null>(null);
-  const [validationStats, setValidationStats] = useState<ValidationStats | null>(null);
+  const [validationStats, setValidationStats] =
+    useState<ValidationStats | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  
+
   // Processing stats tracking
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [lastProcessedCount, setLastProcessedCount] = useState(0);
@@ -124,8 +122,17 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   // Use custom hooks for data fetching
-  const { mappingFields, loading: fieldsLoading, error: fieldsError } = useCustomFields();
-  const { groups: availableGroups, segments: availableSegments, loading: groupsLoading, error: groupsError } = useGroupsAndSegments();
+  const {
+    mappingFields,
+    loading: fieldsLoading,
+    error: fieldsError,
+  } = useCustomFields();
+  const {
+    groups: availableGroups,
+    segments: availableSegments,
+    loading: groupsLoading,
+    error: groupsError,
+  } = useGroupsAndSegments();
 
   // Memoize callbacks to prevent infinite re-renders
   const handleImportComplete = useCallback((job: ImportJob) => {
@@ -135,9 +142,9 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
       valid: job.validRecords,
       invalid: job.invalidRecords,
       risky: job.riskyRecords || 0,
-      duplicates: job.duplicateRecords
+      duplicates: job.duplicateRecords,
     });
-    setCurrentStep('results');
+    setCurrentStep("results");
   }, []);
 
   const handleImportError = useCallback((errorMessage: string) => {
@@ -149,33 +156,34 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
     job: progressJob,
     isLoading: isProgressLoading,
     error: progressError,
-    isPolling
+    isPolling,
   } = useImportProgress({
     jobId: importJob?.id || null,
-    userId: user?.id || '',
-    enabled: currentStep === 'validate' && !!importJob?.id,
+    userId: user?.id || "",
+    enabled: currentStep === "validate" && !!importJob?.id,
     onComplete: handleImportComplete,
-    onError: handleImportError
+    onError: handleImportError,
   });
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate processing stats when progressJob updates
-  useEffect(() => {
+  // Calculate processing stats when progressJob updates (after commit, not during render)
+  useAsyncEffect(() => {
     if (!progressJob) return;
-    
-    const currentProcessed = (progressJob.validRecords || 0) + 
-                            (progressJob.riskyRecords || 0) + 
-                            (progressJob.invalidRecords || 0) + 
-                            (progressJob.duplicateRecords || 0);
-    
+
+    const currentProcessed =
+      (progressJob.validRecords || 0) +
+      (progressJob.riskyRecords || 0) +
+      (progressJob.invalidRecords || 0) +
+      (progressJob.duplicateRecords || 0);
+
     // Initialize start time on first update
     if (!startTime && currentProcessed > 0) {
       setStartTime(new Date());
       setLastProcessedCount(currentProcessed);
       return;
     }
-    
+
     // Calculate records per second
     if (startTime && currentProcessed > lastProcessedCount) {
       const elapsed = (Date.now() - startTime.getTime()) / 1000; // seconds
@@ -185,20 +193,20 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
     }
   }, [progressJob, startTime, lastProcessedCount]);
 
-  // Ensure isProcessing is false when job status becomes completed
-  useEffect(() => {
-    const current = progressJob || importJob;
-    if (current?.status === ImportJobStatus.COMPLETED && isProcessing) {
-      setIsProcessing(false);
-    }
-  }, [progressJob, importJob, isProcessing]);
+  // A completed job is no longer processing (adjusted during render, not in an effect)
+  if (
+    (progressJob || importJob)?.status === ImportJobStatus.COMPLETED &&
+    isProcessing
+  ) {
+    setIsProcessing(false);
+  }
 
   // Animated counters for all metrics (must be called at component level, not in render)
   const currentJob = progressJob || importJob;
-  
+
   // Debug log
   useEffect(() => {
-    console.log('[ImportWizard] Job state updated:', {
+    console.log("[ImportWizard] Job state updated:", {
       hasProgressJob: !!progressJob,
       hasImportJob: !!importJob,
       currentJobId: currentJob?.id,
@@ -206,21 +214,36 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
       totalRecords: currentJob?.totalRecords,
       processedRecords: currentJob?.processedRecords,
       validRecords: currentJob?.validRecords,
-      isPolling
+      isPolling,
     });
   }, [progressJob, importJob, currentJob, isPolling]);
-  
-  const animatedProcessedRecords = useAnimatedCounter(currentJob?.processedRecords || 0, 300);
-  const animatedValidRecords = useAnimatedCounter(currentJob?.validRecords || 0, 300);
-  const animatedRiskyRecords = useAnimatedCounter(currentJob?.riskyRecords || 0, 300);
-  const animatedInvalidRecords = useAnimatedCounter(currentJob?.invalidRecords || 0, 300);
-  const animatedDuplicateRecords = useAnimatedCounter(currentJob?.duplicateRecords || 0, 300);
+
+  const animatedProcessedRecords = useAnimatedCounter(
+    currentJob?.processedRecords || 0,
+    300,
+  );
+  const animatedValidRecords = useAnimatedCounter(
+    currentJob?.validRecords || 0,
+    300,
+  );
+  const animatedRiskyRecords = useAnimatedCounter(
+    currentJob?.riskyRecords || 0,
+    300,
+  );
+  const animatedInvalidRecords = useAnimatedCounter(
+    currentJob?.invalidRecords || 0,
+    300,
+  );
+  const animatedDuplicateRecords = useAnimatedCounter(
+    currentJob?.duplicateRecords || 0,
+    300,
+  );
 
   const steps = [
-    { key: 'upload', title: 'Dosya Yükle', icon: Upload },
-    { key: 'configure', title: 'Yapılandır', icon: Settings },
-    { key: 'validate', title: 'Doğrula', icon: CheckCircle },
-    { key: 'results', title: 'Sonuçlar', icon: FileText }
+    { key: "upload", title: "Dosya Yükle", icon: Upload },
+    { key: "configure", title: "Yapılandır", icon: Settings },
+    { key: "validate", title: "Doğrula", icon: CheckCircle },
+    { key: "results", title: "Sonuçlar", icon: FileText },
   ];
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -233,73 +256,92 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    const csvFile = files.find(file => file.type === 'text/csv' || file.name.endsWith('.csv'));
-    
-    if (csvFile) {
-      handleFileSelect(csvFile);
-    } else {
-      setError('Lütfen geçerli bir CSV dosyası seçin.');
-    }
-  }, []);
-
   const handleFileSelect = async (file: File) => {
     setError(null);
     setSelectedFile(file);
-    
+
     // Parse CSV for preview
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      const rows = lines.slice(1, 6).map(line => 
-        line.split(',').map(cell => cell.trim().replace(/"/g, ''))
-      );
-      
+      const lines = text.split("\n").filter((line) => line.trim());
+      const headers = lines[0]
+        .split(",")
+        .map((h) => h.trim().replace(/"/g, ""));
+      const rows = lines
+        .slice(1, 6)
+        .map((line) =>
+          line.split(",").map((cell) => cell.trim().replace(/"/g, "")),
+        );
+
       setCsvPreview({
         headers,
         rows,
-        totalRows: lines.length - 1
+        totalRows: lines.length - 1,
       });
 
       // Auto-detect column mapping
       const autoMapping: Record<string, string> = {};
-      headers.forEach(header => {
+      headers.forEach((header) => {
         const lowerHeader = header.toLowerCase();
-        
+
         // Check against available mapping fields
-        const matchingField = mappingFields.find(field => {
-          const fieldKey = field.key.replace('custom_', '');
+        const matchingField = mappingFields.find((field) => {
+          const fieldKey = field.key.replace("custom_", "");
           const fieldLabel = field.label.toLowerCase();
-          
+
           return (
             lowerHeader.includes(fieldKey) ||
             lowerHeader.includes(fieldLabel) ||
-            (fieldKey === 'email' && (lowerHeader.includes('e-mail') || lowerHeader.includes('mail'))) ||
-            (fieldKey === 'firstName' && (lowerHeader.includes('first') || lowerHeader.includes('ad'))) ||
-            (fieldKey === 'lastName' && (lowerHeader.includes('last') || lowerHeader.includes('soyad'))) ||
-            (fieldKey === 'company' && (lowerHeader.includes('şirket') || lowerHeader.includes('firma'))) ||
-            (fieldKey === 'phone' && (lowerHeader.includes('telefon') || lowerHeader.includes('tel'))) ||
-            (fieldKey === 'location' && (lowerHeader.includes('konum') || lowerHeader.includes('adres')))
+            (fieldKey === "email" &&
+              (lowerHeader.includes("e-mail") ||
+                lowerHeader.includes("mail"))) ||
+            (fieldKey === "firstName" &&
+              (lowerHeader.includes("first") || lowerHeader.includes("ad"))) ||
+            (fieldKey === "lastName" &&
+              (lowerHeader.includes("last") ||
+                lowerHeader.includes("soyad"))) ||
+            (fieldKey === "company" &&
+              (lowerHeader.includes("şirket") ||
+                lowerHeader.includes("firma"))) ||
+            (fieldKey === "phone" &&
+              (lowerHeader.includes("telefon") ||
+                lowerHeader.includes("tel"))) ||
+            (fieldKey === "location" &&
+              (lowerHeader.includes("konum") || lowerHeader.includes("adres")))
           );
         });
-        
+
         if (matchingField) {
           autoMapping[header] = matchingField.key;
         }
       });
-      
+
       setColumnMapping(autoMapping);
-      setImportOptions((prev: ImportOptions) => ({ ...prev, columnMapping: autoMapping }));
-      
+      setImportOptions((prev: ImportOptions) => ({
+        ...prev,
+        columnMapping: autoMapping,
+      }));
     } catch (err) {
-      setError('CSV dosyası okunurken hata oluştu.');
+      setError("CSV dosyası okunurken hata oluştu.");
     }
   };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(
+      (file) => file.type === "text/csv" || file.name.endsWith(".csv"),
+    );
+
+    if (csvFile) {
+      handleFileSelect(csvFile);
+    } else {
+      setError("Lütfen geçerli bir CSV dosyası seçin.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleFileSelect only reads setters and services
+  }, []);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -310,80 +352,80 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
 
   const handleColumnMappingChange = (csvColumn: string, fieldKey: string) => {
     const newMapping = { ...columnMapping };
-    
+
     // Remove this field from other columns
-    Object.keys(newMapping).forEach(key => {
+    Object.keys(newMapping).forEach((key) => {
       if (newMapping[key] === fieldKey && key !== csvColumn) {
         delete newMapping[key];
       }
     });
-    
-    if (fieldKey === 'none') {
+
+    if (fieldKey === "none") {
       delete newMapping[csvColumn];
     } else {
       newMapping[csvColumn] = fieldKey;
     }
-    
+
     setColumnMapping(newMapping);
-    setImportOptions((prev: ImportOptions) => ({ ...prev, columnMapping: newMapping }));
+    setImportOptions((prev: ImportOptions) => ({
+      ...prev,
+      columnMapping: newMapping,
+    }));
   };
 
   const handleGroupToggle = (groupId: string, checked: boolean) => {
     setImportOptions((prev: ImportOptions) => ({
       ...prev,
-      groupIds: checked 
+      groupIds: checked
         ? [...(prev.groupIds || []), groupId]
-        : (prev.groupIds || []).filter((id: string) => id !== groupId)
+        : (prev.groupIds || []).filter((id: string) => id !== groupId),
     }));
   };
 
   const handleSegmentToggle = (segmentId: string, checked: boolean) => {
     setImportOptions((prev: ImportOptions) => ({
       ...prev,
-      segmentIds: checked 
+      segmentIds: checked
         ? [...(prev.segmentIds || []), segmentId]
-        : (prev.segmentIds || []).filter((id: string) => id !== segmentId)
+        : (prev.segmentIds || []).filter((id: string) => id !== segmentId),
     }));
   };
 
   const startImport = async () => {
     if (!selectedFile) return;
-    
+
     setIsProcessing(true);
     setError(null);
-    
+
     try {
       const job = await bulkImportService.uploadFile({
         file: selectedFile,
-        options: importOptions
+        options: importOptions,
       });
-      
-      console.log('[ImportWizard] Job received from backend:', {
+
+      console.log("[ImportWizard] Job received from backend:", {
         id: job.id,
         status: job.status,
         totalRecords: job.totalRecords,
-        processedRecords: job.processedRecords
+        processedRecords: job.processedRecords,
       });
-      
+
       setImportJob(job);
-      setCurrentStep('validate');
-      
+      setCurrentStep("validate");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bilinmeyen hata oluştu');
+      setError(err instanceof Error ? err.message : "Bilinmeyen hata oluştu");
     } finally {
       setIsProcessing(false);
     }
   };
 
-
-
   const handleDownloadReport = async () => {
     if (!importJob) return;
-    
+
     try {
       const blob = await bulkImportService.downloadReport(importJob.id);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `import-report-${importJob.id}.csv`;
       document.body.appendChild(a);
@@ -391,17 +433,17 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError('Rapor indirilemedi');
+      setError("Rapor indirilemedi");
     }
   };
 
   const canProceedToNext = () => {
     switch (currentStep) {
-      case 'upload':
+      case "upload":
         return selectedFile && csvPreview;
-      case 'configure':
-        return Object.values(columnMapping).includes('email');
-      case 'validate': {
+      case "configure":
+        return Object.values(columnMapping).includes("email");
+      case "validate": {
         // Consider the polling job (progressJob) as the source of truth during validation
         const current = progressJob || importJob;
         return current?.status === ImportJobStatus.COMPLETED;
@@ -413,68 +455,74 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
 
   const handleNext = () => {
     switch (currentStep) {
-      case 'upload':
-        setCurrentStep('configure');
+      case "upload":
+        setCurrentStep("configure");
         break;
-      case 'configure':
+      case "configure":
         startImport();
         break;
-      case 'validate':
-        setCurrentStep('results');
+      case "validate":
+        setCurrentStep("results");
         break;
     }
   };
 
   const handlePrevious = () => {
     switch (currentStep) {
-      case 'configure':
-        setCurrentStep('upload');
+      case "configure":
+        setCurrentStep("upload");
         break;
-      case 'validate':
-        setCurrentStep('configure');
+      case "validate":
+        setCurrentStep("configure");
         break;
-      case 'results':
-        setCurrentStep('validate');
+      case "results":
+        setCurrentStep("validate");
         break;
     }
   };
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
+    <ol
+      aria-label="İçe aktarma adımları"
+      className="mb-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-3"
+    >
       {steps.map((step, index) => {
         const isActive = step.key === currentStep;
-        const isCompleted = steps.findIndex(s => s.key === currentStep) > index;
+        const isCompleted =
+          steps.findIndex((s) => s.key === currentStep) > index;
         const Icon = step.icon;
-        
+
         return (
-          <div key={step.key} className="flex items-center">
-            <div className={cn(
-              "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors",
-              isActive && "border-primary bg-primary text-primary-foreground",
-              isCompleted && "border-green-500 bg-green-500 text-white",
-              !isActive && !isCompleted && "border-muted-foreground text-muted-foreground"
-            )}>
-              <Icon className="h-5 w-5" />
-            </div>
-            <div className="ml-3 text-sm">
-              <div className={cn(
-                "font-medium",
-                isActive && "text-primary",
-                isCompleted && "text-green-600"
-              )}>
-                {step.title}
-              </div>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={cn(
-                "w-12 h-0.5 mx-4",
-                isCompleted ? "bg-green-500" : "bg-muted"
-              )} />
-            )}
-          </div>
+          <li
+            key={step.key}
+            aria-current={isActive ? "step" : undefined}
+            className="flex items-center gap-2"
+          >
+            <span
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                isActive && "border-primary bg-primary text-primary-foreground",
+                isCompleted && "border-green-700 bg-green-700 text-white",
+                !isActive &&
+                  !isCompleted &&
+                  "border-muted-foreground text-muted-foreground",
+              )}
+            >
+              <Icon aria-hidden className="h-4 w-4" />
+            </span>
+            <span
+              className={cn(
+                "text-sm font-medium",
+                isActive ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {step.title}
+              {isCompleted && <span className="sr-only"> (tamamlandı)</span>}
+            </span>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 
   const renderUploadStep = () => (
@@ -489,8 +537,10 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
       <div
         className={cn(
           "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
-          isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25",
-          selectedFile && "border-green-500 bg-green-50"
+          isDragOver
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25",
+          selectedFile && "border-green-500 bg-green-50",
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -504,7 +554,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
           onChange={handleFileInputChange}
           className="hidden"
         />
-        
+
         {selectedFile ? (
           <div className="space-y-2">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
@@ -529,7 +579,8 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
           <CardHeader>
             <CardTitle className="text-base">Dosya Önizlemesi</CardTitle>
             <CardDescription>
-              İlk 5 satır gösteriliyor. Toplam {csvPreview.totalRows} satır bulundu.
+              İlk 5 satır gösteriliyor. Toplam {csvPreview.totalRows} satır
+              bulundu.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -584,27 +635,30 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
         <CardHeader>
           <CardTitle className="text-base">Sütun Eşleştirmesi</CardTitle>
           <CardDescription>
-            CSV sütunlarını abone alanlarıyla eşleştirin. Email alanı zorunludur.
+            CSV sütunlarını abone alanlarıyla eşleştirin. Email alanı
+            zorunludur.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {csvPreview?.headers.map(header => (
+          {csvPreview?.headers.map((header) => (
             <div key={header} className="flex items-center gap-4">
               <div className="w-32 font-medium text-sm">{header}</div>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
               <Select
-                value={columnMapping[header] || 'none'}
-                onValueChange={(value) => handleColumnMappingChange(header, value)}
+                value={columnMapping[header] || "none"}
+                onValueChange={(value) =>
+                  handleColumnMappingChange(header, value)
+                }
               >
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Eşleştirme</SelectItem>
-                  {mappingFields.map(field => (
+                  {mappingFields.map((field) => (
                     <SelectItem key={field.key} value={field.key}>
-                      {field.label} {field.required && '*'}
-                      {field.key.startsWith('custom_') && (
+                      {field.label} {field.required && "*"}
+                      {field.key.startsWith("custom_") && (
                         <Badge variant="outline" className="ml-2 text-xs">
                           Özel
                         </Badge>
@@ -650,12 +704,14 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {availableGroups.map(group => (
+          {availableGroups.map((group) => (
             <div key={group.id} className="flex items-center space-x-2">
               <Checkbox
                 id={`group-${group.id}`}
                 checked={importOptions.groupIds?.includes(group.id)}
-                onCheckedChange={(checked) => handleGroupToggle(group.id, checked as boolean)}
+                onCheckedChange={(checked) =>
+                  handleGroupToggle(group.id, checked as boolean)
+                }
               />
               <Label htmlFor={`group-${group.id}`} className="flex-1">
                 <div className="font-medium">{group.name}</div>
@@ -680,17 +736,20 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {availableSegments.map(segment => (
+          {availableSegments.map((segment) => (
             <div key={segment.id} className="flex items-center space-x-2">
               <Checkbox
                 id={`segment-${segment.id}`}
                 checked={importOptions.segmentIds?.includes(segment.id)}
-                onCheckedChange={(checked) => handleSegmentToggle(segment.id, checked as boolean)}
+                onCheckedChange={(checked) =>
+                  handleSegmentToggle(segment.id, checked as boolean)
+                }
               />
               <Label htmlFor={`segment-${segment.id}`} className="flex-1">
                 <div className="font-medium">{segment.name}</div>
                 <div className="text-sm text-muted-foreground">
-                  {segment.subscriberCount} abone • %{segment.openRate} açılma oranı
+                  {segment.subscriberCount} abone • %{segment.openRate} açılma
+                  oranı
                 </div>
               </Label>
             </div>
@@ -708,8 +767,11 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
             <Label htmlFor="duplicate-handling">Tekrar Eden E-postalar</Label>
             <Select
               value={importOptions.duplicateHandling}
-              onValueChange={(value: 'skip' | 'update' | 'replace') => 
-                setImportOptions((prev: ImportOptions) => ({ ...prev, duplicateHandling: value }))
+              onValueChange={(value: "skip" | "update" | "replace") =>
+                setImportOptions((prev: ImportOptions) => ({
+                  ...prev,
+                  duplicateHandling: value,
+                }))
               }
             >
               <SelectTrigger>
@@ -732,26 +794,28 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
               min="0"
               max="100"
               value={importOptions.validationThreshold}
-              onChange={(e) => 
-                setImportOptions((prev: ImportOptions) => ({ 
-                  ...prev, 
-                  validationThreshold: parseInt(e.target.value) 
+              onChange={(e) =>
+                setImportOptions((prev: ImportOptions) => ({
+                  ...prev,
+                  validationThreshold: parseInt(e.target.value),
                 }))
               }
               className="mt-2"
             />
             <div className="text-sm text-muted-foreground mt-1">
-              Bu değerin altındaki güven skoruna sahip e-postalar riskli olarak işaretlenir.
+              Bu değerin altındaki güven skoruna sahip e-postalar riskli olarak
+              işaretlenir.
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {!Object.values(columnMapping).includes('email') && (
+      {!Object.values(columnMapping).includes("email") && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Email alanı eşleştirmesi zorunludur. Lütfen bir sütunu email alanıyla eşleştirin.
+            Email alanı eşleştirmesi zorunludur. Lütfen bir sütunu email
+            alanıyla eşleştirin.
           </AlertDescription>
         </Alert>
       )}
@@ -764,13 +828,17 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">İçe Aktarma İşlemi</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              İçe Aktarma İşlemi
+            </h3>
             <p className="text-sm text-gray-600 mt-1">
               {(() => {
                 const currentJob = progressJob || importJob;
-                if (!currentJob) return 'Hazırlanıyor...';
-                if (currentJob.status === ImportJobStatus.COMPLETED) return 'İşlem başarıyla tamamlandı!';
-                if (currentJob.status === ImportJobStatus.FAILED) return 'İşlem başarısız oldu.';
+                if (!currentJob) return "Hazırlanıyor...";
+                if (currentJob.status === ImportJobStatus.COMPLETED)
+                  return "İşlem başarıyla tamamlandı!";
+                if (currentJob.status === ImportJobStatus.FAILED)
+                  return "İşlem başarısız oldu.";
                 return `${currentJob.processedRecords}/${currentJob.totalRecords} kayıt işleniyor...`;
               })()}
             </p>
@@ -787,47 +855,78 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <span className="text-xs font-medium text-green-700">Dosya Yüklendi</span>
+            <span className="text-xs font-medium text-green-700">
+              Dosya Yüklendi
+            </span>
           </div>
           <div className="h-0.5 flex-1 bg-blue-200"></div>
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
-            (progressJob || importJob)?.status === ImportJobStatus.PROCESSING 
-              ? "bg-blue-100" 
-              : (progressJob || importJob)?.status === ImportJobStatus.COMPLETED
-                ? "bg-green-100"
-                : "bg-gray-100"
-          )}>
-            <RefreshCw className={cn(
-              "h-4 w-4",
-              (progressJob || importJob)?.status === ImportJobStatus.PROCESSING && "animate-spin text-blue-600",
-              (progressJob || importJob)?.status === ImportJobStatus.COMPLETED && "text-green-600",
-              (progressJob || importJob)?.status !== ImportJobStatus.PROCESSING && (progressJob || importJob)?.status !== ImportJobStatus.COMPLETED && "text-gray-400"
-            )} />
-            <span className={cn(
-              "text-xs font-medium",
-              (progressJob || importJob)?.status === ImportJobStatus.PROCESSING && "text-blue-700",
-              (progressJob || importJob)?.status === ImportJobStatus.COMPLETED && "text-green-700",
-              (progressJob || importJob)?.status !== ImportJobStatus.PROCESSING && (progressJob || importJob)?.status !== ImportJobStatus.COMPLETED && "text-gray-500"
-            )}>
+          <div
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
+              (progressJob || importJob)?.status === ImportJobStatus.PROCESSING
+                ? "bg-blue-100"
+                : (progressJob || importJob)?.status ===
+                    ImportJobStatus.COMPLETED
+                  ? "bg-green-100"
+                  : "bg-gray-100",
+            )}
+          >
+            <RefreshCw
+              className={cn(
+                "h-4 w-4",
+                (progressJob || importJob)?.status ===
+                  ImportJobStatus.PROCESSING && "animate-spin text-blue-600",
+                (progressJob || importJob)?.status ===
+                  ImportJobStatus.COMPLETED && "text-green-600",
+                (progressJob || importJob)?.status !==
+                  ImportJobStatus.PROCESSING &&
+                  (progressJob || importJob)?.status !==
+                    ImportJobStatus.COMPLETED &&
+                  "text-gray-400",
+              )}
+            />
+            <span
+              className={cn(
+                "text-xs font-medium",
+                (progressJob || importJob)?.status ===
+                  ImportJobStatus.PROCESSING && "text-blue-700",
+                (progressJob || importJob)?.status ===
+                  ImportJobStatus.COMPLETED && "text-green-700",
+                (progressJob || importJob)?.status !==
+                  ImportJobStatus.PROCESSING &&
+                  (progressJob || importJob)?.status !==
+                    ImportJobStatus.COMPLETED &&
+                  "text-gray-500",
+              )}
+            >
               Doğrulanıyor
             </span>
           </div>
           <div className="h-0.5 flex-1 bg-gray-200"></div>
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-full",
-            (progressJob || importJob)?.status === ImportJobStatus.COMPLETED 
-              ? "bg-green-100" 
-              : "bg-gray-100"
-          )}>
-            <CheckCircle className={cn(
-              "h-4 w-4",
-              (progressJob || importJob)?.status === ImportJobStatus.COMPLETED ? "text-green-600" : "text-gray-400"
-            )} />
-            <span className={cn(
-              "text-xs font-medium",
-              (progressJob || importJob)?.status === ImportJobStatus.COMPLETED ? "text-green-700" : "text-gray-500"
-            )}>
+          <div
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full",
+              (progressJob || importJob)?.status === ImportJobStatus.COMPLETED
+                ? "bg-green-100"
+                : "bg-gray-100",
+            )}
+          >
+            <CheckCircle
+              className={cn(
+                "h-4 w-4",
+                (progressJob || importJob)?.status === ImportJobStatus.COMPLETED
+                  ? "text-green-600"
+                  : "text-gray-400",
+              )}
+            />
+            <span
+              className={cn(
+                "text-xs font-medium",
+                (progressJob || importJob)?.status === ImportJobStatus.COMPLETED
+                  ? "text-green-700"
+                  : "text-gray-500",
+              )}
+            >
               Tamamlandı
             </span>
           </div>
@@ -845,9 +944,12 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                   <CardDescription className="mt-1">
                     {(() => {
                       const currentJob = progressJob || importJob;
-                      if (!currentJob) return '';
-                      const percentage = currentJob.progressPercentage || 
-                        ((currentJob.processedRecords / currentJob.totalRecords) * 100);
+                      if (!currentJob) return "";
+                      const percentage =
+                        currentJob.progressPercentage ||
+                        (currentJob.processedRecords /
+                          currentJob.totalRecords) *
+                          100;
                       return `%${percentage.toFixed(1)} tamamlandı`;
                     })()}
                   </CardDescription>
@@ -856,55 +958,73 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                   <div className="text-2xl font-bold">
                     {animatedProcessedRecords.toLocaleString()}
                     <span className="text-sm font-normal text-muted-foreground">
-                      {' '}/{' '}
-                      {((progressJob || importJob)?.totalRecords || 0).toLocaleString()}
+                      {" "}
+                      /{" "}
+                      {(
+                        (progressJob || importJob)?.totalRecords || 0
+                      ).toLocaleString()}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">kayıt</div>
                 </div>
               </div>
-              
+
               {/* Processing Stats - ETA and Speed */}
-              {recordsPerSecond > 0 && (progressJob || importJob)?.status === ImportJobStatus.PROCESSING && (
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    <span className="font-medium text-gray-700">{recordsPerSecond.toLocaleString()}</span>
-                    <span className="text-gray-500">kayıt/sn</span>
+              {recordsPerSecond > 0 &&
+                (progressJob || importJob)?.status ===
+                  ImportJobStatus.PROCESSING && (
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Zap className="h-4 w-4 text-amber-500" />
+                      <span className="font-medium text-gray-700">
+                        {recordsPerSecond.toLocaleString()}
+                      </span>
+                      <span className="text-gray-500">kayıt/sn</span>
+                    </div>
+                    {(() => {
+                      const currentJob = progressJob || importJob;
+                      if (!currentJob) return null;
+                      const remaining =
+                        currentJob.totalRecords - currentJob.processedRecords;
+                      const etaSeconds =
+                        recordsPerSecond > 0
+                          ? Math.ceil(remaining / recordsPerSecond)
+                          : 0;
+                      const minutes = Math.floor(etaSeconds / 60);
+                      const seconds = etaSeconds % 60;
+
+                      if (etaSeconds > 0) {
+                        return (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-blue-500" />
+                            <span className="text-gray-500">
+                              Tahmini kalan:
+                            </span>
+                            <span className="font-medium text-gray-700">
+                              {minutes > 0
+                                ? `${minutes}dk ${seconds}sn`
+                                : `${seconds}sn`}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
-                  {(() => {
-                    const currentJob = progressJob || importJob;
-                    if (!currentJob) return null;
-                    const remaining = currentJob.totalRecords - currentJob.processedRecords;
-                    const etaSeconds = recordsPerSecond > 0 ? Math.ceil(remaining / recordsPerSecond) : 0;
-                    const minutes = Math.floor(etaSeconds / 60);
-                    const seconds = etaSeconds % 60;
-                    
-                    if (etaSeconds > 0) {
-                      return (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-blue-500" />
-                          <span className="text-gray-500">Tahmini kalan:</span>
-                          <span className="font-medium text-gray-700">
-                            {minutes > 0 ? `${minutes}dk ${seconds}sn` : `${seconds}sn`}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              )}
+                )}
             </CardHeader>
             <CardContent>
-              <Progress 
+              <Progress
                 value={(() => {
                   const currentJob = progressJob || importJob;
                   if (!currentJob) return 0;
-                  return currentJob.progressPercentage || 
-                    ((currentJob.processedRecords / currentJob.totalRecords) * 100);
-                })()} 
-                className="h-3" 
+                  return (
+                    currentJob.progressPercentage ||
+                    (currentJob.processedRecords / currentJob.totalRecords) *
+                      100
+                  );
+                })()}
+                className="h-3"
               />
             </CardContent>
           </Card>
@@ -921,13 +1041,18 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
               {(() => {
                 const currentJob = progressJob || importJob;
                 if (!currentJob) return null;
-                const total = (currentJob.totalRecords && currentJob.totalRecords > 0) ? currentJob.totalRecords : 1;
+                const total =
+                  currentJob.totalRecords && currentJob.totalRecords > 0
+                    ? currentJob.totalRecords
+                    : 1;
                 const validCount = currentJob.validRecords ?? 0;
                 const riskyCount = currentJob.riskyRecords ?? 0;
                 const invalidCount = currentJob.invalidRecords ?? 0;
                 const duplicateCount = currentJob.duplicateRecords ?? 0;
                 const processedCount = currentJob.processedRecords ?? 0;
-                const progressPct = currentJob.progressPercentage ?? ((processedCount / total) * 100);
+                const progressPct =
+                  currentJob.progressPercentage ??
+                  (processedCount / total) * 100;
 
                 return (
                   <>
@@ -936,7 +1061,9 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-700">Geçerli Email'ler</span>
+                          <span className="text-sm font-medium text-green-700">
+                            Geçerli Email&apos;ler
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-green-600">
@@ -948,7 +1075,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                         </div>
                       </div>
                       <div className="w-full bg-green-100 rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-green-500 h-full transition-all duration-300"
                           style={{ width: `${(validCount / total) * 100}%` }}
                         />
@@ -960,7 +1087,9 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-yellow-600" />
-                          <span className="text-sm font-medium text-yellow-700">Riskli Email'ler</span>
+                          <span className="text-sm font-medium text-yellow-700">
+                            Riskli Email&apos;ler
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-yellow-600">
@@ -972,7 +1101,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                         </div>
                       </div>
                       <div className="w-full bg-yellow-100 rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-yellow-500 h-full transition-all duration-300"
                           style={{ width: `${(riskyCount / total) * 100}%` }}
                         />
@@ -984,7 +1113,9 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-red-600" />
-                          <span className="text-sm font-medium text-red-700">Geçersiz Email'ler</span>
+                          <span className="text-sm font-medium text-red-700">
+                            Geçersiz Email&apos;ler
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-red-600">
@@ -996,7 +1127,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                         </div>
                       </div>
                       <div className="w-full bg-red-100 rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-red-500 h-full transition-all duration-300"
                           style={{ width: `${(invalidCount / total) * 100}%` }}
                         />
@@ -1007,10 +1138,22 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          <svg
+                            className="h-4 w-4 text-blue-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
                           </svg>
-                          <span className="text-sm font-medium text-blue-700">Tekrar Eden Email'ler</span>
+                          <span className="text-sm font-medium text-blue-700">
+                            Tekrar Eden Email&apos;ler
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-blue-600">
@@ -1022,9 +1165,11 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                         </div>
                       </div>
                       <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-blue-500 h-full transition-all duration-300"
-                          style={{ width: `${(duplicateCount / total) * 100}%` }}
+                          style={{
+                            width: `${(duplicateCount / total) * 100}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -1037,11 +1182,11 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                           Kalite Skoru
                         </span>
                         <div className="flex items-center gap-1">
-                          {((validCount / total) * 100) >= 80 ? (
+                          {(validCount / total) * 100 >= 80 ? (
                             <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
                               Mükemmel
                             </span>
-                          ) : ((validCount / total) * 100) >= 60 ? (
+                          ) : (validCount / total) * 100 >= 60 ? (
                             <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full font-medium">
                               İyi
                             </span>
@@ -1055,8 +1200,8 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                           </span>
                         </div>
                       </div>
-                      <Progress 
-                        value={(validCount / total) * 100} 
+                      <Progress
+                        value={(validCount / total) * 100}
                         className="h-2"
                       />
                       <div className="text-xs text-muted-foreground mt-2">
@@ -1082,40 +1227,42 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
 
   const renderResultsStep = () => {
     const finalJob = progressJob || importJob;
-    
+
     if (!finalJob) {
       return (
         <div className="text-center py-8">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">İçe aktarma bilgileri bulunamadı.</p>
+          <p className="text-muted-foreground">
+            İçe aktarma bilgileri bulunamadı.
+          </p>
         </div>
       );
     }
 
     return (
       <ImportResultsDashboard
-          job={finalJob}
-          onClose={() => onComplete({} as ImportResultType)}
-          onNewImport={() => {
-            setCurrentStep('upload');
-            setImportJob(null);
-            setSelectedFile(null);
-            setCsvPreview(null);
-            setError(null);
-          }}
-        />
+        job={finalJob}
+        onClose={() => onComplete({} as ImportResultType)}
+        onNewImport={() => {
+          setCurrentStep("upload");
+          setImportJob(null);
+          setSelectedFile(null);
+          setCsvPreview(null);
+          setError(null);
+        }}
+      />
     );
   };
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 'upload':
+      case "upload":
         return renderUploadStep();
-      case 'configure':
+      case "configure":
         return renderConfigureStep();
-      case 'validate':
+      case "validate":
         return renderValidateStep();
-      case 'results':
+      case "results":
         return renderResultsStep();
       default:
         return null;
@@ -1140,8 +1287,10 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Giriş Gerekli</h3>
-          <p className="text-muted-foreground mb-4">Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.</p>
-          <Button onClick={() => window.location.href = '/login'}>
+          <p className="text-muted-foreground mb-4">
+            Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.
+          </p>
+          <Button onClick={() => (window.location.href = "/login")}>
             Giriş Yap
           </Button>
         </div>
@@ -1152,30 +1301,28 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {renderStepIndicator()}
-      
-      <div className="min-h-[400px]">
-        {renderCurrentStep()}
-      </div>
+
+      <div className="min-h-[400px]">{renderCurrentStep()}</div>
 
       {/* Navigation */}
       <div className="flex justify-between pt-6 border-t">
         <div>
-          {currentStep !== 'upload' && currentStep !== 'results' && (
+          {currentStep !== "upload" && currentStep !== "results" && (
             <Button variant="outline" onClick={handlePrevious}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Geri
             </Button>
           )}
         </div>
-        
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-2" />
             İptal
           </Button>
-          
-          {currentStep !== 'results' && (
-            <Button 
+
+          {currentStep !== "results" && (
+            <Button
               onClick={handleNext}
               disabled={!canProceedToNext() || isProcessing}
             >
@@ -1184,7 +1331,7 @@ export function ImportWizard({ onComplete, onCancel }: ImportWizardProps) {
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   İşleniyor...
                 </>
-              ) : currentStep === 'configure' ? (
+              ) : currentStep === "configure" ? (
                 <>
                   İçe Aktarmayı Başlat
                   <ArrowRight className="h-4 w-4 ml-2" />

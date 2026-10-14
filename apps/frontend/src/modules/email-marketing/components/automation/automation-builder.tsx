@@ -384,7 +384,11 @@ export function AutomationBuilder({
 
       {/* Progress Bar */}
       <div className="space-y-2">
-        <Progress value={progress} className="h-2" />
+        <Progress
+          value={progress}
+          aria-label="Otomasyon kurulum ilerlemesi"
+          className="h-2"
+        />
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             Step {currentStepIndex + 1} of {steps.length}
@@ -405,7 +409,7 @@ export function AutomationBuilder({
                 <div
                   className={cn(
                     "flex items-center gap-2 cursor-pointer",
-                    isActive && "text-primary font-medium",
+                    isActive && "text-foreground font-semibold",
                   )}
                   onClick={() => setCurrentStep(step.id)}
                 >
@@ -415,7 +419,7 @@ export function AutomationBuilder({
                     <Circle
                       className={cn(
                         "h-5 w-5",
-                        isActive ? "text-primary" : "text-muted-foreground",
+                        isActive ? "text-foreground" : "text-muted-foreground",
                       )}
                     />
                   )}

@@ -1,25 +1,18 @@
 "use client";
 
-import { EmailValidator } from '@/modules/email-marketing/components/email-validator';
-import { BccEditorialWrapper } from '@/components/brand/BccEditorialWrapper';
-import { EmailModuleNav } from '@/components/admin/email/EmailModuleNav';
-
+import { BccEditorialWrapper } from "@/components/brand/BccEditorialWrapper";
+import { EmailModuleNav } from "@/components/admin/email/EmailModuleNav";
+import { AddressValidator } from "@/modules/email-marketing/components/address-validator/AddressValidator";
 
 export default function EmailValidatorPage() {
   return (
     <BccEditorialWrapper
-      headerTitle="Neural Validator"
-      headerSubtitle="Integrity verification for entry parameters"
-      headerBadge="Security"
+      headerTitle="Adres doğrulama"
+      headerSubtitle="Bir e-posta adresinin biçimini, alan adını ve teslim edilebilirliğini kontrol edin."
+      headerBadge="E-posta"
       moduleNav={<EmailModuleNav />}
-      telemetryData={[
-        { label: "Check Latency", value: "12ms", color: "#9df425" },
-        { label: "Accuracy Index", value: "99.9", suffix: "%", color: "#ff8c00" }
-      ]}
     >
-      <div className="container mx-auto py-8 animate-in fade-in duration-700">
-        <EmailValidator />
-      </div>
+      <AddressValidator />
     </BccEditorialWrapper>
   );
 }

@@ -1,11 +1,12 @@
-import { siteSettingsData } from '@/lib/site-settings-data';
-import mediaService from '@/lib/api/mediaService';
+import { siteSettingsData } from "@/lib/site-settings-data";
+import { backendApiUrl } from "@/lib/server/backend-api-url";
+import mediaService from "@/lib/api/mediaService";
 
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = backendApiUrl();
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 /**
@@ -14,10 +15,14 @@ function getMediaBaseUrl(): string {
  * @param isDarkMode Whether to get the dark mode logo
  * @returns The logo URL or a fallback placeholder
  */
-export async function getEmailLogoUrl(isDarkMode: boolean = false): Promise<string> {
+export async function getEmailLogoUrl(
+  isDarkMode: boolean = false,
+): Promise<string> {
   try {
     // Check if we have a media ID for the logo
-    const logoId = isDarkMode ? siteSettingsData.logoDarkId : siteSettingsData.logoId;
+    const logoId = isDarkMode
+      ? siteSettingsData.logoDarkId
+      : siteSettingsData.logoId;
 
     if (logoId) {
       // Try to get the media URL from the media service
@@ -25,7 +30,7 @@ export async function getEmailLogoUrl(isDarkMode: boolean = false): Promise<stri
         const media = await mediaService.getMediaById(logoId);
         return `${getMediaBaseUrl()}${media.url}`;
       } catch (mediaError) {
-        console.error('Error fetching media:', mediaError);
+        console.error("Error fetching media:", mediaError);
         // Fall through to direct URL fallback
       }
     }
@@ -41,14 +46,14 @@ export async function getEmailLogoUrl(isDarkMode: boolean = false): Promise<stri
 
     // Default placeholder
     return isDarkMode
-      ? 'https://placehold.co/140x40/171717/f0f0f0?text=Logo'
-      : 'https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo';
+      ? "https://placehold.co/140x40/171717/f0f0f0?text=Logo"
+      : "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo";
   } catch (error) {
-    console.error('Error getting logo URL:', error);
+    console.error("Error getting logo URL:", error);
     // Return fallback placeholder
     return isDarkMode
-      ? 'https://placehold.co/140x40/171717/f0f0f0?text=Logo'
-      : 'https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo';
+      ? "https://placehold.co/140x40/171717/f0f0f0?text=Logo"
+      : "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo";
   }
 }
 
@@ -61,21 +66,21 @@ export async function getSiteSettings() {
   const logoDarkUrl = await getEmailLogoUrl(true);
 
   return {
-    companyName: siteSettingsData.companyName || 'XYZ Company',
+    companyName: siteSettingsData.companyName || "XYZ Company",
     logoUrl,
     logoDarkUrl,
     tagline: siteSettingsData.seo.defaultDescription,
-    address: siteSettingsData.contact.address || '',
-    phone: siteSettingsData.contact.phone || '',
-    email: siteSettingsData.contact.email || '',
-    contactEmail: siteSettingsData.contact.email || '',
+    address: siteSettingsData.contact.address || "",
+    phone: siteSettingsData.contact.phone || "",
+    email: siteSettingsData.contact.email || "",
+    contactEmail: siteSettingsData.contact.email || "",
     socialMedia: {
-      facebook: siteSettingsData.socialMedia?.facebook || '',
-      twitter: siteSettingsData.socialMedia?.twitter || '',
-      instagram: siteSettingsData.socialMedia?.instagram || '',
-      linkedin: siteSettingsData.socialMedia?.linkedin || '',
-      youtube: siteSettingsData.socialMedia?.youtube || ''
-    }
+      facebook: siteSettingsData.socialMedia?.facebook || "",
+      twitter: siteSettingsData.socialMedia?.twitter || "",
+      instagram: siteSettingsData.socialMedia?.instagram || "",
+      linkedin: siteSettingsData.socialMedia?.linkedin || "",
+      youtube: siteSettingsData.socialMedia?.youtube || "",
+    },
   };
 }
 
@@ -97,8 +102,8 @@ export function getLogoUrl(isDarkMode: boolean = false): string {
 
   // Default placeholder
   return isDarkMode
-    ? 'https://placehold.co/140x40/171717/f0f0f0?text=Logo'
-    : 'https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo';
+    ? "https://placehold.co/140x40/171717/f0f0f0?text=Logo"
+    : "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo";
 }
 
 /**
@@ -106,7 +111,7 @@ export function getLogoUrl(isDarkMode: boolean = false): string {
  * @returns The company name
  */
 export function getCompanyName(): string {
-  return siteSettingsData.companyName || 'XYZ Company';
+  return siteSettingsData.companyName || "XYZ Company";
 }
 
 /**

@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import axios from 'axios';
+import { useState } from "react";
+import { API_CONFIG } from "@/config/api.config";
+import axios from "axios";
 
 // Get backend API URL - use env variable for production support
 function getBackendUrl(): string {
   // NEXT_PUBLIC_API_URL includes /api suffix
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
+  const apiUrl = API_CONFIG.API_URL;
   // Remove /api suffix for settings endpoint which uses /settings not /api/settings
-  return apiUrl.replace(/\/api\/?$/, '');
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 export interface DNSVerificationResult {
-  recordType: 'SPF' | 'DKIM' | 'DMARC' | 'MX' | 'CNAME';
+  recordType: "SPF" | "DKIM" | "DMARC" | "MX" | "CNAME";
   verified: boolean;
   expected?: string;
   actual?: string;
@@ -32,7 +33,8 @@ export interface DomainVerificationResult {
 
 export function useDNSVerification() {
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<DomainVerificationResult | null>(null);
+  const [verificationResult, setVerificationResult] =
+    useState<DomainVerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const verifyDNS = async (domain: string, provider: string) => {
@@ -43,14 +45,15 @@ export function useDNSVerification() {
       const response = await axios.get<DomainVerificationResult>(
         `${getBackendUrl()}/settings/email/verify-dns`,
         {
-          params: { domain, provider }
-        }
+          params: { domain, provider },
+        },
       );
 
       setVerificationResult(response.data);
       return response.data;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'DNS verification failed';
+      const errorMessage =
+        err.response?.data?.message || "DNS verification failed";
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -63,12 +66,12 @@ export function useDNSVerification() {
       const response = await axios.get(
         `${getBackendUrl()}/settings/email/quick-check-dns`,
         {
-          params: { domain }
-        }
+          params: { domain },
+        },
       );
       return response.data;
     } catch (err) {
-      console.error('Quick DNS check failed:', err);
+      console.error("Quick DNS check failed:", err);
       return { hasRecords: false, spfFound: false };
     }
   };

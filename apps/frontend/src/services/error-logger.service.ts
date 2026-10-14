@@ -1,20 +1,20 @@
-import { API_CONFIG } from '@/config/api.config';
-import axios from 'axios';
+import { API_CONFIG } from "@/config/api.config";
+import axios from "axios";
 
 export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  CRITICAL = "critical",
 }
 
 export enum ErrorCategory {
-  API = 'api',
-  COMPONENT = 'component',
-  RENDER = 'render',
-  NETWORK = 'network',
-  AUTH = 'auth',
-  UNKNOWN = 'unknown',
+  API = "api",
+  COMPONENT = "component",
+  RENDER = "render",
+  NETWORK = "network",
+  AUTH = "auth",
+  UNKNOWN = "unknown",
 }
 
 interface ErrorLogData {
@@ -35,10 +35,10 @@ class ErrorLoggerService {
   private isProcessing = false;
 
   constructor() {
-    this.apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
+    this.apiUrl = API_CONFIG.API_URL;
 
     // Setup global error handlers
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       this.setupGlobalHandlers();
     }
   }
@@ -48,7 +48,7 @@ class ErrorLoggerService {
    */
   private setupGlobalHandlers() {
     // Catch unhandled promise rejections
-    window.addEventListener('unhandledrejection', (event) => {
+    window.addEventListener("unhandledrejection", (event) => {
       this.logError({
         message: `Unhandled Promise Rejection: ${event.reason}`,
         severity: ErrorSeverity.HIGH,
@@ -61,9 +61,9 @@ class ErrorLoggerService {
     });
 
     // Catch global errors
-    window.addEventListener('error', (event) => {
+    window.addEventListener("error", (event) => {
       this.logError({
-        message: event.message || 'Unknown error',
+        message: event.message || "Unknown error",
         stack: event.error?.stack,
         severity: ErrorSeverity.HIGH,
         category: ErrorCategory.UNKNOWN,
@@ -87,7 +87,7 @@ class ErrorLoggerService {
     userId?: number;
     metadata?: Record<string, any>;
   }): Promise<void> {
-    if (typeof window === 'undefined') return; // Skip on server-side
+    if (typeof window === "undefined") return; // Skip on server-side
 
     const errorLog: ErrorLogData = {
       ...data,
@@ -123,7 +123,7 @@ class ErrorLoggerService {
       await axios.post(`${this.apiUrl}/frontend-errors`, errorLog, {
         timeout: 5000,
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
     } catch (error) {
@@ -140,7 +140,7 @@ class ErrorLoggerService {
    */
   private storeFailedLog(errorLog: ErrorLogData) {
     try {
-      const stored = localStorage.getItem('failed_error_logs');
+      const stored = localStorage.getItem("failed_error_logs");
       const logs = stored ? JSON.parse(stored) : [];
       logs.push(errorLog);
 
@@ -149,10 +149,10 @@ class ErrorLoggerService {
         logs.splice(0, logs.length - 50);
       }
 
-      localStorage.setItem('failed_error_logs', JSON.stringify(logs));
+      localStorage.setItem("failed_error_logs", JSON.stringify(logs));
     } catch (e) {
       // localStorage might be full or disabled
-      console.error('Failed to store error log', e);
+      console.error("Failed to store error log", e);
     }
   }
 
@@ -161,7 +161,7 @@ class ErrorLoggerService {
    */
   async retryFailedLogs() {
     try {
-      const stored = localStorage.getItem('failed_error_logs');
+      const stored = localStorage.getItem("failed_error_logs");
       if (!stored) return;
 
       const logs: ErrorLogData[] = JSON.parse(stored);
@@ -178,9 +178,9 @@ class ErrorLoggerService {
       }
 
       // Clear successfully sent logs
-      localStorage.removeItem('failed_error_logs');
+      localStorage.removeItem("failed_error_logs");
     } catch (e) {
-      console.error('Failed to retry error logs', e);
+      console.error("Failed to retry error logs", e);
     }
   }
 

@@ -1,26 +1,40 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Wand2 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 interface MacroAction {
-  type: 'update_status' | 'assign' | 'set_priority' | 'add_category' | 'add_tags' | 'add_note' | 'send_email';
+  type:
+    | "update_status"
+    | "assign"
+    | "set_priority"
+    | "add_category"
+    | "add_tags"
+    | "add_note"
+    | "send_email";
   value: string;
   label?: string;
 }
@@ -29,36 +43,46 @@ export default function NewMacroPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     isPublic: true,
   });
   const [actions, setActions] = useState<MacroAction[]>([
-    { type: 'update_status', value: '', label: '' },
+    { type: "update_status", value: "", label: "" },
   ]);
 
   const actionTypes = [
-    { value: 'update_status', label: 'Durum Değiştir' },
-    { value: 'assign', label: 'Kullanıcıya Ata' },
-    { value: 'set_priority', label: 'Öncelik Ayarla' },
-    { value: 'add_category', label: 'Kategori Ekle' },
-    { value: 'add_tags', label: 'Etiket Ekle' },
-    { value: 'add_note', label: 'Not Ekle' },
-    { value: 'send_email', label: 'Email Gönder' },
+    { value: "update_status", label: "Durum Değiştir" },
+    { value: "assign", label: "Kullanıcıya Ata" },
+    { value: "set_priority", label: "Öncelik Ayarla" },
+    { value: "add_category", label: "Kategori Ekle" },
+    { value: "add_tags", label: "Etiket Ekle" },
+    { value: "add_note", label: "Not Ekle" },
+    { value: "send_email", label: "Email Gönder" },
   ];
 
-  const statusOptions = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'PENDING_CUSTOMER'];
-  const priorityOptions = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+  const statusOptions = [
+    "OPEN",
+    "IN_PROGRESS",
+    "RESOLVED",
+    "CLOSED",
+    "PENDING_CUSTOMER",
+  ];
+  const priorityOptions = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
   const handleAddAction = () => {
-    setActions([...actions, { type: 'update_status', value: '', label: '' }]);
+    setActions([...actions, { type: "update_status", value: "", label: "" }]);
   };
 
   const handleRemoveAction = (index: number) => {
     setActions(actions.filter((_, i) => i !== index));
   };
 
-  const handleActionChange = (index: number, field: keyof MacroAction, value: string) => {
+  const handleActionChange = (
+    index: number,
+    field: keyof MacroAction,
+    value: string,
+  ) => {
     const newActions = [...actions];
     newActions[index] = { ...newActions[index], [field]: value };
     setActions(newActions);
@@ -70,10 +94,10 @@ export default function NewMacroPage() {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/admin/macros', {
-        method: 'POST',
+      const response = await apiFetch("/api/admin/macros", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...formData,
@@ -82,10 +106,10 @@ export default function NewMacroPage() {
       });
 
       if (response.ok) {
-        router.push('/admin/support/macros');
+        router.push("/admin/support/macros");
       }
     } catch (error) {
-      console.error('Failed to create macro:', error);
+      console.error("Failed to create macro:", error);
     } finally {
       setLoading(false);
     }
@@ -93,15 +117,15 @@ export default function NewMacroPage() {
 
   const getValuePlaceholder = (type: string): string => {
     const placeholders: Record<string, string> = {
-      update_status: 'Durum seçin',
-      assign: 'Kullanıcı ID',
-      set_priority: 'Öncelik seçin',
-      add_category: 'Kategori ID',
-      add_tags: 'etiket1, etiket2',
-      add_note: 'Not içeriği',
-      send_email: 'Email template ID',
+      update_status: "Durum seçin",
+      assign: "Kullanıcı ID",
+      set_priority: "Öncelik seçin",
+      add_category: "Kategori ID",
+      add_tags: "etiket1, etiket2",
+      add_note: "Not içeriği",
+      send_email: "Email template ID",
     };
-    return placeholders[type] || 'Değer girin';
+    return placeholders[type] || "Değer girin";
   };
 
   return (
@@ -139,7 +163,9 @@ export default function NewMacroPage() {
                 id="name"
                 placeholder="Örn: Spam olarak işaretle ve kapat"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </div>
@@ -150,7 +176,9 @@ export default function NewMacroPage() {
                 id="description"
                 placeholder="Bu makronun ne işe yaradığını açıklayın"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={3}
                 required
               />
@@ -158,14 +186,17 @@ export default function NewMacroPage() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Genel Makro</Label>
+                <Label htmlFor="macro-public">Genel Makro</Label>
                 <p className="text-sm text-muted-foreground">
                   Tüm kullanıcılar bu makroyu kullanabilir
                 </p>
               </div>
               <Switch
+                id="macro-public"
                 checked={formData.isPublic}
-                onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isPublic: checked })
+                }
               />
             </div>
           </CardContent>
@@ -177,9 +208,16 @@ export default function NewMacroPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>İşlemler</CardTitle>
-                <CardDescription>Bu makro hangi işlemleri gerçekleştirecek?</CardDescription>
+                <CardDescription>
+                  Bu makro hangi işlemleri gerçekleştirecek?
+                </CardDescription>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={handleAddAction}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddAction}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 İşlem Ekle
               </Button>
@@ -204,14 +242,20 @@ export default function NewMacroPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>İşlem Tipi</Label>
+                    <Label htmlFor={`macro-action-type-${index}`}>
+                      İşlem Tipi
+                    </Label>
                     <Select
                       value={action.type}
                       onValueChange={(value) =>
-                        handleActionChange(index, 'type', value as MacroAction['type'])
+                        handleActionChange(
+                          index,
+                          "type",
+                          value as MacroAction["type"],
+                        )
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id={`macro-action-type-${index}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -225,13 +269,15 @@ export default function NewMacroPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Değer</Label>
-                    {action.type === 'update_status' ? (
+                    <Label htmlFor={`macro-action-value-${index}`}>Değer</Label>
+                    {action.type === "update_status" ? (
                       <Select
                         value={action.value}
-                        onValueChange={(value) => handleActionChange(index, 'value', value)}
+                        onValueChange={(value) =>
+                          handleActionChange(index, "value", value)
+                        }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={`macro-action-value-${index}`}>
                           <SelectValue placeholder="Durum seçin" />
                         </SelectTrigger>
                         <SelectContent>
@@ -242,12 +288,14 @@ export default function NewMacroPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : action.type === 'set_priority' ? (
+                    ) : action.type === "set_priority" ? (
                       <Select
                         value={action.value}
-                        onValueChange={(value) => handleActionChange(index, 'value', value)}
+                        onValueChange={(value) =>
+                          handleActionChange(index, "value", value)
+                        }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={`macro-action-value-${index}`}>
                           <SelectValue placeholder="Öncelik seçin" />
                         </SelectTrigger>
                         <SelectContent>
@@ -260,21 +308,30 @@ export default function NewMacroPage() {
                       </Select>
                     ) : (
                       <Input
+                        id={`macro-action-value-${index}`}
                         placeholder={getValuePlaceholder(action.type)}
                         value={action.value}
-                        onChange={(e) => handleActionChange(index, 'value', e.target.value)}
+                        onChange={(e) =>
+                          handleActionChange(index, "value", e.target.value)
+                        }
                       />
                     )}
                   </div>
                 </div>
 
-                {(action.type === 'add_note' || action.type === 'send_email') && (
+                {(action.type === "add_note" ||
+                  action.type === "send_email") && (
                   <div className="space-y-2">
-                    <Label>Etiket (Opsiyonel)</Label>
+                    <Label htmlFor={`macro-action-label-${index}`}>
+                      Etiket (Opsiyonel)
+                    </Label>
                     <Input
+                      id={`macro-action-label-${index}`}
                       placeholder="Görüntülenecek etiket"
-                      value={action.label || ''}
-                      onChange={(e) => handleActionChange(index, 'label', e.target.value)}
+                      value={action.label || ""}
+                      onChange={(e) =>
+                        handleActionChange(index, "label", e.target.value)
+                      }
                     />
                   </div>
                 )}
@@ -290,25 +347,29 @@ export default function NewMacroPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong>Durum Değiştir:</strong> Ticket durumunu değiştirir (OPEN, IN_PROGRESS, RESOLVED, CLOSED)
+              <strong>Durum Değiştir:</strong> Ticket durumunu değiştirir (OPEN,
+              IN_PROGRESS, RESOLVED, CLOSED)
             </p>
             <p>
-              <strong>Kullanıcıya Ata:</strong> Ticket'ı belirtilen kullanıcıya atar
+              <strong>Kullanıcıya Ata:</strong> Ticket&apos;ı belirtilen
+              kullanıcıya atar
             </p>
             <p>
-              <strong>Öncelik Ayarla:</strong> Ticket önceliğini ayarlar (LOW, MEDIUM, HIGH, URGENT)
+              <strong>Öncelik Ayarla:</strong> Ticket önceliğini ayarlar (LOW,
+              MEDIUM, HIGH, URGENT)
             </p>
             <p>
-              <strong>Kategori Ekle:</strong> Ticket'a kategori ekler
+              <strong>Kategori Ekle:</strong> Ticket&apos;a kategori ekler
             </p>
             <p>
               <strong>Etiket Ekle:</strong> Virgülle ayrılmış etiketler ekler
             </p>
             <p>
-              <strong>Not Ekle:</strong> Ticket'a dahili not ekler
+              <strong>Not Ekle:</strong> Ticket&apos;a dahili not ekler
             </p>
             <p>
-              <strong>Email Gönder:</strong> Belirtilen email template'ini gönderir
+              <strong>Email Gönder:</strong> Belirtilen email template&apos;ini
+              gönderir
             </p>
           </CardContent>
         </Card>

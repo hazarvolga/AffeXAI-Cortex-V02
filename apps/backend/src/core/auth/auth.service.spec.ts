@@ -78,13 +78,11 @@ describe("AuthService - Multi-Tenancy Tests", () => {
       jest
         .spyOn(settingsService, "getFrontendUrl")
         .mockResolvedValue("https://tenanta.com");
-      jest
-        .spyOn(mailService, "sendMail")
-        .mockResolvedValue({
-          success: true,
-          provider: "mock",
-          timestamp: new Date(),
-        });
+      jest.spyOn(mailService, "sendMail").mockResolvedValue({
+        success: true,
+        provider: "mock",
+        timestamp: new Date(),
+      });
 
       // Act
       await service.sendVerificationEmail(userId, email, firstName, tenantId);
@@ -107,13 +105,11 @@ describe("AuthService - Multi-Tenancy Tests", () => {
       jest
         .spyOn(service, "createEmailVerificationToken")
         .mockResolvedValue("token");
-      jest
-        .spyOn(mailService, "sendMail")
-        .mockResolvedValue({
-          success: true,
-          provider: "mock",
-          timestamp: new Date(),
-        });
+      jest.spyOn(mailService, "sendMail").mockResolvedValue({
+        success: true,
+        provider: "mock",
+        timestamp: new Date(),
+      });
 
       // Mock different URLs for different tenants
       jest
@@ -146,6 +142,12 @@ describe("AuthService - Multi-Tenancy Tests", () => {
     });
   });
 
+  // The service stores only a hash of the refresh token and compares hashes.
+  const storedRefreshHash = (token: string) =>
+    (
+      service as unknown as { hashRefreshToken: (value: string) => string }
+    ).hashRefreshToken(token);
+
   describe("Sprint 2: refreshAccessToken - Preserve tenantId", () => {
     it("should preserve tenantId in new access token", async () => {
       // Arrange
@@ -155,7 +157,7 @@ describe("AuthService - Multi-Tenancy Tests", () => {
         tokenVersion: 1,
         tenantId: "tenant-a",
         isActive: true,
-        refreshToken: "old-refresh-token",
+        refreshToken: storedRefreshHash("old-refresh-token"),
         refreshTokenExpires: new Date(Date.now() + 86400000),
       };
 
@@ -195,7 +197,7 @@ describe("AuthService - Multi-Tenancy Tests", () => {
         tokenVersion: 1,
         tenantId: "tenant-a",
         isActive: true,
-        refreshToken: "refresh-a",
+        refreshToken: storedRefreshHash("refresh-a"),
         refreshTokenExpires: new Date(Date.now() + 86400000),
       };
 
@@ -205,7 +207,7 @@ describe("AuthService - Multi-Tenancy Tests", () => {
         tokenVersion: 1,
         tenantId: "tenant-b",
         isActive: true,
-        refreshToken: "refresh-b",
+        refreshToken: storedRefreshHash("refresh-b"),
         refreshTokenExpires: new Date(Date.now() + 86400000),
       };
 

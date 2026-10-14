@@ -395,3 +395,15 @@ Açık: production'da `TRUST_PROXY_HOPS` ve throttle anahtarı (istemci IP'si Tr
 - **Test koşucusu:** köşeli parantezli yolları `sed 's/\[/[[]/g'` ile kaçırarak verin; aksi halde node:test bunları glob sayıp sessizce atlıyor.
 
 Açık: diğer tenant sayfalarının sayfa içi denetimi (F3.5–F3.7), light/dark ve zoom ekran görüntüsü kanıtı, kullanıcı silme ve toplu işlem backend sözleşmesi.
+
+## UI/UX F3.5 — e-posta, destek ve otomasyon ekranları — 2026-10-14
+
+- **Oturumlu API çağrısı:** istemcide `/api/…` için `apiFetch` (`src/lib/api/api-fetch.ts`) kullanın; elle `Authorization: Bearer ${localStorage…}` yazmayın. Backend `{success, data}` zarfını `readApiData<T>(response)` açar. Backend adresi istemcide `API_CONFIG`, sunucuda `backendApiUrl()`.
+- **Kabuksuz sayfa:** `BccEditorialWrapper` kullanmayan tenant sayfası layout'unda `AdminPageFrame` ile sarılır (atlama bağlantısı + `<main id="tenant-main-content">`). Tam ekran Radix modal içinde sayfa kurmayın: arka plan `inert` olur ve atlama bağlantısı çalışmaz (otomasyon sihirbazı bu yüzden sayfa içine alındı).
+- **Tenant bağlantıları:** `useTenantAdminHref()` → `tenantHref('/email/…')`; eski `/admin/email-marketing` ağacına bağlantı vermeyin.
+- **Tickets controller sırası:** `tickets.controllers.ts` içinde `TicketsController` sonda kalmalı; yoksa `/tickets/<sabit>` rotaları `tickets/:id`'ye düşer.
+- **Migration:** `1791450000000-FaqPipelineState` (katalogda `EventPermissionNormalization`'dan sonra). Production'da `faq_pipeline_state` yoksa FAQ öğrenme sayfaları 500 veriyordu.
+- **Jest:** `apps/backend/jest.config.js` `maxWorkers: 2`, `workerIdleMemoryLimit: '1GB'`. Jest, Next build ve Docker build'i paralel koşmayın (48 GB makine kilitleniyordu). `@nestjs/mapped-types@12` ESM-only; spec'te `jest.mock` ile stub'layın, global moduleNameMapper sonsuz döngüye giriyor.
+- **Kabul testi:** `apps/frontend/scripts/acceptance/tenant-routes.cjs` (`TENANT_ROUTES_ACCEPTANCE_ISOLATED=1`, `ROUTE_SET=email|support`, `ONLY=`). Fixture rolü gerçek tenant admin yetki listesini `TenantAdminPermissions` migration'ından okur (wildcard yok).
+
+Açık: e-posta şablon builder'ı (F3.6), otomasyon kaydet/etkinleştir ve kampanya planlama/gönderim akışı (modül sprinti), `TRUST_PROXY_HOPS` / throttle anahtarı (F4 sonrası altyapı işi).

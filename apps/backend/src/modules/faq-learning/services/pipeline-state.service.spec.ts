@@ -1,134 +1,167 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PipelineStateService } from './pipeline-state.service';
-import { PipelineState, PipelineStatus } from '../entities/pipeline-state.entity';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { PipelineStateService } from "./pipeline-state.service";
+import {
+  PipelineState,
+  PipelineStatus,
+} from "../entities/pipeline-state.entity";
 
-describe('PipelineStateService', () => {
-    let service: PipelineStateService;
-    let repository: Repository<PipelineState>;
+const TENANT = "acme";
 
-    const mockState = {
-        id: 'state-1',
+describe("PipelineStateService", () => {
+  let service: PipelineStateService;
+
+  const baseState = () =>
+    ({
+      id: "state-1",
+      tenantId: TENANT,
+      status: PipelineStatus.STOPPED,
+      dailyProcessingCount: 0,
+      totalFaqsGenerated: 0,
+      processingConfig: {
+        mode: "manual",
+        batchSize: 50,
+        scheduleInterval: 3600,
+      },
+      updatedAt: new Date(),
+    }) as PipelineState;
+
+  const repository = {
+    findOne: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PipelineStateService,
+        { provide: getRepositoryToken(PipelineState), useValue: repository },
+      ],
+    }).compile();
+    service = module.get(PipelineStateService);
+  });
+
+  describe("getState", () => {
+    it("returns the tenant's latest state", async () => {
+      const state = baseState();
+      repository.findOne.mockResolvedValue(state);
+
+      await expect(service.getState(TENANT)).resolves.toBe(state);
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: { tenantId: TENANT },
+        order: { createdAt: "DESC" },
+      });
+    });
+
+    it("creates a stopped, manual state for a tenant that has none", async () => {
+      repository.findOne.mockResolvedValue(null);
+
+      const state = await service.getState(TENANT);
+
+      expect(state).toMatchObject({
+        tenantId: TENANT,
         status: PipelineStatus.STOPPED,
         dailyProcessingCount: 0,
-        totalFaqsGenerated: 0,
+        processingConfig: { mode: "manual" },
+      });
+      expect(repository.save).toHaveBeenCalledWith(state);
+    });
+  });
+
+  describe("updateStatus", () => {
+    it("sets the status and records the run time when started", async () => {
+      repository.findOne.mockResolvedValue(baseState());
+
+      const state = await service.updateStatus(PipelineStatus.RUNNING, TENANT);
+
+      expect(state.status).toBe(PipelineStatus.RUNNING);
+      expect(state.lastRun).toBeInstanceOf(Date);
+    });
+
+    it("records error details", async () => {
+      repository.findOne.mockResolvedValue(baseState());
+
+      await service.markError(TENANT, { message: "Test Error" });
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: PipelineStatus.ERROR,
+          lastError: expect.objectContaining({ message: "Test Error" }),
+        }),
+      );
+    });
+  });
+
+  describe("start/stop", () => {
+    it("starts and stops the pipeline for the given tenant", async () => {
+      const spy = jest
+        .spyOn(service, "updateStatus")
+        .mockResolvedValue(baseState());
+
+      await service.start(TENANT);
+      await service.stop(TENANT);
+
+      expect(spy).toHaveBeenNthCalledWith(1, PipelineStatus.RUNNING, TENANT);
+      expect(spy).toHaveBeenNthCalledWith(2, PipelineStatus.STOPPED, TENANT);
+    });
+  });
+
+  describe("counters", () => {
+    it("increments and resets the daily count", async () => {
+      repository.findOne.mockResolvedValueOnce(baseState());
+      await service.incrementDailyCount(TENANT);
+      expect(repository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ dailyProcessingCount: 1 }),
+      );
+
+      repository.findOne.mockResolvedValueOnce({
+        ...baseState(),
+        dailyProcessingCount: 10,
+      });
+      await service.resetDailyCount(TENANT);
+      expect(repository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ dailyProcessingCount: 0 }),
+      );
+    });
+
+    it("adds generated FAQs to the total", async () => {
+      repository.findOne.mockResolvedValue({
+        ...baseState(),
+        totalFaqsGenerated: 4,
+      });
+
+      await service.incrementTotalFaqs(TENANT, 3);
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ totalFaqsGenerated: 7 }),
+      );
+    });
+  });
+
+  it("merges config updates with the stored config", async () => {
+    repository.findOne.mockResolvedValue(baseState());
+
+    await service.updateConfig(TENANT, { batchSize: 100 });
+
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
         processingConfig: {
-            mode: 'manual',
+          mode: "manual",
+          batchSize: 100,
+          scheduleInterval: 3600,
         },
-        updatedAt: new Date(),
-    };
+      }),
+    );
+  });
 
-    const mockRepository = {
-        find: jest.fn(),
-        create: jest.fn(),
-        save: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                PipelineStateService,
-                {
-                    provide: getRepositoryToken(PipelineState),
-                    useValue: mockRepository,
-                },
-            ],
-        }).compile();
-
-        service = module.get<PipelineStateService>(PipelineStateService);
-        repository = module.get(getRepositoryToken(PipelineState));
-
-        jest.clearAllMocks();
+  it("reports whether the pipeline is running", async () => {
+    repository.findOne.mockResolvedValue({
+      ...baseState(),
+      status: PipelineStatus.RUNNING,
     });
 
-    describe('getState', () => {
-        it('should return existing state', async () => {
-            mockRepository.find.mockResolvedValue([mockState]);
-
-            const state = await service.getState();
-
-            expect(state).toEqual(mockState);
-        });
-
-        it('should create initial state if none exists', async () => {
-            mockRepository.find.mockResolvedValue([]);
-            mockRepository.create.mockReturnValue(mockState);
-            mockRepository.save.mockResolvedValue(mockState);
-
-            const state = await service.getState();
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(state).toEqual(mockState);
-        });
-    });
-
-    describe('updateStatus', () => {
-        it('should update status and timestamp', async () => {
-            mockRepository.find.mockResolvedValue([mockState]);
-            mockRepository.save.mockResolvedValue({ ...mockState, status: PipelineStatus.RUNNING });
-
-            const state = await service.updateStatus(PipelineStatus.RUNNING);
-
-            expect(state.status).toBe(PipelineStatus.RUNNING);
-        });
-
-        it('should record error details', async () => {
-            mockRepository.find.mockResolvedValue([mockState]);
-
-            await service.updateStatus(PipelineStatus.ERROR, { message: 'Test Error' });
-
-            expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({
-                lastError: expect.objectContaining({ message: 'Test Error' })
-            }));
-        });
-    });
-
-    describe('start/stop', () => {
-        it('should start pipeline', async () => {
-            jest.spyOn(service, 'updateStatus').mockResolvedValue({} as any);
-            await service.start();
-            expect(service.updateStatus).toHaveBeenCalledWith(PipelineStatus.RUNNING);
-        });
-
-        it('should stop pipeline', async () => {
-            jest.spyOn(service, 'updateStatus').mockResolvedValue({} as any);
-            await service.stop();
-            expect(service.updateStatus).toHaveBeenCalledWith(PipelineStatus.STOPPED);
-        });
-    });
-
-    describe('Counters', () => {
-        it('should increment daily count', async () => {
-            mockRepository.find.mockResolvedValue([mockState]);
-
-            await service.incrementDailyCount();
-
-            expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({
-                dailyProcessingCount: 1
-            }));
-        });
-
-        it('should reset daily count', async () => {
-            mockRepository.find.mockResolvedValue([{ ...mockState, dailyProcessingCount: 10 }]);
-
-            await service.resetDailyCount();
-
-            expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({
-                dailyProcessingCount: 0
-            }));
-        });
-    });
-
-    describe('updateConfig', () => {
-        it('should merge config updates', async () => {
-            mockRepository.find.mockResolvedValue([mockState]);
-
-            await service.updateConfig({ batchSize: 100 });
-
-            expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({
-                processingConfig: expect.objectContaining({ batchSize: 100 })
-            }));
-        });
-    });
+    await expect(service.isRunning(TENANT)).resolves.toBe(true);
+  });
 });

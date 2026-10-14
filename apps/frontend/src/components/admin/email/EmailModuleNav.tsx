@@ -1,45 +1,50 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+const NAV_ITEMS = [
+  { label: "Genel bakış", path: "" },
+  { label: "Kampanyalar", path: "/campaigns" },
+  { label: "Otomasyonlar", path: "/automations" },
+  { label: "Aboneler", path: "/subscribers" },
+  { label: "Şablonlar", path: "/templates" },
+  { label: "Liste tarama", path: "/validation" },
+  { label: "Adres doğrulama", path: "/validator" },
+  { label: "Analitik", path: "/analytics" },
+] as const;
+
+/** Secondary navigation for the e-mail marketing module. */
 export const EmailModuleNav = () => {
-    const pathname = usePathname();
-    const params = useParams();
-    const tenant = params?.tenant as string || "default";
+  const pathname = usePathname();
+  const params = useParams();
+  const tenant = (params?.tenant as string) || "default";
 
-    const navItems = [
-        { label: "OVERVIEW", href: `/${tenant}/admin/email` },
-        { label: "CAMPAIGNS", href: `/${tenant}/admin/email/campaigns` },
-        { label: "AUTOMATIONS", href: `/${tenant}/admin/email/automations` },
-        { label: "SUBSCRIBERS", href: `/${tenant}/admin/email/subscribers` },
-        { label: "TEMPLATES", href: `/${tenant}/admin/email/templates` },
-        { label: "SCANNER", href: `/${tenant}/admin/email/validation` },
-        { label: "VALIDATOR", href: `/${tenant}/admin/email/validator` },
-        { label: "ANALYTICS", href: `/${tenant}/admin/email/analytics` }
-    ];
-
-    return (
-        <nav className="flex items-center gap-8 font-mono text-[9px] tracking-widest overflow-x-auto no-scrollbar w-full flex-nowrap whitespace-nowrap pb-2">
-            {navItems.map((item, idx) => {
-                const isActive = pathname === item.href;
-                return (
-                    <Link
-                        key={item.label}
-                        href={item.href}
-                        className={cn(
-                            "px-3 py-1 transition-all duration-300 border-b-2 shrink-0",
-                            isActive
-                                ? "text-white border-[#ff8c00] bg-[#ff8c00]/5"
-                                : "text-white/30 border-transparent hover:text-[#ff8c00] hover:bg-white/5"
-                        )}
-                    >
-                        [ {item.label} ]
-                    </Link>
-                );
-            })}
-        </nav>
-    );
+  return (
+    <nav aria-label="E-posta pazarlama" className="w-full overflow-x-auto pb-2">
+      <ul className="flex w-max items-center gap-2 text-xs font-medium">
+        {NAV_ITEMS.map((item) => {
+          const href = `/${tenant}/admin/email${item.path}`;
+          const isActive = pathname === href;
+          return (
+            <li key={item.path}>
+              <Link
+                href={href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-9 items-center border-b-2 px-3 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                  isActive
+                    ? "border-[#ff8c00] bg-[#ff8c00]/10 text-white"
+                    : "border-transparent text-white/75 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
 };

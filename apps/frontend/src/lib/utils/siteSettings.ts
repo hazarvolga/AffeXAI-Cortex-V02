@@ -1,10 +1,11 @@
-import { siteSettingsData } from '@/lib/site-settings-data';
+import { siteSettingsData } from "@/lib/site-settings-data";
+import { API_CONFIG } from "@/config/api.config";
 
 // Get base URL for media files - use env variable for production support
 function getMediaBaseUrl(): string {
   // NEXT_PUBLIC_API_URL ends with /api, we need to remove it for media URLs
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = API_CONFIG.API_URL;
+  return apiUrl.replace(/\/api\/?$/, "");
 }
 
 /**
@@ -16,32 +17,34 @@ function getMediaBaseUrl(): string {
 export function getLogoUrl(isDarkMode: boolean = false): string {
   try {
     // Check if we have a media ID for the logo
-    const logoId = isDarkMode ? siteSettingsData.logoDarkId : siteSettingsData.logoId;
+    const logoId = isDarkMode
+      ? siteSettingsData.logoDarkId
+      : siteSettingsData.logoId;
 
     if (logoId) {
       // Return the media URL directly
       return `${getMediaBaseUrl()}/uploads/${logoId}`;
     }
-    
+
     // Fallback to the direct URL if available
     if (isDarkMode && siteSettingsData.logoDarkUrl) {
       return siteSettingsData.logoDarkUrl;
     }
-    
+
     if (!isDarkMode && siteSettingsData.logoUrl) {
       return siteSettingsData.logoUrl;
     }
-    
+
     // Default placeholder
-    return isDarkMode 
-      ? 'https://placehold.co/140x40/171717/f0f0f0?text=Logo' 
-      : 'https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo';
+    return isDarkMode
+      ? "https://placehold.co/140x40/171717/f0f0f0?text=Logo"
+      : "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo";
   } catch (error) {
-    console.error('Error getting logo URL:', error);
+    console.error("Error getting logo URL:", error);
     // Return fallback placeholder
-    return isDarkMode 
-      ? 'https://placehold.co/140x40/171717/f0f0f0?text=Logo' 
-      : 'https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo';
+    return isDarkMode
+      ? "https://placehold.co/140x40/171717/f0f0f0?text=Logo"
+      : "https://placehold.co/140x40/f7f7f7/1a1a1a?text=Logo";
   }
 }
 
@@ -50,5 +53,5 @@ export function getLogoUrl(isDarkMode: boolean = false): string {
  * @returns The company name
  */
 export function getCompanyName(): string {
-  return siteSettingsData.companyName || 'XYZ Company';
+  return siteSettingsData.companyName || "XYZ Company";
 }

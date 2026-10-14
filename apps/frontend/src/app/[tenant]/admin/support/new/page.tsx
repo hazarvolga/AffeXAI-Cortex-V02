@@ -191,11 +191,12 @@ export default function AdminNewSupportTicketPage() {
                   <Button
                     type="button"
                     onClick={addTag}
+                    aria-label="Etiketi ekle"
                     size="icon"
                     variant="outline"
                     className="rounded-none border-white/10 hover:bg-[#9df425]/10 hover:text-[#9df425]"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus aria-hidden className="h-4 w-4" />
                   </Button>
                 </div>
                 {tags.length > 0 && (
@@ -260,6 +261,7 @@ export default function AdminNewSupportTicketPage() {
                         <Button
                           type="button"
                           onClick={() => removeCustomField(key)}
+                          aria-label={`${key} alanını kaldır`}
                           size="icon"
                           variant="ghost"
                           className="mt-5 h-8 w-8 hover:text-red-500 rounded-none"

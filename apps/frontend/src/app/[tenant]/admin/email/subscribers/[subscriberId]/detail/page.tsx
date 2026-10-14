@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 import { use } from "react";
 import { notFound, useRouter } from "next/navigation";
 import {
@@ -14,11 +15,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Edit, Mail, Phone, Building, User, Calendar, Tag, Folder, CheckCircle, XCircle, HelpCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Mail,
+  Phone,
+  Building,
+  User,
+  Calendar,
+  Tag,
+  Folder,
+  CheckCircle,
+  XCircle,
+  HelpCircle,
+} from "lucide-react";
 import Link from "next/link";
 import subscribersService, { Subscriber } from "@/lib/api/subscribersService";
 
-export default function SubscriberDetailPage({ params }: { params: Promise<{ subscriberId: string }> }) {
+export default function SubscriberDetailPage({
+  params,
+}: {
+  params: Promise<{ subscriberId: string }>;
+}) {
+  const tenantHref = useTenantAdminHref();
   // Unwrap the params promise using React.use()
   const unwrappedParams = use(params);
   const { subscriberId } = unwrappedParams;
@@ -41,11 +60,11 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
         setSubscriber(subscriberData);
         setError(null);
       } catch (err: any) {
-        console.error('Error fetching subscriber:', err);
+        console.error("Error fetching subscriber:", err);
         if (err.response?.status === 404) {
           notFound();
         } else {
-          setError('Abone bilgileri yüklenirken bir hata oluştu.');
+          setError("Abone bilgileri yüklenirken bir hata oluştu.");
         }
       } finally {
         setLoading(false);
@@ -56,7 +75,9 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
   }, [subscriberId]);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64">Yükleniyor...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">Yükleniyor...</div>
+    );
   }
 
   if (error) {
@@ -68,31 +89,40 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
     return null;
   }
 
-  const getStatusVariant = (status: Subscriber['status']) => {
+  const getStatusVariant = (status: Subscriber["status"]) => {
     switch (status) {
-      case 'active': return 'default';
-      case 'pending': return 'secondary';
-      case 'unsubscribed': return 'outline';
-      default: return 'outline';
+      case "active":
+        return "default";
+      case "pending":
+        return "secondary";
+      case "unsubscribed":
+        return "outline";
+      default:
+        return "outline";
     }
   };
 
-  const getStatusText = (status: Subscriber['status']) => {
+  const getStatusText = (status: Subscriber["status"]) => {
     switch (status) {
-      case 'active': return 'Aktif';
-      case 'pending': return 'Onay Bekliyor';
-      case 'unsubscribed': return 'İptal Edilmiş';
-      default: return status;
+      case "active":
+        return "Aktif";
+      case "pending":
+        return "Onay Bekliyor";
+      case "unsubscribed":
+        return "İptal Edilmiş";
+      default:
+        return status;
     }
   };
 
   const getMailerCheckIcon = (result: string | undefined) => {
-    if (!result) return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
+    if (!result)
+      return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
 
     switch (result.toLowerCase()) {
-      case 'valid':
+      case "valid":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'invalid':
+      case "invalid":
         return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <HelpCircle className="h-4 w-4 text-yellow-500" />;
@@ -100,7 +130,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
   };
 
   const getMailerCheckText = (result: string | undefined) => {
-    if (!result) return 'Bilinmiyor';
+    if (!result) return "Bilinmiyor";
     return result.charAt(0).toUpperCase() + result.slice(1);
   };
 
@@ -108,7 +138,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
     <div className="space-y-8">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/admin/email-marketing">
+          <Link href={tenantHref("/email")}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -128,7 +158,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
               </CardDescription>
             </div>
             <Button asChild>
-              <Link href={`/admin/email-marketing/subscribers/${subscriberId}`}>
+              <Link href={tenantHref(`/email/subscribers/${subscriberId}`)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Düzenle
               </Link>
@@ -168,13 +198,19 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
             {subscriber.groups.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {subscriber.groups.map((group, index) => (
-                  <Badge key={index} variant="outline" className="flex items-center gap-1">
+                  <Badge
+                    key={index}
+                    variant="outline"
+                    className="flex items-center gap-1"
+                  >
                     {group}
                   </Badge>
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">Bu abone hiçbir gruba eklenmemiş.</p>
+              <p className="text-muted-foreground text-sm">
+                Bu abone hiçbir gruba eklenmemiş.
+              </p>
             )}
           </div>
 
@@ -187,7 +223,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Ad</span>
               </div>
-              <p>{subscriber.firstName || 'Belirtilmemiş'}</p>
+              <p>{subscriber.firstName || "Belirtilmemiş"}</p>
             </div>
 
             <div className="space-y-2">
@@ -195,7 +231,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Soyad</span>
               </div>
-              <p>{subscriber.lastName || 'Belirtilmemiş'}</p>
+              <p>{subscriber.lastName || "Belirtilmemiş"}</p>
             </div>
 
             <div className="space-y-2">
@@ -203,7 +239,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <Building className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Şirket</span>
               </div>
-              <p>{subscriber.company || 'Belirtilmemiş'}</p>
+              <p>{subscriber.company || "Belirtilmemiş"}</p>
             </div>
 
             <div className="space-y-2">
@@ -211,7 +247,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Telefon</span>
               </div>
-              <p>{subscriber.phone || 'Belirtilmemiş'}</p>
+              <p>{subscriber.phone || "Belirtilmemiş"}</p>
             </div>
           </div>
 
@@ -224,7 +260,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Müşteri Durumu</span>
               </div>
-              <p>{subscriber.customerStatus || 'Bilinmiyor'}</p>
+              <p>{subscriber.customerStatus || "Bilinmiyor"}</p>
             </div>
 
             <div className="space-y-2">
@@ -232,7 +268,7 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
                 <Tag className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Kalıcı/SUB/SSA</span>
               </div>
-              <p>{subscriber.subscriptionType || 'Belirtilmemiş'}</p>
+              <p>{subscriber.subscriptionType || "Belirtilmemiş"}</p>
             </div>
           </div>
 
@@ -244,7 +280,9 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
               {getMailerCheckIcon(subscriber.mailerCheckResult || undefined)}
               <span className="text-sm font-medium">MailerCheck result</span>
             </div>
-            <p>{getMailerCheckText(subscriber.mailerCheckResult || undefined)}</p>
+            <p>
+              {getMailerCheckText(subscriber.mailerCheckResult || undefined)}
+            </p>
           </div>
 
           <Separator />
@@ -255,7 +293,9 @@ export default function SubscriberDetailPage({ params }: { params: Promise<{ sub
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Abonelik Tarihi</span>
             </div>
-            <p>{new Date(subscriber.subscribedAt).toLocaleDateString('tr-TR')}</p>
+            <p>
+              {new Date(subscriber.subscribedAt).toLocaleDateString("tr-TR")}
+            </p>
           </div>
         </CardContent>
       </Card>

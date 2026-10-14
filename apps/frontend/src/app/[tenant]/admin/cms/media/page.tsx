@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { API_CONFIG } from "@/config/api.config";
 import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -201,8 +202,7 @@ const MediaManagementPage = () => {
 
     // If relative path, make it absolute
     // NEXT_PUBLIC_API_URL has /api but uploads are at root level
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+    const baseUrl = API_CONFIG.API_URL;
     const cleanBaseUrl = baseUrl.replace("/api", ""); // Remove /api suffix
     const absoluteUrl = `${cleanBaseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
     console.log("[MediaPage] Converted to absolute:", absoluteUrl);

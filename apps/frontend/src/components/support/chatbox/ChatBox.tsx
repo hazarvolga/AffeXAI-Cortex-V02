@@ -1,41 +1,49 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { 
-  MessageCircle, 
-  Send, 
-  Minimize2, 
-  Maximize2, 
+import React, { useState, useRef, useEffect } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  MessageCircle,
+  Send,
+  Minimize2,
+  Maximize2,
   X,
   Bot,
   User,
   Loader2,
   Paperclip,
-  Link as LinkIcon
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ChatMessage as ChatMessageComponent } from './ChatMessage';
-import { FileUploadArea } from './FileUploadArea';
-import { UrlInputArea } from './UrlInputArea';
-import { TypingIndicator } from './TypingIndicator';
-import { ContextSourceVisualization, ContextSource } from './ContextSourceVisualization';
-import { ConnectionStatus } from './ConnectionStatus';
-import { useChatSocket } from '@/hooks/use-chat-socket';
+  Link as LinkIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChatMessage as ChatMessageComponent } from "./ChatMessage";
+import { FileUploadArea } from "./FileUploadArea";
+import { UrlInputArea } from "./UrlInputArea";
+import { TypingIndicator } from "./TypingIndicator";
+import {
+  ContextSourceVisualization,
+  ContextSource,
+} from "./ContextSourceVisualization";
+import { ConnectionStatus } from "./ConnectionStatus";
+import { useChatSocket } from "@/hooks/use-chat-socket";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+
+/** Client-side id for optimistic chat messages; the server assigns the real one. */
+const generateId = () => Math.random().toString(36).slice(2, 11);
 
 export interface ChatMessage {
   id: string;
   sessionId: string;
-  senderType: 'user' | 'ai' | 'support';
+  senderType: "user" | "ai" | "support";
   senderId?: string;
   content: string;
-  messageType: 'text' | 'file' | 'url' | 'system';
+  messageType: "text" | "file" | "url" | "system";
   metadata?: {
     aiModel?: string;
     processingTime?: number;
@@ -58,8 +66,8 @@ export interface ChatMessage {
 export interface ChatSession {
   id: string;
   userId: string;
-  sessionType: 'support' | 'general';
-  status: 'active' | 'closed' | 'transferred';
+  sessionType: "support" | "general";
+  status: "active" | "closed" | "transferred";
   title?: string;
   metadata?: {
     aiProvider?: string;
@@ -76,7 +84,7 @@ export interface ChatSession {
 }
 
 interface ChatBoxProps {
-  sessionType?: 'support' | 'general';
+  sessionType?: "support" | "general";
   className?: string;
   onSessionCreate?: (session: ChatSession) => void;
   onMessageSent?: (message: ChatMessage) => void;
@@ -86,15 +94,15 @@ interface ChatBoxProps {
   initialMessage?: string;
 }
 
-export function ChatBox({ 
-  sessionType = 'support', 
+export function ChatBox({
+  sessionType = "support",
   className,
   onSessionCreate,
   onMessageSent,
   embedded = false,
   showHeader = true,
-  height = '600px',
-  initialMessage = ''
+  height = "600px",
+  initialMessage = "",
 }: ChatBoxProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -106,12 +114,13 @@ export function ChatBox({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState<string | null>(null);
-  const [showEscalationSuggestion, setShowEscalationSuggestion] = useState(false);
+  const [showEscalationSuggestion, setShowEscalationSuggestion] =
+    useState(false);
   const [escalationReason, setEscalationReason] = useState<string | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   // Initialize chat socket connection
   const {
     isConnected,
@@ -125,7 +134,7 @@ export function ChatBox({
     processUrl,
     startTyping,
     stopTyping,
-    reconnect
+    reconnect,
   } = useChatSocket({
     onMessageReceived: handleMessageReceived,
     onAiResponseStart: handleAiResponseStart,
@@ -133,13 +142,8 @@ export function ChatBox({
     onAiResponseComplete: handleAiResponseComplete,
     onTypingIndicator: handleTypingIndicator,
     onSessionUpdated: handleSessionUpdated,
-    onEscalationSuggested: handleEscalationSuggested
+    onEscalationSuggested: handleEscalationSuggested,
   });
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // Focus input when expanded
   useEffect(() => {
@@ -148,116 +152,119 @@ export function ChatBox({
     }
   }, [isMinimized]);
 
-  // Initialize session on mount
-  useEffect(() => {
-    initializeSession();
-  }, [sessionType]);
-
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const initializeSession = async () => {
     try {
       setIsLoading(true);
-      
+
       // Create session via API based on session type
       let newSession: ChatSession;
-      
-      if (sessionType === 'general') {
+
+      if (sessionType === "general") {
         // Create general communication session
-        const response = await fetch('/api/chat/general/sessions', {
-          method: 'POST',
+        const response = await apiFetch("/api/chat/general/sessions", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
           body: JSON.stringify({
-            title: 'Genel Sohbet',
-            language: 'tr'
-          })
+            title: "Genel Sohbet",
+            language: "tr",
+          }),
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to create general session');
+          throw new Error("Failed to create general session");
         }
-        
+
         const data = await response.json();
         newSession = data.session;
-        
+
         // Set conversation starters if available
         if (data.conversationStarters) {
           // You could show these as quick reply buttons
-          console.log('Conversation starters:', data.conversationStarters);
+          console.log("Conversation starters:", data.conversationStarters);
         }
       } else {
         // Create support session (existing logic)
         newSession = {
           id: generateId(),
-          userId: 'current-user-id', // This should come from auth context
+          userId: "current-user-id", // This should come from auth context
           sessionType,
-          status: 'active',
-          title: 'Destek Sohbeti',
+          status: "active",
+          title: "Destek Sohbeti",
           metadata: {
-            aiProvider: 'openai',
-            modelUsed: 'gpt-4o',
+            aiProvider: "openai",
+            modelUsed: "gpt-4o",
             contextSources: 0,
             messageCount: 0,
-            supportAssigned: false
+            supportAssigned: false,
           },
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
       }
-      
+
       setSession(newSession);
       onSessionCreate?.(newSession);
-      
+
       // Join the session via WebSocket
       if (isConnected) {
         joinSession(newSession.id);
       }
-      
+
       // Add welcome message
       const welcomeMessage: ChatMessage = {
         id: generateId(),
         sessionId: newSession.id,
-        senderType: 'ai',
-        content: sessionType === 'support' 
-          ? 'Merhaba! Size nasıl yardımcı olabilirim? Sorularınızı sorabilir, dosya yükleyebilir veya web sayfası linklerini paylaşabilirsiniz.'
-          : 'Merhaba! Platform hakkında genel sorularınız için buradayım. Size nasıl yardımcı olabilirim?',
-        messageType: 'text',
+        senderType: "ai",
+        content:
+          sessionType === "support"
+            ? "Merhaba! Size nasıl yardımcı olabilirim? Sorularınızı sorabilir, dosya yükleyebilir veya web sayfası linklerini paylaşabilirsiniz."
+            : "Merhaba! Platform hakkında genel sorularınız için buradayım. Size nasıl yardımcı olabilirim?",
+        messageType: "text",
         metadata: {
-          aiModel: sessionType === 'general' ? 'general-communication' : 'gpt-4o',
+          aiModel:
+            sessionType === "general" ? "general-communication" : "gpt-4o",
           confidence: 1.0,
-          responseType: 'welcome'
+          responseType: "welcome",
         },
-        createdAt: new Date()
+        createdAt: new Date(),
       };
-      
+
       setMessages([welcomeMessage]);
     } catch (error) {
-      console.error('Failed to initialize chat session:', error);
-      
+      console.error("Failed to initialize chat session:", error);
+
       // Fallback to local session creation
       const fallbackSession: ChatSession = {
         id: generateId(),
-        userId: 'current-user-id',
+        userId: "current-user-id",
         sessionType,
-        status: 'active',
-        title: `${sessionType === 'support' ? 'Destek' : 'Genel'} Sohbeti`,
+        status: "active",
+        title: `${sessionType === "support" ? "Destek" : "Genel"} Sohbeti`,
         metadata: {
-          aiProvider: 'openai',
-          modelUsed: sessionType === 'general' ? 'general-communication' : 'gpt-4o',
+          aiProvider: "openai",
+          modelUsed:
+            sessionType === "general" ? "general-communication" : "gpt-4o",
           contextSources: 0,
           messageCount: 0,
           supportAssigned: false,
-          fallback: true
+          fallback: true,
         },
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
-      
+
       setSession(fallbackSession);
       onSessionCreate?.(fallbackSession);
     } finally {
@@ -265,22 +272,27 @@ export function ChatBox({
     }
   };
 
+  // Initialize session on mount
+  useAsyncEffect(() => {
+    initializeSession();
+  }, [sessionType]);
+
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || !session || isLoading) return;
 
     const userMessage: ChatMessage = {
       id: generateId(),
       sessionId: session.id,
-      senderType: 'user',
+      senderType: "user",
       senderId: session.userId,
       content: currentMessage.trim(),
-      messageType: 'text',
-      createdAt: new Date()
+      messageType: "text",
+      createdAt: new Date(),
     };
 
     // Add user message to UI immediately
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentMessage('');
+    setMessages((prev) => [...prev, userMessage]);
+    setCurrentMessage("");
     setIsLoading(true);
 
     try {
@@ -289,19 +301,19 @@ export function ChatBox({
         await sendMessage({
           sessionId: session.id,
           content: userMessage.content,
-          messageType: 'text'
+          messageType: "text",
         });
       }
-      
+
       onMessageSent?.(userMessage);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
       // TODO: Add error handling UI
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -309,94 +321,92 @@ export function ChatBox({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentMessage(e.target.value);
-    
+
     // Handle typing indicators
     if (e.target.value && !isTyping) {
       setIsTyping(true);
-      startTyping(session?.id || '');
+      startTyping(session?.id || "");
     } else if (!e.target.value && isTyping) {
       setIsTyping(false);
-      stopTyping(session?.id || '');
+      stopTyping(session?.id || "");
     }
   };
 
   const handleFileUpload = async (files: File[]) => {
     if (!session) return;
-    
+
     for (const file of files) {
       try {
         setIsLoading(true);
-        
+
         // Create file message
         const fileMessage: ChatMessage = {
           id: generateId(),
           sessionId: session.id,
-          senderType: 'user',
+          senderType: "user",
           senderId: session.userId,
           content: `Dosya yüklendi: ${file.name}`,
-          messageType: 'file',
+          messageType: "file",
           metadata: {
             fileName: file.name,
             fileSize: file.size,
-            fileType: file.type
+            fileType: file.type,
           },
-          createdAt: new Date()
+          createdAt: new Date(),
         };
-        
-        setMessages(prev => [...prev, fileMessage]);
-        
+
+        setMessages((prev) => [...prev, fileMessage]);
+
         // Upload file via WebSocket
         if (isConnected) {
           await uploadFile({
             sessionId: session.id,
             file,
-            messageId: fileMessage.id
+            messageId: fileMessage.id,
           });
         }
-        
       } catch (error) {
-        console.error('Failed to upload file:', error);
+        console.error("Failed to upload file:", error);
       } finally {
         setIsLoading(false);
       }
     }
-    
+
     setShowFileUpload(false);
   };
 
   const handleUrlProcess = async (url: string) => {
     if (!session) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       // Create URL message
       const urlMessage: ChatMessage = {
         id: generateId(),
         sessionId: session.id,
-        senderType: 'user',
+        senderType: "user",
         senderId: session.userId,
         content: `URL paylaşıldı: ${url}`,
-        messageType: 'url',
+        messageType: "url",
         metadata: {
-          url
+          url,
         },
-        createdAt: new Date()
+        createdAt: new Date(),
       };
-      
-      setMessages(prev => [...prev, urlMessage]);
-      
+
+      setMessages((prev) => [...prev, urlMessage]);
+
       // Process URL via WebSocket
       if (isConnected) {
         await processUrl({
           sessionId: session.id,
           url,
-          messageId: urlMessage.id
+          messageId: urlMessage.id,
         });
       }
-      
     } catch (error) {
-      console.error('Failed to process URL:', error);
+      console.error("Failed to process URL:", error);
     } finally {
       setIsLoading(false);
       setShowUrlInput(false);
@@ -405,7 +415,7 @@ export function ChatBox({
 
   // WebSocket event handlers
   function handleMessageReceived(message: ChatMessage) {
-    setMessages(prev => [...prev, message]);
+    setMessages((prev) => [...prev, message]);
   }
 
   function handleAiResponseStart(sessionId: string) {
@@ -414,29 +424,33 @@ export function ChatBox({
 
   function handleAiResponseChunk(data: { sessionId: string; chunk: string }) {
     // Handle streaming response chunks
-    setMessages(prev => {
+    setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.senderType === 'ai' && lastMessage.metadata?.streaming) {
+      if (
+        lastMessage &&
+        lastMessage.senderType === "ai" &&
+        lastMessage.metadata?.streaming
+      ) {
         return [
           ...prev.slice(0, -1),
           {
             ...lastMessage,
-            content: lastMessage.content + data.chunk
-          }
+            content: lastMessage.content + data.chunk,
+          },
         ];
       } else {
         // Create new streaming message
         const streamingMessage: ChatMessage = {
           id: generateId(),
           sessionId: data.sessionId,
-          senderType: 'ai',
+          senderType: "ai",
           content: data.chunk,
-          messageType: 'text',
+          messageType: "text",
           metadata: {
             streaming: true,
-            aiModel: 'gpt-4o'
+            aiModel: "gpt-4o",
           },
-          createdAt: new Date()
+          createdAt: new Date(),
         };
         return [...prev, streamingMessage];
       }
@@ -445,25 +459,34 @@ export function ChatBox({
 
   function handleAiResponseComplete(message: ChatMessage) {
     setIsLoading(false);
-    setMessages(prev => {
+    setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.senderType === 'ai' && lastMessage.metadata?.streaming) {
+      if (
+        lastMessage &&
+        lastMessage.senderType === "ai" &&
+        lastMessage.metadata?.streaming
+      ) {
         return [
           ...prev.slice(0, -1),
           {
             ...message,
             metadata: {
               ...message.metadata,
-              streaming: false
-            }
-          }
+              streaming: false,
+            },
+          },
         ];
       }
       return prev;
     });
   }
 
-  function handleTypingIndicator(data: { sessionId: string; userId: string; userName: string; isTyping: boolean }) {
+  function handleTypingIndicator(data: {
+    sessionId: string;
+    userId: string;
+    userName: string;
+    isTyping: boolean;
+  }) {
     if (data.isTyping) {
       setTypingUser(data.userName);
     } else {
@@ -475,7 +498,11 @@ export function ChatBox({
     setSession(updatedSession);
   }
 
-  function handleEscalationSuggested(data: { sessionId: string; reason: string; message: string }) {
+  function handleEscalationSuggested(data: {
+    sessionId: string;
+    reason: string;
+    message: string;
+  }) {
     if (data.sessionId === session?.id) {
       setShowEscalationSuggestion(true);
       setEscalationReason(data.reason);
@@ -484,62 +511,62 @@ export function ChatBox({
 
   const handleEscalateToSupport = async () => {
     if (!session) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       // Send escalation via WebSocket
       if (isConnected) {
         // Use WebSocket for real-time escalation
         const escalationData = {
           sessionId: session.id,
-          reason: escalationReason || 'user-requested',
-          notes: 'Kullanıcı destek ekibiyle iletişime geçmek istiyor'
+          reason: escalationReason || "user-requested",
+          notes: "Kullanıcı destek ekibiyle iletişime geçmek istiyor",
         };
-        
+
         // Emit escalation event (this would be handled by the WebSocket)
         // For now, we'll make an API call
-        const response = await fetch(`/api/chat/general/sessions/${session.id}/escalate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        const response = await apiFetch(
+          `/api/chat/general/sessions/${session.id}/escalate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            },
+            body: JSON.stringify(escalationData),
           },
-          body: JSON.stringify(escalationData)
-        });
-        
+        );
+
         if (response.ok) {
           const data = await response.json();
           setSession(data.session);
           setShowEscalationSuggestion(false);
           setEscalationReason(null);
-          
+
           // Add system message
           const escalationMessage: ChatMessage = {
             id: generateId(),
             sessionId: session.id,
-            senderType: 'ai',
-            content: 'Sohbet destek ekibine yönlendirildi. Bir destek temsilcisi kısa süre içinde size yardımcı olacak.',
-            messageType: 'system',
+            senderType: "ai",
+            content:
+              "Sohbet destek ekibine yönlendirildi. Bir destek temsilcisi kısa süre içinde size yardımcı olacak.",
+            messageType: "system",
             metadata: {
               escalation: true,
-              escalatedAt: new Date()
+              escalatedAt: new Date(),
             },
-            createdAt: new Date()
+            createdAt: new Date(),
           };
-          
-          setMessages(prev => [...prev, escalationMessage]);
+
+          setMessages((prev) => [...prev, escalationMessage]);
         }
       }
     } catch (error) {
-      console.error('Failed to escalate to support:', error);
+      console.error("Failed to escalate to support:", error);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const generateId = () => {
-    return Math.random().toString(36).substr(2, 9);
   };
 
   // Don't show minimized state in embedded mode
@@ -563,33 +590,40 @@ export function ChatBox({
   }
 
   return (
-    <div className={cn(
-      embedded 
-        ? "w-full h-full" 
-        : "fixed bottom-4 right-4 z-50 transition-all duration-300",
-      !embedded && (isExpanded ? "inset-4" : `w-96`),
-      className
-    )} style={embedded ? { height } : undefined}>
-      <Card className={cn(
-        "h-full flex flex-col",
-        embedded ? "shadow-none border-0" : "shadow-2xl"
-      )}>
+    <div
+      className={cn(
+        embedded
+          ? "w-full h-full"
+          : "fixed bottom-4 right-4 z-50 transition-all duration-300",
+        !embedded && (isExpanded ? "inset-4" : `w-96`),
+        className,
+      )}
+      style={embedded ? { height } : undefined}
+    >
+      <Card
+        className={cn(
+          "h-full flex flex-col",
+          embedded ? "shadow-none border-0" : "shadow-2xl",
+        )}
+      >
         {showHeader && (
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex items-center space-x-2">
               <div className="flex items-center space-x-2">
                 <Bot className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">
-                  {sessionType === 'support' ? 'AI Destek' : 'AI Asistan'}
+                  {sessionType === "support" ? "AI Destek" : "AI Asistan"}
                 </CardTitle>
               </div>
               <div className="flex items-center space-x-1">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  isConnected ? "bg-green-500" : "bg-red-500"
-                )} />
+                <div
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    isConnected ? "bg-green-500" : "bg-red-500",
+                  )}
+                />
                 <span className="text-xs text-muted-foreground">
-                  {isConnected ? 'Bağlı' : 'Bağlantı Yok'}
+                  {isConnected ? "Bağlı" : "Bağlantı Yok"}
                 </span>
               </div>
             </div>
@@ -601,7 +635,11 @@ export function ChatBox({
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="h-8 w-8"
                 >
-                  {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  {isExpanded ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
@@ -615,10 +653,9 @@ export function ChatBox({
             )}
           </CardHeader>
         )}
-        
+
         {showHeader && <Separator />}
 
-        
         {/* Connection Status */}
         <ConnectionStatus
           isConnected={isConnected}
@@ -628,7 +665,7 @@ export function ChatBox({
           queuedMessageCount={queuedMessageCount}
           onReconnect={reconnect}
         />
-        
+
         <CardContent className="flex-1 flex flex-col p-0">
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-4">
@@ -636,15 +673,13 @@ export function ChatBox({
               {messages.map((message) => (
                 <ChatMessageComponent key={message.id} message={message} />
               ))}
-              {typingUser && (
-                <TypingIndicator userName={typingUser} />
-              )}
+              {typingUser && <TypingIndicator userName={typingUser} />}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
-          
+
           <Separator />
-          
+
           {/* File Upload Area */}
           {showFileUpload && (
             <div className="p-4 border-t">
@@ -654,7 +689,7 @@ export function ChatBox({
               />
             </div>
           )}
-          
+
           {/* URL Input Area */}
           {showUrlInput && (
             <div className="p-4 border-t">
@@ -664,9 +699,9 @@ export function ChatBox({
               />
             </div>
           )}
-          
+
           {/* Escalation Suggestion */}
-          {showEscalationSuggestion && sessionType === 'general' && (
+          {showEscalationSuggestion && sessionType === "general" && (
             <div className="p-4 border-t bg-blue-50 dark:bg-blue-950">
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0">
@@ -679,7 +714,8 @@ export function ChatBox({
                     Destek Ekibiyle İletişim
                   </h4>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Bu konuda size daha iyi yardımcı olabilmek için destek ekibimizle iletişime geçmenizi öneriyorum.
+                    Bu konuda size daha iyi yardımcı olabilmek için destek
+                    ekibimizle iletişime geçmenizi öneriyorum.
                   </p>
                   <div className="flex space-x-2 mt-3">
                     <Button
@@ -703,7 +739,7 @@ export function ChatBox({
               </div>
             </div>
           )}
-          
+
           {/* Input Area */}
           <div className="p-4 space-y-2">
             <div className="flex items-center space-x-2">
@@ -749,7 +785,7 @@ export function ChatBox({
                 </Button>
               </div>
             </div>
-            
+
             {session && (
               <div className="text-xs text-muted-foreground text-center">
                 Oturum: {session.id.slice(0, 8)}... • {messages.length} mesaj

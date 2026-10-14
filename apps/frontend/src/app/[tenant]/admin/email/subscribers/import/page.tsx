@@ -1,14 +1,22 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { ImportWizard } from '@/components/admin/email-marketing/import-wizard';
-import { ImportResult } from '@affexai/shared-types';
+import { useState } from "react";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { ImportWizard } from "@/components/admin/email-marketing/import-wizard";
+import { ImportResult } from "@affexai/shared-types";
 
 export default function ImportSubscribersPage() {
+  const tenantHref = useTenantAdminHref();
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const handleImportComplete = (result: ImportResult) => {
@@ -21,12 +29,12 @@ export default function ImportSubscribersPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto max-w-full space-y-6 overflow-x-hidden px-4 py-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/admin/email-marketing">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Email Marketing'e Dön
+          <Link href={tenantHref("/email")}>
+            <ArrowLeft aria-hidden className="h-4 w-4 mr-2" />
+            E-posta pazarlamaya dön
           </Link>
         </Button>
       </div>
@@ -34,9 +42,12 @@ export default function ImportSubscribersPage() {
       <div className="max-w-4xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle>Toplu Abone İçe Aktarma</CardTitle>
+            <h1 className="text-2xl font-semibold leading-none tracking-tight">
+              Toplu abone içe aktarma
+            </h1>
             <CardDescription>
-              CSV dosyası yükleyerek toplu olarak abone ekleyin. Sistem otomatik olarak e-posta adreslerini doğrular ve raporlar.
+              CSV dosyası yükleyerek toplu olarak abone ekleyin. Sistem otomatik
+              olarak e-posta adreslerini doğrular ve raporlar.
             </CardDescription>
           </CardHeader>
           <CardContent>

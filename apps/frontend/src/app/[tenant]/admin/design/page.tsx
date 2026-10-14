@@ -1,7 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
+import { apiFetch } from "@/lib/api/api-fetch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +24,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useDesignTokens } from '@/providers/DesignTokensProvider';
-import { exportToJSON, importFromJSON, exportToCSS, exportToSCSS } from '@/lib/design-tokens/resolver';
-import type { DesignTokens, TokenExportFormat } from '@/types/design-tokens';
+import { useDesignTokens } from "@/providers/DesignTokensProvider";
+import {
+  exportToJSON,
+  importFromJSON,
+  exportToCSS,
+  exportToSCSS,
+} from "@/lib/design-tokens/resolver";
+import type { DesignTokens, TokenExportFormat } from "@/types/design-tokens";
 import {
   adminLightTokensProduction,
   adminDarkTokensProduction,
-} from '@/lib/design-tokens/production-tokens';
+} from "@/lib/design-tokens/production-tokens";
 import {
   Palette,
   Paintbrush,
@@ -39,16 +51,17 @@ import {
   FileJson,
   FileCode,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
-import { useToast } from '@/hooks/use-toast';
-import { BccEditorialWrapper } from '@/components/brand/BccEditorialWrapper';
-import { cn } from '@/lib/utils';
+import { useToast } from "@/hooks/use-toast";
+import { BccEditorialWrapper } from "@/components/brand/BccEditorialWrapper";
+import { cn } from "@/lib/utils";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Color utility functions
 function hexToHSL(hex: string): string {
   // Remove # if present
-  hex = hex.replace('#', '');
+  hex = hex.replace("#", "");
 
   // Convert hex to RGB
   const r = parseInt(hex.substring(0, 2), 16) / 255;
@@ -57,16 +70,24 @@ function hexToHSL(hex: string): string {
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s = 0, l = (max + min) / 2;
+  let h = 0,
+    s = 0,
+    l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
     }
   }
 
@@ -108,7 +129,7 @@ function hslToHex(hsl: string): string {
 
   const toHex = (x: number) => {
     const hex = Math.round(x * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
+    return hex.length === 1 ? "0" + hex : hex;
   };
 
   return toHex(r) + toHex(g) + toHex(b);
@@ -118,9 +139,9 @@ function isLightColor(color: string): boolean {
   // Parse HSL or convert from hex
   let l = 50; // default
 
-  if (color.includes('%')) {
+  if (color.includes("%")) {
     const parts = color.trim().split(/\s+/);
-    l = parseInt(parts[2] || '50');
+    l = parseInt(parts[2] || "50");
   }
 
   return l > 50;
@@ -129,11 +150,11 @@ function isLightColor(color: string): boolean {
 const DesignSettingsLayoutWrapper = ({
   children,
   tokens,
-  mode
+  mode,
 }: {
   children: React.ReactNode;
   tokens: DesignTokens;
-  mode: 'light' | 'dark'
+  mode: "light" | "dark";
 }) => {
   return (
     <BccEditorialWrapper
@@ -142,9 +163,13 @@ const DesignSettingsLayoutWrapper = ({
       headerSubtitle="Calibrating systemic visual tokens and core brand vectors."
       headerBadge="Editorial Console"
       telemetryData={[
-        { label: 'Token Groups', value: Object.keys(tokens).length.toString(), color: '#ff8c00' },
-        { label: 'Sync Status', value: 'Live', color: '#ff8c00' },
-        { label: 'Current Mode', value: mode.toUpperCase(), color: '#ff8c00' }
+        {
+          label: "Token Groups",
+          value: Object.keys(tokens).length.toString(),
+          color: "#ff8c00",
+        },
+        { label: "Sync Status", value: "Live", color: "#ff8c00" },
+        { label: "Current Mode", value: mode.toUpperCase(), color: "#ff8c00" },
       ]}
     >
       <div className="relative z-10 w-full min-h-screen flex flex-col pt-0">
@@ -155,11 +180,20 @@ const DesignSettingsLayoutWrapper = ({
 };
 
 export default function DesignManagementPage() {
-  const { context, mode, tokens, setContext, setMode, updateTokens, resetTokens, getCSSVariables } = useDesignTokens();
+  const {
+    context,
+    mode,
+    tokens,
+    setContext,
+    setMode,
+    updateTokens,
+    resetTokens,
+    getCSSVariables,
+  } = useDesignTokens();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState('tokens');
+  const [activeTab, setActiveTab] = useState("tokens");
   const [hasChanges, setHasChanges] = useState(false);
   const [localTokens, setLocalTokens] = useState<DesignTokens>(tokens);
   const [livePreview, setLivePreview] = useState(true);
@@ -167,24 +201,24 @@ export default function DesignManagementPage() {
   const [mounted, setMounted] = useState(false);
 
   // Fix hydration mismatch - wait for client-side mount
-  useEffect(() => {
+  useAsyncEffect(() => {
     setMounted(true);
   }, []);
 
   // Sync local tokens with provider
-  useEffect(() => {
+  useAsyncEffect(() => {
     setLocalTokens(tokens);
   }, [tokens]);
 
   // Track changes
-  useEffect(() => {
+  useAsyncEffect(() => {
     setHasChanges(JSON.stringify(localTokens) !== JSON.stringify(tokens));
   }, [localTokens, tokens]);
 
   // Live preview - update provider immediately when livePreview is enabled
   useEffect(() => {
     if (livePreview && hasChanges) {
-      console.log('🔄 Live preview: updating tokens');
+      console.log("🔄 Live preview: updating tokens");
       updateTokens(localTokens);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,9 +226,9 @@ export default function DesignManagementPage() {
 
   // Update token value
   const updateToken = (path: string, value: any) => {
-    console.log('🎨 updateToken called:', { path, value });
+    console.log("🎨 updateToken called:", { path, value });
 
-    const parts = path.split('.');
+    const parts = path.split(".");
     // Deep clone to avoid mutation issues
     const updated = JSON.parse(JSON.stringify(localTokens));
     let current: any = updated;
@@ -209,24 +243,24 @@ export default function DesignManagementPage() {
     // Preserve $type and $description, update $value
     current[lastKey] = {
       ...current[lastKey],
-      $value: value
+      $value: value,
     };
 
-    console.log('🎨 Updated token at path:', path, '→', current[lastKey]);
+    console.log("🎨 Updated token at path:", path, "→", current[lastKey]);
     setLocalTokens(updated);
   };
 
   // Get token value by path
   const getTokenValue = (path: string): any => {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current: any = localTokens;
 
     for (const part of parts) {
-      if (!current?.[part]) return '';
+      if (!current?.[part]) return "";
       current = current[part];
     }
 
-    return current?.$value || '';
+    return current?.$value || "";
   };
 
   // Save changes
@@ -235,17 +269,17 @@ export default function DesignManagementPage() {
       updateTokens(localTokens);
 
       // TODO: Save to database via API
-      const response = await fetch('/api/design-tokens', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await apiFetch("/api/design-tokens", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           context,
           mode,
-          tokens: localTokens
-        })
+          tokens: localTokens,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to save tokens');
+      if (!response.ok) throw new Error("Failed to save tokens");
 
       toast({
         title: "Saved Successfully",
@@ -257,7 +291,8 @@ export default function DesignManagementPage() {
     } catch (error) {
       toast({
         title: "Save Failed",
-        description: error instanceof Error ? error.message : "Failed to save tokens",
+        description:
+          error instanceof Error ? error.message : "Failed to save tokens",
         variant: "destructive",
       });
     }
@@ -292,13 +327,15 @@ export default function DesignManagementPage() {
     const exportData = exportToJSON(localTokens, {
       name: `affexai-cortex-${context}-${mode}`,
       description: `AffeXAI Cortex Design Tokens - ${context} theme (${mode} mode)`,
-      author: 'AffeXAI Cortex Design System',
+      author: "AffeXAI Cortex Design System",
       exportedAt: new Date().toISOString(),
     });
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.json`;
     a.click();
@@ -313,9 +350,9 @@ export default function DesignManagementPage() {
   // Export to CSS
   const handleExportCSS = () => {
     const css = getCSSVariables();
-    const blob = new Blob([css], { type: 'text/css' });
+    const blob = new Blob([css], { type: "text/css" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.css`;
     a.click();
@@ -329,10 +366,10 @@ export default function DesignManagementPage() {
 
   // Export to SCSS
   const handleExportSCSS = () => {
-    const scss = exportToSCSS(localTokens, { prefix: 'aluplan' });
-    const blob = new Blob([scss], { type: 'text/plain' });
+    const scss = exportToSCSS(localTokens, { prefix: "aluplan" });
+    const blob = new Blob([scss], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.scss`;
     a.click();
@@ -367,14 +404,15 @@ export default function DesignManagementPage() {
     } catch (error) {
       toast({
         title: "Import Failed",
-        description: error instanceof Error ? error.message : "Invalid token format",
+        description:
+          error instanceof Error ? error.message : "Invalid token format",
         variant: "destructive",
       });
     }
 
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -383,7 +421,9 @@ export default function DesignManagementPage() {
       <div className="space-y-6 pb-24">
         {/* Header */}
         <div className="border-l-2 border-[#ff8c00] pl-6 py-2">
-          <h1 className="text-4xl font-bold tracking-tighter uppercase font-mono italic">Design System</h1>
+          <h1 className="text-4xl font-bold tracking-tighter uppercase font-mono italic">
+            Design System
+          </h1>
           <p className="text-white/40 text-xs uppercase tracking-[0.2em] mt-2">
             Manage design tokens and theme configuration
           </p>
@@ -392,16 +432,19 @@ export default function DesignManagementPage() {
         {/* Context Selector - Compact Buttons */}
         <div className="mt-4 grid grid-cols-3 gap-3">
           <button
-            onClick={() => setContext('admin')}
-            className={`py-3 px-4 rounded-lg border-2 transition-all ${context === 'admin'
-              ? 'border-primary bg-primary/10 shadow-md'
-              : 'border-border hover:border-primary/50 hover:shadow-sm'
-              }`}
+            onClick={() => setContext("admin")}
+            className={`py-3 px-4 rounded-lg border-2 transition-all ${
+              context === "admin"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
+            }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'admin' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "admin" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">Admin Panel</span>
-              {context === 'admin' && (
+              {context === "admin" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -411,16 +454,19 @@ export default function DesignManagementPage() {
           </button>
 
           <button
-            onClick={() => setContext('public')}
-            className={`py-3 px-4 rounded-lg border-2 transition-all ${context === 'public'
-              ? 'border-primary bg-primary/10 shadow-md'
-              : 'border-border hover:border-primary/50 hover:shadow-sm'
-              }`}
+            onClick={() => setContext("public")}
+            className={`py-3 px-4 rounded-lg border-2 transition-all ${
+              context === "public"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
+            }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'public' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "public" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">Public Website</span>
-              {context === 'public' && (
+              {context === "public" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -430,16 +476,19 @@ export default function DesignManagementPage() {
           </button>
 
           <button
-            onClick={() => setContext('portal')}
-            className={`py-3 px-4 rounded-lg border-2 transition-all ${context === 'portal'
-              ? 'border-primary bg-primary/10 shadow-md'
-              : 'border-border hover:border-primary/50 hover:shadow-sm'
-              }`}
+            onClick={() => setContext("portal")}
+            className={`py-3 px-4 rounded-lg border-2 transition-all ${
+              context === "portal"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
+            }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'portal' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "portal" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">User Portal</span>
-              {context === 'portal' && (
+              {context === "portal" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -457,29 +506,39 @@ export default function DesignManagementPage() {
           {mounted && (
             <RadioGroup
               value={mode}
-              onValueChange={(value) => setMode(value as 'light' | 'dark')}
+              onValueChange={(value) => setMode(value as "light" | "dark")}
               className="flex items-center gap-2 border border-white/10 bg-white/5 rounded-lg p-1"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="light" id="mode-light" className="sr-only" />
+                <RadioGroupItem
+                  value="light"
+                  id="mode-light"
+                  className="sr-only"
+                />
                 <Label
                   htmlFor="mode-light"
-                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${mode === 'light'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                    }`}
+                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
+                    mode === "light"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
+                  }`}
                 >
                   <Sun className="h-4 w-4" />
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="dark" id="mode-dark" className="sr-only" />
+                <RadioGroupItem
+                  value="dark"
+                  id="mode-dark"
+                  className="sr-only"
+                />
                 <Label
                   htmlFor="mode-dark"
-                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${mode === 'dark'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                    }`}
+                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
+                    mode === "dark"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
+                  }`}
                 >
                   <Moon className="h-4 w-4" />
                 </Label>
@@ -508,7 +567,7 @@ export default function DesignManagementPage() {
         <div className="flex items-center gap-2">
           <Button onClick={handleSave} disabled={!hasChanges || livePreview}>
             <Save className="mr-2 h-4 w-4" />
-            {livePreview ? 'Auto-Saved' : 'Save Changes'}
+            {livePreview ? "Auto-Saved" : "Save Changes"}
           </Button>
           <Button onClick={() => setShowResetDialog(true)} variant="outline">
             <RotateCcw className="mr-2 h-4 w-4" />
@@ -516,7 +575,10 @@ export default function DesignManagementPage() {
           </Button>
           <div className="flex items-center gap-2 ml-4 px-3 py-2 border rounded-md">
             <Eye className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="live-preview-toggle" className="text-sm cursor-pointer">
+            <Label
+              htmlFor="live-preview-toggle"
+              className="text-sm cursor-pointer"
+            >
               Live Preview
             </Label>
             <input
@@ -569,34 +631,55 @@ export default function DesignManagementPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-8"
+      >
         <TabsList className="bg-white/5 border border-white/10 p-1">
-          <TabsTrigger value="tokens" className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold">
+          <TabsTrigger
+            value="tokens"
+            className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold"
+          >
             <Palette className="mr-2 h-3 w-3" />
             Tokens
           </TabsTrigger>
-          <TabsTrigger value="colors" className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold">
+          <TabsTrigger
+            value="colors"
+            className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold"
+          >
             <Paintbrush className="mr-2 h-3 w-3" />
             Colors
           </TabsTrigger>
-          <TabsTrigger value="typography" className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold">
+          <TabsTrigger
+            value="typography"
+            className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold"
+          >
             <Layers className="mr-2 h-3 w-3" />
             Typography
           </TabsTrigger>
-          <TabsTrigger value="preview" className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold">
+          <TabsTrigger
+            value="preview"
+            className="data-[state=active]:bg-[#ff8c00] data-[state=active]:text-black text-[10px] uppercase tracking-widest px-8 font-bold"
+          >
             <Eye className="mr-2 h-3 w-3" />
             Preview
           </TabsTrigger>
         </TabsList>
 
         {/* Tokens Tab */}
-        <TabsContent value="tokens" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <TabsContent
+          value="tokens"
+          className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <Card className="bcc-glass border-none bg-white/[0.02]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-6 bg-[#ff8c00]"></div>
                 <div>
-                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">Design Tokens Overview</CardTitle>
+                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">
+                    Design Tokens Overview
+                  </CardTitle>
                   <CardDescription className="text-[10px] uppercase text-white/40 tracking-wider">
                     W3C Design Tokens format - Semantic design system variables.
                   </CardDescription>
@@ -606,20 +689,40 @@ export default function DesignManagementPage() {
             <CardContent className="pt-8">
               <div className="grid grid-cols-4 gap-4">
                 <div className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-1">
-                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">{Object.keys(localTokens).length}</div>
-                  <div className="text-[9px] uppercase tracking-widest text-white/40">Token Groups</div>
+                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">
+                    {Object.keys(localTokens).length}
+                  </div>
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">
+                    Token Groups
+                  </div>
                 </div>
                 <div className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-1">
-                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">{localTokens.color ? Object.keys(localTokens.color).length : 0}</div>
-                  <div className="text-[9px] uppercase tracking-widest text-white/40">Colors</div>
+                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">
+                    {localTokens.color
+                      ? Object.keys(localTokens.color).length
+                      : 0}
+                  </div>
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">
+                    Colors
+                  </div>
                 </div>
                 <div className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-1">
-                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">{localTokens.spacing ? Object.keys(localTokens.spacing).length : 0}</div>
-                  <div className="text-[9px] uppercase tracking-widest text-white/40">Spacing</div>
+                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">
+                    {localTokens.spacing
+                      ? Object.keys(localTokens.spacing).length
+                      : 0}
+                  </div>
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">
+                    Spacing
+                  </div>
                 </div>
                 <div className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-1">
-                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">{mode.toUpperCase()}</div>
-                  <div className="text-[9px] uppercase tracking-widest text-white/40">Active Vector</div>
+                  <div className="text-2xl font-bold font-mono tracking-tighter text-[#ff8c00]">
+                    {mode.toUpperCase()}
+                  </div>
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">
+                    Active Vector
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -627,21 +730,31 @@ export default function DesignManagementPage() {
         </TabsContent>
 
         {/* Colors Tab */}
-        <TabsContent value="colors" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <TabsContent
+          value="colors"
+          className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <Card className="bcc-glass border-none bg-white/[0.02]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-1 h-6 bg-[#ff8c00]"></div>
                   <div>
-                    <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">Color Tokens</CardTitle>
+                    <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">
+                      Color Tokens
+                    </CardTitle>
                     <CardDescription className="text-[10px] uppercase text-white/40 tracking-wider">
                       Semantic color system based on W3C Design Tokens.
                     </CardDescription>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-sm">
-                  <Label htmlFor="live-preview" className="text-[9px] uppercase tracking-widest text-[#ff8c00] font-bold cursor-pointer">Live Preview</Label>
+                  <Label
+                    htmlFor="live-preview"
+                    className="text-[9px] uppercase tracking-widest text-[#ff8c00] font-bold cursor-pointer"
+                  >
+                    Live Preview
+                  </Label>
                   <input
                     id="live-preview"
                     type="checkbox"
@@ -654,90 +767,137 @@ export default function DesignManagementPage() {
             </CardHeader>
             <CardContent className="pt-8">
               <div className="grid grid-cols-2 gap-6">
-                {localTokens.color && (() => {
-                  // Flatten nested color tokens for rendering
-                  const flatColors: Array<{ path: string; key: string; token: any }> = [];
+                {localTokens.color &&
+                  (() => {
+                    // Flatten nested color tokens for rendering
+                    const flatColors: Array<{
+                      path: string;
+                      key: string;
+                      token: any;
+                    }> = [];
 
-                  Object.entries(localTokens.color).forEach(([key, value]: [string, any]) => {
-                    if (value.$value) {
-                      // Direct color token (e.g., border, input, ring)
-                      flatColors.push({ path: `color.${key}`, key, token: value });
-                    } else if (typeof value === 'object' && !Array.isArray(value)) {
-                      // Nested color token (e.g., primary.background, success.foreground)
-                      Object.entries(value).forEach(([subKey, subValue]: [string, any]) => {
-                        if (subValue && typeof subValue === 'object' && subValue.$value) {
+                    Object.entries(localTokens.color).forEach(
+                      ([key, value]: [string, any]) => {
+                        if (value.$value) {
+                          // Direct color token (e.g., border, input, ring)
                           flatColors.push({
-                            path: `color.${key}.${subKey}`,
-                            key: `${key}.${subKey}`,
-                            token: subValue
+                            path: `color.${key}`,
+                            key,
+                            token: value,
                           });
+                        } else if (
+                          typeof value === "object" &&
+                          !Array.isArray(value)
+                        ) {
+                          // Nested color token (e.g., primary.background, success.foreground)
+                          Object.entries(value).forEach(
+                            ([subKey, subValue]: [string, any]) => {
+                              if (
+                                subValue &&
+                                typeof subValue === "object" &&
+                                subValue.$value
+                              ) {
+                                flatColors.push({
+                                  path: `color.${key}.${subKey}`,
+                                  key: `${key}.${subKey}`,
+                                  token: subValue,
+                                });
+                              }
+                            },
+                          );
                         }
-                      });
-                    }
-                  });
+                      },
+                    );
 
-                  return flatColors.map(({ path, key, token }) => {
-                    const isHSL = typeof token.$value === 'string' && (token.$value.includes('hsl') || (!token.$value.startsWith('#') && !token.$value.startsWith('rgb')));
-                    const colorValue = isHSL
-                      ? token.$value.replace('hsl(', '').replace(')', '')
-                      : token.$value;
+                    return flatColors.map(({ path, key, token }) => {
+                      const isHSL =
+                        typeof token.$value === "string" &&
+                        (token.$value.includes("hsl") ||
+                          (!token.$value.startsWith("#") &&
+                            !token.$value.startsWith("rgb")));
+                      const colorValue = isHSL
+                        ? token.$value.replace("hsl(", "").replace(")", "")
+                        : token.$value;
 
-                    return (
-                      <div key={path} className="space-y-4 p-5 bg-white/[0.03] border border-white/5 rounded-sm hover:border-[#ff8c00]/20 transition-all group">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold group-hover:text-white transition-colors">{key}</Label>
-                          {livePreview && <span className="text-[8px] uppercase tracking-[0.2em] text-[#ff8c00] font-bold">● Active Signal</span>}
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {/* Color Picker */}
-                          <div className="relative group/picker">
-                            <input
-                              type="color"
-                              value={isHSL ? `#${hslToHex(colorValue)}` : colorValue}
-                              onChange={(e) => {
-                                const hex = e.target.value;
-                                const hsl = hexToHSL(hex);
-                                updateToken(path, hsl);
-                              }}
-                              className="w-12 h-12 rounded-sm border border-white/10 cursor-pointer bg-transparent"
-                            />
-                            <div className="absolute inset-0 w-12 h-12 rounded-sm border border-[#ff8c00]/40 pointer-events-none opacity-0 group-hover/picker:opacity-100 transition-opacity" />
+                      return (
+                        <div
+                          key={path}
+                          className="space-y-4 p-5 bg-white/[0.03] border border-white/5 rounded-sm hover:border-[#ff8c00]/20 transition-all group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold group-hover:text-white transition-colors">
+                              {key}
+                            </Label>
+                            {livePreview && (
+                              <span className="text-[8px] uppercase tracking-[0.2em] text-[#ff8c00] font-bold">
+                                ● Active Signal
+                              </span>
+                            )}
                           </div>
 
-                          {/* Value Input */}
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={colorValue}
-                              onChange={(e) => updateToken(path, e.target.value)}
-                              className="font-mono text-xs bg-black/40 border-white/10"
-                              placeholder="0 0% 0%"
-                            />
-                            <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-white/30">
-                              <span className="px-1.5 py-0.5 bg-white/5 rounded-sm border border-white/5 text-[#ff8c00]/60">
-                                {isHSL ? 'HSL' : 'HEX'}
-                              </span>
-                              {token.$description && <span className="font-mono italic">• {token.$description}</span>}
+                          <div className="flex items-center gap-3">
+                            {/* Color Picker */}
+                            <div className="relative group/picker">
+                              <input
+                                type="color"
+                                value={
+                                  isHSL
+                                    ? `#${hslToHex(colorValue)}`
+                                    : colorValue
+                                }
+                                onChange={(e) => {
+                                  const hex = e.target.value;
+                                  const hsl = hexToHSL(hex);
+                                  updateToken(path, hsl);
+                                }}
+                                className="w-12 h-12 rounded-sm border border-white/10 cursor-pointer bg-transparent"
+                              />
+                              <div className="absolute inset-0 w-12 h-12 rounded-sm border border-[#ff8c00]/40 pointer-events-none opacity-0 group-hover/picker:opacity-100 transition-opacity" />
+                            </div>
+
+                            {/* Value Input */}
+                            <div className="flex-1 space-y-2">
+                              <Input
+                                value={colorValue}
+                                onChange={(e) =>
+                                  updateToken(path, e.target.value)
+                                }
+                                className="font-mono text-xs bg-black/40 border-white/10"
+                                placeholder="0 0% 0%"
+                              />
+                              <div className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-white/30">
+                                <span className="px-1.5 py-0.5 bg-white/5 rounded-sm border border-white/5 text-[#ff8c00]/60">
+                                  {isHSL ? "HSL" : "HEX"}
+                                </span>
+                                {token.$description && (
+                                  <span className="font-mono italic">
+                                    • {token.$description}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Preview */}
+                          <div className="flex gap-2">
+                            <div
+                              className="flex-1 h-8 rounded border flex items-center justify-center text-xs"
+                              style={{
+                                backgroundColor: isHSL
+                                  ? `hsl(${colorValue})`
+                                  : colorValue,
+                                color: isLightColor(colorValue)
+                                  ? "#000"
+                                  : "#fff",
+                              }}
+                            >
+                              Preview
                             </div>
                           </div>
                         </div>
-
-                        {/* Preview */}
-                        <div className="flex gap-2">
-                          <div
-                            className="flex-1 h-8 rounded border flex items-center justify-center text-xs"
-                            style={{
-                              backgroundColor: isHSL ? `hsl(${colorValue})` : colorValue,
-                              color: isLightColor(colorValue) ? '#000' : '#fff'
-                            }}
-                          >
-                            Preview
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
+                      );
+                    });
+                  })()}
               </div>
             </CardContent>
           </Card>
@@ -748,7 +908,9 @@ export default function DesignManagementPage() {
               <div className="flex items-center gap-3">
                 <div className="w-1 h-6 bg-[#ff8c00]"></div>
                 <div>
-                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">Live Color Preview</CardTitle>
+                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">
+                    Live Color Preview
+                  </CardTitle>
                   <CardDescription className="text-[10px] uppercase text-white/40 tracking-wider">
                     See all color tokens in action across the semantic stack.
                   </CardDescription>
@@ -760,7 +922,9 @@ export default function DesignManagementPage() {
                 {/* Background */}
                 <div className="p-4 bg-background text-foreground border rounded">
                   <p className="font-semibold">Background</p>
-                  <p className="text-sm text-muted-foreground">bg-background + text-foreground</p>
+                  <p className="text-sm text-muted-foreground">
+                    bg-background + text-foreground
+                  </p>
                 </div>
 
                 {/* Card */}
@@ -772,13 +936,17 @@ export default function DesignManagementPage() {
                 {/* Primary */}
                 <div className="p-4 bg-primary text-primary-foreground rounded">
                   <p className="font-semibold">Primary</p>
-                  <p className="text-sm">bg-primary + text-primary-foreground</p>
+                  <p className="text-sm">
+                    bg-primary + text-primary-foreground
+                  </p>
                 </div>
 
                 {/* Secondary */}
                 <div className="p-4 bg-secondary text-secondary-foreground rounded">
                   <p className="font-semibold">Secondary</p>
-                  <p className="text-sm">bg-secondary + text-secondary-foreground</p>
+                  <p className="text-sm">
+                    bg-secondary + text-secondary-foreground
+                  </p>
                 </div>
 
                 {/* Muted */}
@@ -796,19 +964,25 @@ export default function DesignManagementPage() {
                 {/* Destructive */}
                 <div className="p-4 bg-destructive text-destructive-foreground rounded">
                   <p className="font-semibold">Destructive</p>
-                  <p className="text-sm">bg-destructive + text-destructive-foreground</p>
+                  <p className="text-sm">
+                    bg-destructive + text-destructive-foreground
+                  </p>
                 </div>
 
                 {/* Success */}
                 <div className="p-4 bg-success text-success-foreground rounded">
                   <p className="font-semibold">Success</p>
-                  <p className="text-sm">bg-success + text-success-foreground</p>
+                  <p className="text-sm">
+                    bg-success + text-success-foreground
+                  </p>
                 </div>
 
                 {/* Warning */}
                 <div className="p-4 bg-warning text-warning-foreground rounded">
                   <p className="font-semibold">Warning</p>
-                  <p className="text-sm">bg-warning + text-warning-foreground</p>
+                  <p className="text-sm">
+                    bg-warning + text-warning-foreground
+                  </p>
                 </div>
 
                 {/* Info */}
@@ -832,13 +1006,18 @@ export default function DesignManagementPage() {
         </TabsContent>
 
         {/* Typography Tab */}
-        <TabsContent value="typography" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <TabsContent
+          value="typography"
+          className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <Card className="bcc-glass border-none bg-white/[0.02]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-6 bg-[#ff8c00]"></div>
                 <div>
-                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">Typography Tokens</CardTitle>
+                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">
+                    Typography Tokens
+                  </CardTitle>
                   <CardDescription className="text-[10px] uppercase text-white/40 tracking-wider">
                     Font families, sizes, weights, and line heights.
                   </CardDescription>
@@ -849,25 +1028,36 @@ export default function DesignManagementPage() {
               {/* Font Families */}
               {localTokens.fontFamily && (
                 <div className="space-y-6">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">Font Families</h3>
+                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">
+                    Font Families
+                  </h3>
                   <div className="grid grid-cols-1 gap-6">
-                    {Object.entries(localTokens.fontFamily).map(([key, token]: [string, any]) => (
-                      <div key={key} className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-4 group">
-                        <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold group-hover:text-white transition-colors">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontFamily.${key}`, e.target.value)}
-                          placeholder="'Inter', sans-serif"
-                          className="font-mono text-xs bg-black/40 border-white/10"
-                        />
+                    {Object.entries(localTokens.fontFamily).map(
+                      ([key, token]: [string, any]) => (
                         <div
-                          className="p-6 bg-black/40 border border-white/5 rounded-sm text-lg"
-                          style={{ fontFamily: token.$value }}
+                          key={key}
+                          className="p-6 bg-white/[0.03] border border-white/5 rounded-sm space-y-4 group"
                         >
-                          THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+                          <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold group-hover:text-white transition-colors">
+                            {key}
+                          </Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontFamily.${key}`, e.target.value)
+                            }
+                            placeholder="'Inter', sans-serif"
+                            className="font-mono text-xs bg-black/40 border-white/10"
+                          />
+                          <div
+                            className="p-6 bg-black/40 border border-white/5 rounded-sm text-lg"
+                            style={{ fontFamily: token.$value }}
+                          >
+                            THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -877,26 +1067,37 @@ export default function DesignManagementPage() {
               {/* Font Weights */}
               {localTokens.fontWeight && (
                 <div className="space-y-6">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">Font Weights</h3>
+                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">
+                    Font Weights
+                  </h3>
                   <div className="grid grid-cols-4 gap-4">
-                    {Object.entries(localTokens.fontWeight).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-3 p-4 bg-white/[0.03] border border-white/5 rounded-sm">
-                        <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontWeight.${key}`, e.target.value)}
-                          placeholder="400"
-                          type="number"
-                          className="font-mono text-xs bg-black/40 border-white/10"
-                        />
+                    {Object.entries(localTokens.fontWeight).map(
+                      ([key, token]: [string, any]) => (
                         <div
-                          className="p-3 bg-black/40 rounded-sm text-sm text-center border border-white/5 text-[#ff8c00]"
-                          style={{ fontWeight: token.$value }}
+                          key={key}
+                          className="space-y-3 p-4 bg-white/[0.03] border border-white/5 rounded-sm"
                         >
-                          {token.$value}
+                          <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
+                            {key}
+                          </Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontWeight.${key}`, e.target.value)
+                            }
+                            placeholder="400"
+                            type="number"
+                            className="font-mono text-xs bg-black/40 border-white/10"
+                          />
+                          <div
+                            className="p-3 bg-black/40 rounded-sm text-sm text-center border border-white/5 text-[#ff8c00]"
+                            style={{ fontWeight: token.$value }}
+                          >
+                            {token.$value}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -906,25 +1107,36 @@ export default function DesignManagementPage() {
               {/* Font Sizes */}
               {localTokens.fontSize && (
                 <div className="space-y-6">
-                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">Font Sizes</h3>
+                  <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">
+                    Font Sizes
+                  </h3>
                   <div className="grid grid-cols-3 gap-6">
-                    {Object.entries(localTokens.fontSize).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-3 p-4 bg-white/[0.03] border border-white/5 rounded-sm">
-                        <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontSize.${key}`, e.target.value)}
-                          placeholder="1rem"
-                          className="font-mono text-xs bg-black/40 border-white/10"
-                        />
+                    {Object.entries(localTokens.fontSize).map(
+                      ([key, token]: [string, any]) => (
                         <div
-                          className="p-4 bg-black/40 rounded-sm border border-white/5 flex items-center justify-center overflow-hidden"
-                          style={{ fontSize: token.$value }}
+                          key={key}
+                          className="space-y-3 p-4 bg-white/[0.03] border border-white/5 rounded-sm"
                         >
-                          SAMPLE
+                          <Label className="text-[10px] uppercase tracking-widest text-white/60 font-bold">
+                            {key}
+                          </Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontSize.${key}`, e.target.value)
+                            }
+                            placeholder="1rem"
+                            className="font-mono text-xs bg-black/40 border-white/10"
+                          />
+                          <div
+                            className="p-4 bg-black/40 rounded-sm border border-white/5 flex items-center justify-center overflow-hidden"
+                            style={{ fontSize: token.$value }}
+                          >
+                            SAMPLE
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -933,22 +1145,30 @@ export default function DesignManagementPage() {
         </TabsContent>
 
         {/* Preview Tab */}
-        <TabsContent value="preview" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <TabsContent
+          value="preview"
+          className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <Card className="bcc-glass border-none bg-white/[0.02]">
             <CardHeader className="border-b border-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-1 h-6 bg-[#ff8c00]"></div>
                 <div>
-                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">Live System Preview</CardTitle>
+                  <CardTitle className="text-xs uppercase tracking-[0.3em] font-bold text-white/90">
+                    Live System Preview
+                  </CardTitle>
                   <CardDescription className="text-[10px] uppercase text-white/40 tracking-wider">
-                    Evaluating design token injection and peripheral component resonance.
+                    Evaluating design token injection and peripheral component
+                    resonance.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-8 space-y-8">
               <div className="space-y-4">
-                <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">Generated CSS Topology</h3>
+                <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">
+                  Generated CSS Topology
+                </h3>
                 <pre className="p-6 bg-black/60 border border-white/5 rounded-sm overflow-auto max-h-96 text-[10px] font-mono text-[#ff8c00]/60 selection:bg-[#ff8c00] selection:text-black">
                   {getCSSVariables()}
                 </pre>
@@ -957,22 +1177,46 @@ export default function DesignManagementPage() {
               <div className="h-px bg-white/5 w-full" />
 
               <div className="space-y-4">
-                <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">Component Resonance</h3>
+                <h3 className="text-[10px] uppercase tracking-widest text-[#ff8c00] font-bold">
+                  Component Resonance
+                </h3>
                 <div className="grid grid-cols-4 gap-4">
-                  <Button className="bg-[#ff8c00] text-black hover:bg-[#ff8c00]/80 text-[10px] uppercase tracking-tighter font-bold h-12">Primary Action</Button>
-                  <Button variant="secondary" className="bg-white/5 border-white/10 hover:bg-white/10 text-[10px] uppercase tracking-tighter h-12">Secondary Wave</Button>
-                  <Button variant="outline" className="border-white/10 hover:bg-white/5 text-[10px] uppercase tracking-tighter h-12">Boundary Edge</Button>
-                  <Button variant="ghost" className="text-white/40 hover:text-[#ff8c00] hover:bg-[#ff8c00]/5 text-[10px] uppercase tracking-tighter h-12">Ghost Trace</Button>
+                  <Button className="bg-[#ff8c00] text-black hover:bg-[#ff8c00]/80 text-[10px] uppercase tracking-tighter font-bold h-12">
+                    Primary Action
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="bg-white/5 border-white/10 hover:bg-white/10 text-[10px] uppercase tracking-tighter h-12"
+                  >
+                    Secondary Wave
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-white/10 hover:bg-white/5 text-[10px] uppercase tracking-tighter h-12"
+                  >
+                    Boundary Edge
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="text-white/40 hover:text-[#ff8c00] hover:bg-[#ff8c00]/5 text-[10px] uppercase tracking-tighter h-12"
+                  >
+                    Ghost Trace
+                  </Button>
                 </div>
 
                 <Card className="bg-white/[0.03] border border-white/5 p-8 rounded-sm">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#ff8c00]" />
-                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/80">Recursive Node Test</h4>
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/80">
+                        Recursive Node Test
+                      </h4>
                     </div>
                     <p className="text-[11px] text-white/40 leading-relaxed uppercase tracking-widest max-w-xl italic text-justify">
-                      Building deep-layered visual hiearchies using semantic injection points. All components are reactive to the systemic tokens managed within this console. De-facto standards for brand resonance.
+                      Building deep-layered visual hiearchies using semantic
+                      injection points. All components are reactive to the
+                      systemic tokens managed within this console. De-facto
+                      standards for brand resonance.
                     </p>
                   </div>
                 </Card>
@@ -986,14 +1230,22 @@ export default function DesignManagementPage() {
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent className="bcc-glass border-white/10 bg-[#0a0a0a]/90">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white uppercase tracking-widest text-sm font-bold">Resonance Reset?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white uppercase tracking-widest text-sm font-bold">
+              Resonance Reset?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-white/40 text-[10px] uppercase tracking-wider">
-              This action will reset all design tokens to their default values. Custom signal chains will be lost. This process is irreversible.
+              This action will reset all design tokens to their default values.
+              Custom signal chains will be lost. This process is irreversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6">
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-[10px] uppercase tracking-widest px-6 font-bold">Abort</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset} className="bg-red-500 text-white hover:bg-red-600 border-none text-[10px] uppercase tracking-widest px-6 font-bold">
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 text-[10px] uppercase tracking-widest px-6 font-bold">
+              Abort
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReset}
+              className="bg-red-500 text-white hover:bg-red-600 border-none text-[10px] uppercase tracking-widest px-6 font-bold"
+            >
               Execute Reset
             </AlertDialogAction>
           </AlertDialogFooter>

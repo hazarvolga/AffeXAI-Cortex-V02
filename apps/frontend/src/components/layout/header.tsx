@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { API_CONFIG } from "@/config/api.config";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, Phone, Mail, AlertTriangle } from "lucide-react";
@@ -78,8 +79,7 @@ export function Header() {
     async function fetchSiteSettings() {
       try {
         // Ensure API URL has /api suffix
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006";
+        const apiUrl = API_CONFIG.BASE_URL;
         const baseUrl = apiUrl.endsWith("/api") ? apiUrl : `${apiUrl}/api`;
         const response = await fetch(`${baseUrl}/settings/site`, {
           headers: {
