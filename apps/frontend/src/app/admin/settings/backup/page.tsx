@@ -1,20 +1,47 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/lib/notify";
 import {
   HardDrive,
   Download,
@@ -35,18 +62,19 @@ import {
   Save,
   Wifi,
   WifiOff,
-  Server
-} from 'lucide-react';
+  Server,
+} from "lucide-react";
 import backupService, {
   Backup,
   BackupConfig,
   BackupType,
   CloudDestination,
   CreateBackupDto,
-  BackupConfigDto
-} from '@/lib/api/backupService';
-import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
+  BackupConfigDto,
+} from "@/lib/api/backupService";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Cloud configuration state interfaces (flat structure matching backend)
 interface S3ConfigState {
@@ -71,34 +99,41 @@ interface OneDriveConfigState {
 export default function BackupSettingsPage() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newBackupType, setNewBackupType] = useState<BackupType>('full');
-  const [selectedDestinations, setSelectedDestinations] = useState<CloudDestination[]>([]);
+  const [newBackupType, setNewBackupType] = useState<BackupType>("full");
+  const [selectedDestinations, setSelectedDestinations] = useState<
+    CloudDestination[]
+  >([]);
 
   // Cloud config states (flat structure)
   const [s3Config, setS3Config] = useState<S3ConfigState>({
-    awsS3Bucket: '',
-    awsRegion: '',
-    awsAccessKeyId: '',
-    awsSecretAccessKey: ''
+    awsS3Bucket: "",
+    awsRegion: "",
+    awsAccessKeyId: "",
+    awsSecretAccessKey: "",
   });
-  const [googleDriveConfig, setGoogleDriveConfig] = useState<GoogleDriveConfigState>({
-    googleDriveClientId: '',
-    googleDriveClientSecret: '',
-    googleDriveRefreshToken: ''
-  });
+  const [googleDriveConfig, setGoogleDriveConfig] =
+    useState<GoogleDriveConfigState>({
+      googleDriveClientId: "",
+      googleDriveClientSecret: "",
+      googleDriveRefreshToken: "",
+    });
   const [oneDriveConfig, setOneDriveConfig] = useState<OneDriveConfigState>({
-    oneDriveClientId: '',
-    oneDriveClientSecret: '',
-    oneDriveRefreshToken: ''
+    oneDriveClientId: "",
+    oneDriveClientSecret: "",
+    oneDriveRefreshToken: "",
   });
 
   // Connection test states
   const [s3Testing, setS3Testing] = useState(false);
   const [s3Connected, setS3Connected] = useState<boolean | null>(null);
   const [googleDriveTesting, setGoogleDriveTesting] = useState(false);
-  const [googleDriveConnected, setGoogleDriveConnected] = useState<boolean | null>(null);
+  const [googleDriveConnected, setGoogleDriveConnected] = useState<
+    boolean | null
+  >(null);
   const [oneDriveTesting, setOneDriveTesting] = useState(false);
-  const [oneDriveConnected, setOneDriveConnected] = useState<boolean | null>(null);
+  const [oneDriveConnected, setOneDriveConnected] = useState<boolean | null>(
+    null,
+  );
 
   // Saving states
   const [s3Saving, setS3Saving] = useState(false);
@@ -107,37 +142,37 @@ export default function BackupSettingsPage() {
 
   // Fetch backups
   const { data: backups = [], isLoading: backupsLoading } = useQuery({
-    queryKey: ['backups'],
+    queryKey: ["backups"],
     queryFn: () => backupService.getAllBackups(),
   });
 
   // Fetch config
   const { data: config, isLoading: configLoading } = useQuery({
-    queryKey: ['backup-config'],
+    queryKey: ["backup-config"],
     queryFn: () => backupService.getConfig(),
   });
 
   // Populate cloud configs from fetched config
-  useEffect(() => {
+  useAsyncEffect(() => {
     if (config) {
       // AWS S3
       setS3Config({
-        awsS3Bucket: config.awsS3Bucket || '',
-        awsRegion: config.awsRegion || '',
-        awsAccessKeyId: config.awsAccessKeyId || '',
-        awsSecretAccessKey: config.awsSecretAccessKey || ''
+        awsS3Bucket: config.awsS3Bucket || "",
+        awsRegion: config.awsRegion || "",
+        awsAccessKeyId: config.awsAccessKeyId || "",
+        awsSecretAccessKey: config.awsSecretAccessKey || "",
       });
       // Google Drive
       setGoogleDriveConfig({
-        googleDriveClientId: config.googleDriveClientId || '',
-        googleDriveClientSecret: config.googleDriveClientSecret || '',
-        googleDriveRefreshToken: config.googleDriveRefreshToken || ''
+        googleDriveClientId: config.googleDriveClientId || "",
+        googleDriveClientSecret: config.googleDriveClientSecret || "",
+        googleDriveRefreshToken: config.googleDriveRefreshToken || "",
       });
       // OneDrive
       setOneDriveConfig({
-        oneDriveClientId: config.oneDriveClientId || '',
-        oneDriveClientSecret: config.oneDriveClientSecret || '',
-        oneDriveRefreshToken: config.oneDriveRefreshToken || ''
+        oneDriveClientId: config.oneDriveClientId || "",
+        oneDriveClientSecret: config.oneDriveClientSecret || "",
+        oneDriveRefreshToken: config.oneDriveRefreshToken || "",
       });
     }
   }, [config]);
@@ -146,12 +181,12 @@ export default function BackupSettingsPage() {
   const createBackupMutation = useMutation({
     mutationFn: (dto: CreateBackupDto) => backupService.createBackup(dto),
     onSuccess: () => {
-      toast.success('Yedekleme başlatıldı');
-      queryClient.invalidateQueries({ queryKey: ['backups'] });
+      toast.success("Yedekleme başlatıldı");
+      queryClient.invalidateQueries({ queryKey: ["backups"] });
       setIsCreateDialogOpen(false);
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Yedekleme başlatılamadı');
+      toast.error(error.message || "Yedekleme başlatılamadı");
     },
   });
 
@@ -159,11 +194,11 @@ export default function BackupSettingsPage() {
   const deleteBackupMutation = useMutation({
     mutationFn: (id: string) => backupService.deleteBackup(id),
     onSuccess: () => {
-      toast.success('Yedek silindi');
-      queryClient.invalidateQueries({ queryKey: ['backups'] });
+      toast.success("Yedek silindi");
+      queryClient.invalidateQueries({ queryKey: ["backups"] });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Yedek silinemedi');
+      toast.error(error.message || "Yedek silinemedi");
     },
   });
 
@@ -171,11 +206,11 @@ export default function BackupSettingsPage() {
   const updateConfigMutation = useMutation({
     mutationFn: (dto: BackupConfigDto) => backupService.updateConfig(dto),
     onSuccess: () => {
-      toast.success('Ayarlar kaydedildi');
-      queryClient.invalidateQueries({ queryKey: ['backup-config'] });
+      toast.success("Ayarlar kaydedildi");
+      queryClient.invalidateQueries({ queryKey: ["backup-config"] });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Ayarlar kaydedilemedi');
+      toast.error(error.message || "Ayarlar kaydedilemedi");
     },
   });
 
@@ -184,16 +219,16 @@ export default function BackupSettingsPage() {
     try {
       const blob = await backupService.downloadBackup(backup.id);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = backup.name || `backup-${backup.id}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('Yedek indiriliyor...');
+      toast.success("Yedek indiriliyor...");
     } catch (error: any) {
-      toast.error(error.message || 'Yedek indirilemedi');
+      toast.error(error.message || "Yedek indirilemedi");
     }
   };
 
@@ -201,7 +236,8 @@ export default function BackupSettingsPage() {
   const handleCreateBackup = () => {
     createBackupMutation.mutate({
       type: newBackupType,
-      uploadTo: selectedDestinations.length > 0 ? selectedDestinations : undefined,
+      uploadTo:
+        selectedDestinations.length > 0 ? selectedDestinations : undefined,
     });
   };
 
@@ -213,9 +249,9 @@ export default function BackupSettingsPage() {
         awsS3Bucket: s3Config.awsS3Bucket,
         awsRegion: s3Config.awsRegion,
         awsAccessKeyId: s3Config.awsAccessKeyId,
-        awsSecretAccessKey: s3Config.awsSecretAccessKey
+        awsSecretAccessKey: s3Config.awsSecretAccessKey,
       });
-      toast.success('AWS S3 ayarları kaydedildi');
+      toast.success("AWS S3 ayarları kaydedildi");
     } catch (error) {
       // Error already handled in mutation
     } finally {
@@ -228,16 +264,16 @@ export default function BackupSettingsPage() {
     setS3Testing(true);
     setS3Connected(null);
     try {
-      const result = await backupService.testCloudConnection('aws_s3');
+      const result = await backupService.testCloudConnection("aws_s3");
       setS3Connected(result.connected);
       if (result.connected) {
-        toast.success('AWS S3 bağlantısı başarılı');
+        toast.success("AWS S3 bağlantısı başarılı");
       } else {
-        toast.error('AWS S3 bağlantısı başarısız');
+        toast.error("AWS S3 bağlantısı başarısız");
       }
     } catch (error: any) {
       setS3Connected(false);
-      toast.error(error.message || 'AWS S3 bağlantı testi başarısız');
+      toast.error(error.message || "AWS S3 bağlantı testi başarısız");
     } finally {
       setS3Testing(false);
     }
@@ -250,9 +286,9 @@ export default function BackupSettingsPage() {
       await updateConfigMutation.mutateAsync({
         googleDriveClientId: googleDriveConfig.googleDriveClientId,
         googleDriveClientSecret: googleDriveConfig.googleDriveClientSecret,
-        googleDriveRefreshToken: googleDriveConfig.googleDriveRefreshToken
+        googleDriveRefreshToken: googleDriveConfig.googleDriveRefreshToken,
       });
-      toast.success('Google Drive ayarları kaydedildi');
+      toast.success("Google Drive ayarları kaydedildi");
     } catch (error) {
       // Error already handled in mutation
     } finally {
@@ -265,16 +301,16 @@ export default function BackupSettingsPage() {
     setGoogleDriveTesting(true);
     setGoogleDriveConnected(null);
     try {
-      const result = await backupService.testCloudConnection('google_drive');
+      const result = await backupService.testCloudConnection("google_drive");
       setGoogleDriveConnected(result.connected);
       if (result.connected) {
-        toast.success('Google Drive bağlantısı başarılı');
+        toast.success("Google Drive bağlantısı başarılı");
       } else {
-        toast.error('Google Drive bağlantısı başarısız');
+        toast.error("Google Drive bağlantısı başarısız");
       }
     } catch (error: any) {
       setGoogleDriveConnected(false);
-      toast.error(error.message || 'Google Drive bağlantı testi başarısız');
+      toast.error(error.message || "Google Drive bağlantı testi başarısız");
     } finally {
       setGoogleDriveTesting(false);
     }
@@ -287,9 +323,9 @@ export default function BackupSettingsPage() {
       await updateConfigMutation.mutateAsync({
         oneDriveClientId: oneDriveConfig.oneDriveClientId,
         oneDriveClientSecret: oneDriveConfig.oneDriveClientSecret,
-        oneDriveRefreshToken: oneDriveConfig.oneDriveRefreshToken
+        oneDriveRefreshToken: oneDriveConfig.oneDriveRefreshToken,
       });
-      toast.success('OneDrive ayarları kaydedildi');
+      toast.success("OneDrive ayarları kaydedildi");
     } catch (error) {
       // Error already handled in mutation
     } finally {
@@ -302,16 +338,16 @@ export default function BackupSettingsPage() {
     setOneDriveTesting(true);
     setOneDriveConnected(null);
     try {
-      const result = await backupService.testCloudConnection('onedrive');
+      const result = await backupService.testCloudConnection("onedrive");
       setOneDriveConnected(result.connected);
       if (result.connected) {
-        toast.success('OneDrive bağlantısı başarılı');
+        toast.success("OneDrive bağlantısı başarılı");
       } else {
-        toast.error('OneDrive bağlantısı başarısız');
+        toast.error("OneDrive bağlantısı başarısız");
       }
     } catch (error: any) {
       setOneDriveConnected(false);
-      toast.error(error.message || 'OneDrive bağlantı testi başarısız');
+      toast.error(error.message || "OneDrive bağlantı testi başarısız");
     } finally {
       setOneDriveTesting(false);
     }
@@ -320,11 +356,11 @@ export default function BackupSettingsPage() {
   // Get backup type icon
   const getTypeIcon = (type: BackupType) => {
     switch (type) {
-      case 'database':
+      case "database":
         return <Database className="h-4 w-4" />;
-      case 'media':
+      case "media":
         return <Image className="h-4 w-4" />;
-      case 'config':
+      case "config":
         return <FileCode className="h-4 w-4" />;
       default:
         return <HardDrive className="h-4 w-4" />;
@@ -334,14 +370,30 @@ export default function BackupSettingsPage() {
   // Get status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" /> Tamamlandı</Badge>;
-      case 'in_progress':
-        return <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Devam Ediyor</Badge>;
-      case 'failed':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" /> Başarısız</Badge>;
+      case "completed":
+        return (
+          <Badge variant="default" className="bg-green-500">
+            <CheckCircle className="h-3 w-3 mr-1" /> Tamamlandı
+          </Badge>
+        );
+      case "in_progress":
+        return (
+          <Badge variant="secondary">
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Devam Ediyor
+          </Badge>
+        );
+      case "failed":
+        return (
+          <Badge variant="destructive">
+            <XCircle className="h-3 w-3 mr-1" /> Başarısız
+          </Badge>
+        );
       default:
-        return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" /> Bekliyor</Badge>;
+        return (
+          <Badge variant="outline">
+            <Clock className="h-3 w-3 mr-1" /> Bekliyor
+          </Badge>
+        );
     }
   };
 
@@ -394,7 +446,8 @@ export default function BackupSettingsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Yedekleme Yönetimi</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Sistem yedeklerinizi yönetin ve otomatik yedekleme ayarlarını yapılandırın.
+            Sistem yedeklerinizi yönetin ve otomatik yedekleme ayarlarını
+            yapılandırın.
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -408,13 +461,17 @@ export default function BackupSettingsPage() {
             <DialogHeader>
               <DialogTitle>Yeni Yedek Oluştur</DialogTitle>
               <DialogDescription>
-                Yedekleme türünü seçin ve isteğe bağlı olarak bulut depolama hedeflerini belirleyin.
+                Yedekleme türünü seçin ve isteğe bağlı olarak bulut depolama
+                hedeflerini belirleyin.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Yedekleme Türü</Label>
-                <Select value={newBackupType} onValueChange={(v) => setNewBackupType(v as BackupType)}>
+                <Select
+                  value={newBackupType}
+                  onValueChange={(v) => setNewBackupType(v as BackupType)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -452,54 +509,89 @@ export default function BackupSettingsPage() {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="aws_s3"
-                      checked={selectedDestinations.includes('aws_s3')}
+                      checked={selectedDestinations.includes("aws_s3")}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedDestinations([...selectedDestinations, 'aws_s3']);
+                          setSelectedDestinations([
+                            ...selectedDestinations,
+                            "aws_s3",
+                          ]);
                         } else {
-                          setSelectedDestinations(selectedDestinations.filter(d => d !== 'aws_s3'));
+                          setSelectedDestinations(
+                            selectedDestinations.filter((d) => d !== "aws_s3"),
+                          );
                         }
                       }}
                     />
-                    <label htmlFor="aws_s3" className="text-sm">AWS S3</label>
+                    <label htmlFor="aws_s3" className="text-sm">
+                      AWS S3
+                    </label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="google_drive"
-                      checked={selectedDestinations.includes('google_drive')}
+                      checked={selectedDestinations.includes("google_drive")}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedDestinations([...selectedDestinations, 'google_drive']);
+                          setSelectedDestinations([
+                            ...selectedDestinations,
+                            "google_drive",
+                          ]);
                         } else {
-                          setSelectedDestinations(selectedDestinations.filter(d => d !== 'google_drive'));
+                          setSelectedDestinations(
+                            selectedDestinations.filter(
+                              (d) => d !== "google_drive",
+                            ),
+                          );
                         }
                       }}
                     />
-                    <label htmlFor="google_drive" className="text-sm">Google Drive</label>
+                    <label htmlFor="google_drive" className="text-sm">
+                      Google Drive
+                    </label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="onedrive"
-                      checked={selectedDestinations.includes('onedrive')}
+                      checked={selectedDestinations.includes("onedrive")}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedDestinations([...selectedDestinations, 'onedrive']);
+                          setSelectedDestinations([
+                            ...selectedDestinations,
+                            "onedrive",
+                          ]);
                         } else {
-                          setSelectedDestinations(selectedDestinations.filter(d => d !== 'onedrive'));
+                          setSelectedDestinations(
+                            selectedDestinations.filter(
+                              (d) => d !== "onedrive",
+                            ),
+                          );
                         }
                       }}
                     />
-                    <label htmlFor="onedrive" className="text-sm">OneDrive</label>
+                    <label htmlFor="onedrive" className="text-sm">
+                      OneDrive
+                    </label>
                   </div>
                 </div>
               </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
                 İptal
               </Button>
-              <Button onClick={handleCreateBackup} disabled={createBackupMutation.isPending} className="w-full sm:w-auto">
-                {createBackupMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button
+                onClick={handleCreateBackup}
+                disabled={createBackupMutation.isPending}
+                className="w-full sm:w-auto"
+              >
+                {createBackupMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 Yedeklemeyi Başlat
               </Button>
             </DialogFooter>
@@ -540,7 +632,8 @@ export default function BackupSettingsPage() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Henüz hiç yedek oluşturulmamış. Yeni bir yedek oluşturmak için yukarıdaki butonu kullanın.
+                    Henüz hiç yedek oluşturulmamış. Yeni bir yedek oluşturmak
+                    için yukarıdaki butonu kullanın.
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -549,11 +642,17 @@ export default function BackupSettingsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tür</TableHead>
-                        <TableHead className="hidden sm:table-cell">Ad</TableHead>
+                        <TableHead className="hidden sm:table-cell">
+                          Ad
+                        </TableHead>
                         <TableHead>Boyut</TableHead>
                         <TableHead>Durum</TableHead>
-                        <TableHead className="hidden md:table-cell">Tarih</TableHead>
-                        <TableHead className="hidden lg:table-cell">Bulut</TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          Tarih
+                        </TableHead>
+                        <TableHead className="hidden lg:table-cell">
+                          Bulut
+                        </TableHead>
                         <TableHead className="text-right">İşlemler</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -563,31 +662,44 @@ export default function BackupSettingsPage() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {getTypeIcon(backup.type)}
-                              <span className="hidden sm:inline">{backupService.getTypeLabel(backup.type)}</span>
+                              <span className="hidden sm:inline">
+                                {backupService.getTypeLabel(backup.type)}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-sm hidden sm:table-cell">
                             {backup.name}
                           </TableCell>
-                          <TableCell>{backupService.formatSize(backup.fileSize)}</TableCell>
+                          <TableCell>
+                            {backupService.formatSize(backup.fileSize)}
+                          </TableCell>
                           <TableCell>{getStatusBadge(backup.status)}</TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {format(new Date(backup.createdAt), 'dd MMM yyyy HH:mm', { locale: tr })}
+                            {format(
+                              new Date(backup.createdAt),
+                              "dd MMM yyyy HH:mm",
+                              { locale: tr },
+                            )}
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
                             <div className="flex gap-1">
-                              {backup.uploadedTo && backup.uploadedTo.length > 0 ? (
+                              {backup.uploadedTo &&
+                              backup.uploadedTo.length > 0 ? (
                                 backup.uploadedTo.map((dest) => (
-                                  <Badge key={dest} variant="outline">{backupService.getDestinationLabel(dest)}</Badge>
+                                  <Badge key={dest} variant="outline">
+                                    {backupService.getDestinationLabel(dest)}
+                                  </Badge>
                                 ))
                               ) : (
-                                <span className="text-muted-foreground text-sm">Lokal</span>
+                                <span className="text-muted-foreground text-sm">
+                                  Lokal
+                                </span>
                               )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1 sm:gap-2">
-                              {backup.status === 'completed' && (
+                              {backup.status === "completed" && (
                                 <>
                                   <Button
                                     variant="outline"
@@ -612,7 +724,9 @@ export default function BackupSettingsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => deleteBackupMutation.mutate(backup.id)}
+                                onClick={() =>
+                                  deleteBackupMutation.mutate(backup.id)
+                                }
                                 disabled={deleteBackupMutation.isPending}
                                 title="Sil"
                               >
@@ -650,7 +764,9 @@ export default function BackupSettingsPage() {
                 <Switch
                   checked={config?.automaticBackupEnabled ?? false}
                   onCheckedChange={(checked) => {
-                    updateConfigMutation.mutate({ automaticBackupEnabled: checked });
+                    updateConfigMutation.mutate({
+                      automaticBackupEnabled: checked,
+                    });
                   }}
                 />
               </div>
@@ -660,13 +776,15 @@ export default function BackupSettingsPage() {
                   <Label>Cron İfadesi</Label>
                   <Input
                     placeholder="0 2 * * *"
-                    value={config?.automaticBackupCron ?? '0 2 * * *'}
+                    value={config?.automaticBackupCron ?? "0 2 * * *"}
                     onChange={(e) => {
-                      updateConfigMutation.mutate({ automaticBackupCron: e.target.value });
+                      updateConfigMutation.mutate({
+                        automaticBackupCron: e.target.value,
+                      });
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Örnek: "0 2 * * *" = Her gün saat 02:00
+                    Örnek: &quot;0 2 * * *&quot; = Her gün saat 02:00
                   </p>
                 </div>
 
@@ -678,7 +796,9 @@ export default function BackupSettingsPage() {
                     max={365}
                     value={config?.defaultRetentionDays ?? 30}
                     onChange={(e) => {
-                      updateConfigMutation.mutate({ defaultRetentionDays: parseInt(e.target.value) });
+                      updateConfigMutation.mutate({
+                        defaultRetentionDays: parseInt(e.target.value),
+                      });
                     }}
                   />
                 </div>
@@ -711,7 +831,9 @@ export default function BackupSettingsPage() {
                     id="s3-bucket"
                     placeholder="my-backup-bucket"
                     value={s3Config.awsS3Bucket}
-                    onChange={(e) => setS3Config({ ...s3Config, awsS3Bucket: e.target.value })}
+                    onChange={(e) =>
+                      setS3Config({ ...s3Config, awsS3Bucket: e.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -720,7 +842,9 @@ export default function BackupSettingsPage() {
                     id="s3-region"
                     placeholder="eu-central-1"
                     value={s3Config.awsRegion}
-                    onChange={(e) => setS3Config({ ...s3Config, awsRegion: e.target.value })}
+                    onChange={(e) =>
+                      setS3Config({ ...s3Config, awsRegion: e.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -730,7 +854,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="AKIA..."
                     value={s3Config.awsAccessKeyId}
-                    onChange={(e) => setS3Config({ ...s3Config, awsAccessKeyId: e.target.value })}
+                    onChange={(e) =>
+                      setS3Config({
+                        ...s3Config,
+                        awsAccessKeyId: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -740,7 +869,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="••••••••"
                     value={s3Config.awsSecretAccessKey}
-                    onChange={(e) => setS3Config({ ...s3Config, awsSecretAccessKey: e.target.value })}
+                    onChange={(e) =>
+                      setS3Config({
+                        ...s3Config,
+                        awsSecretAccessKey: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -748,7 +882,13 @@ export default function BackupSettingsPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={handleTestS3}
-                    disabled={s3Testing || !s3Config.awsS3Bucket || !s3Config.awsRegion || !s3Config.awsAccessKeyId || !s3Config.awsSecretAccessKey}
+                    disabled={
+                      s3Testing ||
+                      !s3Config.awsS3Bucket ||
+                      !s3Config.awsRegion ||
+                      !s3Config.awsAccessKeyId ||
+                      !s3Config.awsSecretAccessKey
+                    }
                   >
                     {s3Testing ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -760,7 +900,13 @@ export default function BackupSettingsPage() {
                   <Button
                     className="flex-1"
                     onClick={handleSaveS3Config}
-                    disabled={s3Saving || !s3Config.awsS3Bucket || !s3Config.awsRegion || !s3Config.awsAccessKeyId || !s3Config.awsSecretAccessKey}
+                    disabled={
+                      s3Saving ||
+                      !s3Config.awsS3Bucket ||
+                      !s3Config.awsRegion ||
+                      !s3Config.awsAccessKeyId ||
+                      !s3Config.awsSecretAccessKey
+                    }
                   >
                     {s3Saving ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -794,7 +940,12 @@ export default function BackupSettingsPage() {
                     id="gdrive-client-id"
                     placeholder="xxx.apps.googleusercontent.com"
                     value={googleDriveConfig.googleDriveClientId}
-                    onChange={(e) => setGoogleDriveConfig({ ...googleDriveConfig, googleDriveClientId: e.target.value })}
+                    onChange={(e) =>
+                      setGoogleDriveConfig({
+                        ...googleDriveConfig,
+                        googleDriveClientId: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -804,7 +955,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="••••••••"
                     value={googleDriveConfig.googleDriveClientSecret}
-                    onChange={(e) => setGoogleDriveConfig({ ...googleDriveConfig, googleDriveClientSecret: e.target.value })}
+                    onChange={(e) =>
+                      setGoogleDriveConfig({
+                        ...googleDriveConfig,
+                        googleDriveClientSecret: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -814,7 +970,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="••••••••"
                     value={googleDriveConfig.googleDriveRefreshToken}
-                    onChange={(e) => setGoogleDriveConfig({ ...googleDriveConfig, googleDriveRefreshToken: e.target.value })}
+                    onChange={(e) =>
+                      setGoogleDriveConfig({
+                        ...googleDriveConfig,
+                        googleDriveRefreshToken: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -822,7 +983,12 @@ export default function BackupSettingsPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={handleTestGoogleDrive}
-                    disabled={googleDriveTesting || !googleDriveConfig.googleDriveClientId || !googleDriveConfig.googleDriveClientSecret || !googleDriveConfig.googleDriveRefreshToken}
+                    disabled={
+                      googleDriveTesting ||
+                      !googleDriveConfig.googleDriveClientId ||
+                      !googleDriveConfig.googleDriveClientSecret ||
+                      !googleDriveConfig.googleDriveRefreshToken
+                    }
                   >
                     {googleDriveTesting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -834,7 +1000,12 @@ export default function BackupSettingsPage() {
                   <Button
                     className="flex-1"
                     onClick={handleSaveGoogleDriveConfig}
-                    disabled={googleDriveSaving || !googleDriveConfig.googleDriveClientId || !googleDriveConfig.googleDriveClientSecret || !googleDriveConfig.googleDriveRefreshToken}
+                    disabled={
+                      googleDriveSaving ||
+                      !googleDriveConfig.googleDriveClientId ||
+                      !googleDriveConfig.googleDriveClientSecret ||
+                      !googleDriveConfig.googleDriveRefreshToken
+                    }
                   >
                     {googleDriveSaving ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -868,7 +1039,12 @@ export default function BackupSettingsPage() {
                     id="onedrive-client-id"
                     placeholder="xxx-xxx-xxx"
                     value={oneDriveConfig.oneDriveClientId}
-                    onChange={(e) => setOneDriveConfig({ ...oneDriveConfig, oneDriveClientId: e.target.value })}
+                    onChange={(e) =>
+                      setOneDriveConfig({
+                        ...oneDriveConfig,
+                        oneDriveClientId: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -878,7 +1054,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="••••••••"
                     value={oneDriveConfig.oneDriveClientSecret}
-                    onChange={(e) => setOneDriveConfig({ ...oneDriveConfig, oneDriveClientSecret: e.target.value })}
+                    onChange={(e) =>
+                      setOneDriveConfig({
+                        ...oneDriveConfig,
+                        oneDriveClientSecret: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -888,7 +1069,12 @@ export default function BackupSettingsPage() {
                     type="password"
                     placeholder="••••••••"
                     value={oneDriveConfig.oneDriveRefreshToken}
-                    onChange={(e) => setOneDriveConfig({ ...oneDriveConfig, oneDriveRefreshToken: e.target.value })}
+                    onChange={(e) =>
+                      setOneDriveConfig({
+                        ...oneDriveConfig,
+                        oneDriveRefreshToken: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -896,7 +1082,12 @@ export default function BackupSettingsPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={handleTestOneDrive}
-                    disabled={oneDriveTesting || !oneDriveConfig.oneDriveClientId || !oneDriveConfig.oneDriveClientSecret || !oneDriveConfig.oneDriveRefreshToken}
+                    disabled={
+                      oneDriveTesting ||
+                      !oneDriveConfig.oneDriveClientId ||
+                      !oneDriveConfig.oneDriveClientSecret ||
+                      !oneDriveConfig.oneDriveRefreshToken
+                    }
                   >
                     {oneDriveTesting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -908,7 +1099,12 @@ export default function BackupSettingsPage() {
                   <Button
                     className="flex-1"
                     onClick={handleSaveOneDriveConfig}
-                    disabled={oneDriveSaving || !oneDriveConfig.oneDriveClientId || !oneDriveConfig.oneDriveClientSecret || !oneDriveConfig.oneDriveRefreshToken}
+                    disabled={
+                      oneDriveSaving ||
+                      !oneDriveConfig.oneDriveClientId ||
+                      !oneDriveConfig.oneDriveClientSecret ||
+                      !oneDriveConfig.oneDriveRefreshToken
+                    }
                   >
                     {oneDriveSaving ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

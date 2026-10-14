@@ -269,7 +269,7 @@ export function Header() {
             )}
             {/* Show loading state */}
             {(isMenuLoading || isLoadingTheme) && !isMenuUnavailable && (
-              <div className="flex items-center space-x-2 text-gray-400 text-sm">
+              <div className="flex items-center space-x-2 text-muted-foreground text-sm">
                 <div className="h-4 w-4 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
                 <span>Yükleniyor...</span>
               </div>
@@ -432,13 +432,16 @@ export function Header() {
 
           {/* Mobile Menu Button */}
           <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
+            aria-expanded={isMobileMenuOpen}
             className="lg:hidden p-2 text-gray-700 hover:text-primary transition-colors"
           >
             {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
+              <X aria-hidden="true" className="h-6 w-6" />
             ) : (
-              <Menu className="h-6 w-6" />
+              <Menu aria-hidden="true" className="h-6 w-6" />
             )}
           </button>
         </div>
@@ -457,7 +460,7 @@ export function Header() {
             )}
             {/* Show loading state */}
             {(isMenuLoading || isLoadingTheme) && !isMenuUnavailable && (
-              <div className="flex items-center justify-center space-x-2 text-gray-400 py-4">
+              <div className="flex items-center justify-center space-x-2 text-muted-foreground py-4">
                 <div className="h-5 w-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
                 <span>Menü yükleniyor...</span>
               </div>

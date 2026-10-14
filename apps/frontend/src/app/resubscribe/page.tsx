@@ -1,18 +1,24 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { TenantSelector, useTenantSelection } from '@/lib/auth/tenant-selector';
-import { tenantHeaders } from '@/lib/auth/tenant-selection';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { CheckCircle2, Mail, ArrowRight } from 'lucide-react';
-import { toast } from 'sonner';
-import Link from 'next/link';
+import { useState } from "react";
+import { TenantSelector, useTenantSelection } from "@/lib/auth/tenant-selector";
+import { tenantHeaders } from "@/lib/auth/tenant-selection";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CheckCircle2, Mail, ArrowRight } from "lucide-react";
+import { toast } from "@/lib/notify";
+import Link from "next/link";
 
 export default function ResubscribePage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [tenantId, setTenantId] = useTenantSelection();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -22,34 +28,37 @@ export default function ResubscribePage() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error('Geçerli bir e-posta adresi girin');
+      toast.error("Geçerli bir e-posta adresi girin");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/email-marketing/subscription/resubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...tenantHeaders(tenantId),
+      const response = await fetch(
+        "/api/email-marketing/subscription/resubscribe",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...tenantHeaders(tenantId),
+          },
+          body: JSON.stringify({ email }),
         },
-        body: JSON.stringify({ email }),
-      });
+      );
 
       if (response.ok) {
         setIsSuccess(true);
-        toast.success('Onay talebiniz alındı.');
+        toast.success("Onay talebiniz alındı.");
       } else {
         const data = await response.json();
         if (data.message) {
           toast.error(data.message);
         } else {
-          toast.error('Bir hata oluştu');
+          toast.error("Bir hata oluştu");
         }
       }
     } catch (error) {
-      toast.error('Bir hata oluştu');
+      toast.error("Bir hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -64,14 +73,13 @@ export default function ResubscribePage() {
               <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
             <CardTitle>Onay talebiniz alındı</CardTitle>
-            <CardDescription>
-              Abonelik onayı bekleniyor
-            </CardDescription>
+            <CardDescription>Abonelik onayı bekleniyor</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-gray-600 text-center">
-              Bu adres için uygun bir abonelik varsa bir onay bağlantısı iletilmeye çalışılacaktır.
-              Bağlantıyı onaylamadan pazarlama e-postaları açılmaz.
+              Bu adres için uygun bir abonelik varsa bir onay bağlantısı
+              iletilmeye çalışılacaktır. Bağlantıyı onaylamadan pazarlama
+              e-postaları açılmaz.
             </p>
 
             <div className="bg-blue-50 rounded-lg p-4">
@@ -79,7 +87,8 @@ export default function ResubscribePage() {
                 E-posta onayı gereklidir
               </p>
               <p className="text-sm text-blue-700">
-                Gelen kutunuzu kontrol edin. Bağlantı ulaşmazsa daha sonra tekrar deneyin; bu ekran teslimat garantisi vermez.
+                Gelen kutunuzu kontrol edin. Bağlantı ulaşmazsa daha sonra
+                tekrar deneyin; bu ekran teslimat garantisi vermez.
               </p>
             </div>
 
@@ -90,9 +99,7 @@ export default function ResubscribePage() {
                 </Button>
               </Link>
               <Link href="/" className="flex-1">
-                <Button className="w-full">
-                  Ana Sayfaya Dön
-                </Button>
+                <Button className="w-full">Ana Sayfaya Dön</Button>
               </Link>
             </div>
           </CardContent>
@@ -115,7 +122,11 @@ export default function ResubscribePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <TenantSelector value={tenantId} onChange={setTenantId} disabled={isSubmitting} />
+            <TenantSelector
+              value={tenantId}
+              onChange={setTenantId}
+              disabled={isSubmitting}
+            />
             <div className="space-y-2">
               <Label htmlFor="email">E-posta Adresi</Label>
               <Input
@@ -152,13 +163,9 @@ export default function ResubscribePage() {
               </ul>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting}
-            >
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? (
-                'İşleniyor...'
+                "İşleniyor..."
               ) : (
                 <>
                   Yeniden Abone Ol

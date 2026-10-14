@@ -337,3 +337,16 @@ Açık:
 - Backend `/auth/register` hâlâ self-serve kayıt kabul ediyor; D4 ile tutarlı hale getirilmeli.
 - Tenant girişi `/auth/login` kuruluş üyeliğini kontrol etmeden token veriyor; o token sonraki istekte reddediliyor.
 - `refreshAccessToken` ve kuyruk paneli testlerindeki 3 eski kırmızı test.
+
+## UI/UX F3.0 — bildirim, diyalog, sayfa pattern'leri, tek tema sahibi — 2026-10-14
+
+- **Tek bildirim sistemi:** `src/lib/notify.ts`, sonner'ın kullanılan alt API'sini (`success/error/info/warning/loading/dismiss/promise`, `id` ile güncelleme) `hooks/use-toast` üzerinden sunuyor. 26 dosyanın `sonner` import'u buna çevrildi. Kök layout'ta yalnız `use-toast` `<Toaster>`'ı mount edildiği için bu dosyaların bildirimleri önceden kullanıcıya hiç görünmüyordu.
+- **Diyalog servisi:** `lib/dialogs/dialog-queue.ts` (`confirmDialog`, `promptDialog`) ve kök layout'taki `components/patterns/DialogHost`. Tarayıcı `alert/confirm/prompt` yerine Promise döndüren Radix alert-dialog kullanılıyor. Host yoksa onay `false`, giriş `null` döner. Yıkıcı onaylarda ilk odak "Vazgeç" üzerinde. F3.1 bunu kullanacak.
+- **Sayfa pattern'leri:** `components/patterns/page-states.tsx`: `PageHeader`, `EmptyState`, `NoResultsState`, `ErrorState`.
+- **`useAsyncEffect` (`hooks/use-async-effect.ts`):** mount veya bağımlılık değişiminde veri yükleyen effect'ler için. Yükleyiciyi commit sonrasına erteliyor, iptal bayrağı veriyor. React Compiler'ın `set-state-in-effect` kuralını gerçek bir düzeltmeyle karşılıyor.
+- **Tek tema sahibi:** `DesignTokensProvider` modu artık `next-themes`'ten alıyor. Kendi mode state'i, localStorage anahtarı ve `<html>`'e elle `dark` ekleyen kodu kaldırıldı; debug logları temizlendi. Önceden public sayfalara localStorage'daki bayat değerle admin-dark token'ları basılıyordu.
+- **Public kabuk:** mobil menü düğmesine erişilebilir ad ve `aria-expanded`, breadcrumb'daki ev ikonuna "Ana sayfa" etiketi eklendi; yükleniyor metinleri token rengine geçti.
+
+Not: pre-commit hook dokunulan her dosyayı lint'liyor. F3 dilimlerinde eski dosyalardaki hatalar dosya dokunuldukça düzeltiliyor. Scratchpad araçları (`fix-entities.cjs`, `move-effects.cjs`, `async-effects.cjs`) ESLint JSON çıktısıyla mekanik düzeltmeleri yapıyor.
+
+Açık: eski public CMS kabuğunun token seti (`publicLightTokensProduction` adına rağmen koyu değerler taşıyor) beyaz header'da kontrast hatası veriyor; F3.6'da ele alınacak.

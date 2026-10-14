@@ -1,21 +1,47 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 
 // API Configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9006/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9006/api";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/lib/notify";
 import {
   FileText,
   Link as LinkIcon,
@@ -33,14 +59,15 @@ import {
   Download,
   Edit,
   Archive,
-} from 'lucide-react';
+} from "lucide-react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface KnowledgeSource {
   id: string;
   title: string;
   description?: string;
-  sourceType: 'document' | 'url' | 'text';
-  status: 'pending' | 'processing' | 'active' | 'failed' | 'archived';
+  sourceType: "document" | "url" | "text";
+  status: "pending" | "processing" | "active" | "failed" | "archived";
   filePath?: string;
   fileName?: string;
   fileType?: string;
@@ -83,70 +110,70 @@ export default function KnowledgeSourcesPage() {
     byType: { document: 0, url: 0, text: 0 },
   });
   const [loading, setLoading] = useState(true);
-  const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
+  const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(
+    null,
+  );
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addType, setAddType] = useState<'url' | 'document' | 'text'>('url');
+  const [addType, setAddType] = useState<"url" | "document" | "text">("url");
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
   // Add forms
   const [urlForm, setUrlForm] = useState({
-    url: '',
-    title: '',
-    description: '',
-    tags: '',
+    url: "",
+    title: "",
+    description: "",
+    tags: "",
     enableForFaqLearning: true,
     enableForChat: true,
   });
 
   const [textForm, setTextForm] = useState({
-    title: '',
-    description: '',
-    content: '',
-    tags: '',
+    title: "",
+    description: "",
+    content: "",
+    tags: "",
     enableForFaqLearning: true,
     enableForChat: true,
   });
 
   const [fileForm, setFileForm] = useState({
     file: null as File | null,
-    title: '',
-    description: '',
-    tags: '',
+    title: "",
+    description: "",
+    tags: "",
     enableForFaqLearning: true,
     enableForChat: true,
   });
-
-  useEffect(() => {
-    fetchSources();
-    fetchStatistics();
-  }, [statusFilter, typeFilter]);
 
   const fetchSources = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (typeFilter !== 'all') params.append('sourceType', typeFilter);
-      if (searchQuery) params.append('search', searchQuery);
-      params.append('limit', '50');
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (typeFilter !== "all") params.append("sourceType", typeFilter);
+      if (searchQuery) params.append("search", searchQuery);
+      params.append("limit", "50");
 
-      const response = await fetch(`${API_URL}/knowledge-sources?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      const response = await fetch(
+        `${API_URL}/knowledge-sources?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
+      );
 
-      if (!response.ok) throw new Error('Failed to fetch sources');
+      if (!response.ok) throw new Error("Failed to fetch sources");
       const result = await response.json();
       setSources(result.data || []);
     } catch (error) {
-      console.error('Error fetching sources:', error);
-      toast.error('Failed to load knowledge sources');
+      console.error("Error fetching sources:", error);
+      toast.error("Failed to load knowledge sources");
     } finally {
       setLoading(false);
     }
@@ -154,11 +181,14 @@ export default function KnowledgeSourcesPage() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(`${API_URL}/knowledge-sources/stats/overview`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+      const response = await fetch(
+        `${API_URL}/knowledge-sources/stats/overview`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
         },
-      });
+      );
 
       if (!response.ok) return;
       const result = await response.json();
@@ -166,195 +196,247 @@ export default function KnowledgeSourcesPage() {
         setStatistics(result.data);
       }
     } catch (error) {
-      console.error('Error fetching statistics:', error);
+      console.error("Error fetching statistics:", error);
     }
   };
+
+  useAsyncEffect(() => {
+    fetchSources();
+    fetchStatistics();
+  }, [statusFilter, typeFilter]);
 
   const addUrlSource = async () => {
     try {
       const requestBody = {
         title: urlForm.title,
         description: urlForm.description,
-        sourceType: 'url',
+        sourceType: "url",
         url: urlForm.url,
-        tags: urlForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: urlForm.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
         enableForFaqLearning: urlForm.enableForFaqLearning,
         enableForChat: urlForm.enableForChat,
       };
 
-      console.log('🔍 Sending request to:', `${API_URL}/knowledge-sources`);
-      console.log('🔍 Request body:', requestBody);
-      console.log('🔍 Token:', localStorage.getItem('auth_token')?.substring(0, 20) + '...');
+      console.log("🔍 Sending request to:", `${API_URL}/knowledge-sources`);
+      console.log("🔍 Request body:", requestBody);
+      console.log(
+        "🔍 Token:",
+        localStorage.getItem("auth_token")?.substring(0, 20) + "...",
+      );
 
       const response = await fetch(`${API_URL}/knowledge-sources`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify(requestBody),
       });
 
-      console.log('🔍 Response status:', response.status, response.statusText);
+      console.log("🔍 Response status:", response.status, response.statusText);
 
       const responseText = await response.text();
-      console.log('🔍 Response text:', responseText);
+      console.log("🔍 Response text:", responseText);
 
       if (!response.ok) {
         let errorData = {};
         try {
           errorData = JSON.parse(responseText);
         } catch (e) {
-          console.error('Failed to parse error response:', e);
+          console.error("Failed to parse error response:", e);
         }
-        console.error('❌ Backend error:', errorData);
-        throw new Error((errorData as any).error?.message || (errorData as any).message || responseText || 'Failed to add URL source');
+        console.error("❌ Backend error:", errorData);
+        throw new Error(
+          (errorData as any).error?.message ||
+            (errorData as any).message ||
+            responseText ||
+            "Failed to add URL source",
+        );
       }
 
       const result = JSON.parse(responseText);
 
-      toast.success('URL source added successfully');
+      toast.success("URL source added successfully");
       setAddDialogOpen(false);
-      setUrlForm({ url: '', title: '', description: '', tags: '', enableForFaqLearning: true, enableForChat: true });
+      setUrlForm({
+        url: "",
+        title: "",
+        description: "",
+        tags: "",
+        enableForFaqLearning: true,
+        enableForChat: true,
+      });
       fetchSources();
       fetchStatistics();
     } catch (error) {
-      console.error('Error adding URL source:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add URL source');
+      console.error("Error adding URL source:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add URL source",
+      );
     }
   };
 
   const addTextSource = async () => {
     try {
       const response = await fetch(`${API_URL}/knowledge-sources`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
           title: textForm.title,
           description: textForm.description,
-          sourceType: 'text',
+          sourceType: "text",
           extractedContent: textForm.content,
-          tags: textForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+          tags: textForm.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
           enableForFaqLearning: textForm.enableForFaqLearning,
           enableForChat: textForm.enableForChat,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to add text source');
+      if (!response.ok) throw new Error("Failed to add text source");
 
-      toast.success('Text source added successfully');
+      toast.success("Text source added successfully");
       setAddDialogOpen(false);
-      setTextForm({ title: '', description: '', content: '', tags: '', enableForFaqLearning: true, enableForChat: true });
+      setTextForm({
+        title: "",
+        description: "",
+        content: "",
+        tags: "",
+        enableForFaqLearning: true,
+        enableForChat: true,
+      });
       fetchSources();
       fetchStatistics();
     } catch (error) {
-      console.error('Error adding text source:', error);
-      toast.error('Failed to add text source');
+      console.error("Error adding text source:", error);
+      toast.error("Failed to add text source");
     }
   };
 
   const addFileSource = async () => {
     if (!fileForm.file) {
-      toast.error('Please select a file');
+      toast.error("Please select a file");
       return;
     }
 
     try {
-      console.log('🔍 Uploading file:', fileForm.file.name);
+      console.log("🔍 Uploading file:", fileForm.file.name);
 
       const formData = new FormData();
-      formData.append('file', fileForm.file);
-      formData.append('title', fileForm.title || fileForm.file.name);
-      if (fileForm.description) formData.append('description', fileForm.description);
+      formData.append("file", fileForm.file);
+      formData.append("title", fileForm.title || fileForm.file.name);
+      if (fileForm.description)
+        formData.append("description", fileForm.description);
       if (fileForm.tags) {
-        const tags = fileForm.tags.split(',').map((t) => t.trim()).filter(Boolean);
-        formData.append('tags', JSON.stringify(tags));
+        const tags = fileForm.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+        formData.append("tags", JSON.stringify(tags));
       }
-      formData.append('enableForFaqLearning', String(fileForm.enableForFaqLearning));
-      formData.append('enableForChat', String(fileForm.enableForChat));
+      formData.append(
+        "enableForFaqLearning",
+        String(fileForm.enableForFaqLearning),
+      );
+      formData.append("enableForChat", String(fileForm.enableForChat));
 
-      console.log('🔍 Sending to:', `${API_URL}/knowledge-sources/upload`);
+      console.log("🔍 Sending to:", `${API_URL}/knowledge-sources/upload`);
 
       const response = await fetch(`${API_URL}/knowledge-sources/upload`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: formData,
       });
 
-      console.log('🔍 Upload response:', response.status, response.statusText);
+      console.log("🔍 Upload response:", response.status, response.statusText);
 
       const responseData = await response.json();
-      console.log('🔍 Upload response data:', responseData);
+      console.log("🔍 Upload response data:", responseData);
 
       if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to upload file');
+        throw new Error(responseData.message || "Failed to upload file");
       }
 
-      toast.success('File uploaded successfully');
+      toast.success("File uploaded successfully");
       setAddDialogOpen(false);
-      setFileForm({ file: null, title: '', description: '', tags: '', enableForFaqLearning: true, enableForChat: true });
+      setFileForm({
+        file: null,
+        title: "",
+        description: "",
+        tags: "",
+        enableForFaqLearning: true,
+        enableForChat: true,
+      });
       fetchSources();
       fetchStatistics();
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload file');
+      console.error("Error uploading file:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload file",
+      );
     }
   };
 
   const deleteSource = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this knowledge source?')) return;
+    if (!confirm("Are you sure you want to delete this knowledge source?"))
+      return;
 
     try {
       const response = await fetch(`/api/knowledge-sources/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to delete source');
+      if (!response.ok) throw new Error("Failed to delete source");
 
-      toast.success('Knowledge source deleted');
+      toast.success("Knowledge source deleted");
       fetchSources();
       fetchStatistics();
     } catch (error) {
-      console.error('Error deleting source:', error);
-      toast.error('Failed to delete source');
+      console.error("Error deleting source:", error);
+      toast.error("Failed to delete source");
     }
   };
 
   const archiveSource = async (id: string) => {
     try {
       const response = await fetch(`/api/knowledge-sources/${id}/archive`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to archive source');
+      if (!response.ok) throw new Error("Failed to archive source");
 
-      toast.success('Knowledge source archived');
+      toast.success("Knowledge source archived");
       fetchSources();
       fetchStatistics();
     } catch (error) {
-      console.error('Error archiving source:', error);
-      toast.error('Failed to archive source');
+      console.error("Error archiving source:", error);
+      toast.error("Failed to archive source");
     }
   };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; icon: any }> = {
-      pending: { variant: 'outline', icon: Clock },
-      processing: { variant: 'secondary', icon: RefreshCw },
-      active: { variant: 'default', icon: CheckCircle2 },
-      failed: { variant: 'destructive', icon: XCircle },
-      archived: { variant: 'outline', icon: Archive },
+      pending: { variant: "outline", icon: Clock },
+      processing: { variant: "secondary", icon: RefreshCw },
+      active: { variant: "default", icon: CheckCircle2 },
+      failed: { variant: "destructive", icon: XCircle },
+      archived: { variant: "outline", icon: Archive },
     };
 
     const { variant, icon: Icon } = variants[status] || variants.pending;
@@ -382,7 +464,9 @@ export default function KnowledgeSourcesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Knowledge Sources</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Knowledge Sources
+          </h1>
           <p className="text-muted-foreground">
             Manage AI knowledge sources for FAQ learning and chatbot responses
           </p>
@@ -419,7 +503,9 @@ export default function KnowledgeSourcesPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.byType.document}</div>
+            <div className="text-2xl font-bold">
+              {statistics.byType.document}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -498,7 +584,7 @@ export default function KnowledgeSourcesPage() {
         <CardHeader>
           <CardTitle>Knowledge Sources</CardTitle>
           <CardDescription>
-            {sources.length} source{sources.length !== 1 ? 's' : ''} found
+            {sources.length} source{sources.length !== 1 ? "s" : ""} found
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -509,7 +595,9 @@ export default function KnowledgeSourcesPage() {
           ) : sources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No knowledge sources found</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                No knowledge sources found
+              </h3>
               <p className="text-muted-foreground mb-4">
                 Get started by adding your first knowledge source
               </p>
@@ -554,7 +642,11 @@ export default function KnowledgeSourcesPage() {
                           {source.tags && source.tags.length > 0 && (
                             <div className="flex gap-1 mt-1">
                               {source.tags.slice(0, 3).map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">
+                                <Badge
+                                  key={i}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
                                   {tag}
                                 </Badge>
                               ))}
@@ -649,7 +741,9 @@ export default function KnowledgeSourcesPage() {
                   id="url"
                   placeholder="https://example.com/article"
                   value={urlForm.url}
-                  onChange={(e) => setUrlForm({ ...urlForm, url: e.target.value })}
+                  onChange={(e) =>
+                    setUrlForm({ ...urlForm, url: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -658,7 +752,9 @@ export default function KnowledgeSourcesPage() {
                   id="url-title"
                   placeholder="Article title"
                   value={urlForm.title}
-                  onChange={(e) => setUrlForm({ ...urlForm, title: e.target.value })}
+                  onChange={(e) =>
+                    setUrlForm({ ...urlForm, title: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -667,7 +763,9 @@ export default function KnowledgeSourcesPage() {
                   id="url-description"
                   placeholder="Brief description..."
                   value={urlForm.description}
-                  onChange={(e) => setUrlForm({ ...urlForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setUrlForm({ ...urlForm, description: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -676,7 +774,9 @@ export default function KnowledgeSourcesPage() {
                   id="url-tags"
                   placeholder="tag1, tag2, tag3"
                   value={urlForm.tags}
-                  onChange={(e) => setUrlForm({ ...urlForm, tags: e.target.value })}
+                  onChange={(e) =>
+                    setUrlForm({ ...urlForm, tags: e.target.value })
+                  }
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -708,7 +808,12 @@ export default function KnowledgeSourcesPage() {
                   id="file"
                   type="file"
                   accept=".pdf,.docx,.txt,.md"
-                  onChange={(e) => setFileForm({ ...fileForm, file: e.target.files?.[0] || null })}
+                  onChange={(e) =>
+                    setFileForm({
+                      ...fileForm,
+                      file: e.target.files?.[0] || null,
+                    })
+                  }
                 />
               </div>
               <div>
@@ -717,7 +822,9 @@ export default function KnowledgeSourcesPage() {
                   id="file-title"
                   placeholder="Document title"
                   value={fileForm.title}
-                  onChange={(e) => setFileForm({ ...fileForm, title: e.target.value })}
+                  onChange={(e) =>
+                    setFileForm({ ...fileForm, title: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -726,7 +833,9 @@ export default function KnowledgeSourcesPage() {
                   id="file-description"
                   placeholder="Brief description..."
                   value={fileForm.description}
-                  onChange={(e) => setFileForm({ ...fileForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setFileForm({ ...fileForm, description: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -735,7 +844,9 @@ export default function KnowledgeSourcesPage() {
                   id="file-tags"
                   placeholder="tag1, tag2, tag3"
                   value={fileForm.tags}
-                  onChange={(e) => setFileForm({ ...fileForm, tags: e.target.value })}
+                  onChange={(e) =>
+                    setFileForm({ ...fileForm, tags: e.target.value })
+                  }
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -767,7 +878,9 @@ export default function KnowledgeSourcesPage() {
                   id="text-title"
                   placeholder="Knowledge title"
                   value={textForm.title}
-                  onChange={(e) => setTextForm({ ...textForm, title: e.target.value })}
+                  onChange={(e) =>
+                    setTextForm({ ...textForm, title: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -776,7 +889,9 @@ export default function KnowledgeSourcesPage() {
                   id="text-description"
                   placeholder="Brief description..."
                   value={textForm.description}
-                  onChange={(e) => setTextForm({ ...textForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setTextForm({ ...textForm, description: e.target.value })
+                  }
                   rows={2}
                 />
               </div>
@@ -786,7 +901,9 @@ export default function KnowledgeSourcesPage() {
                   id="text-content"
                   placeholder="Enter your knowledge content here..."
                   value={textForm.content}
-                  onChange={(e) => setTextForm({ ...textForm, content: e.target.value })}
+                  onChange={(e) =>
+                    setTextForm({ ...textForm, content: e.target.value })
+                  }
                   rows={8}
                 />
               </div>
@@ -796,7 +913,9 @@ export default function KnowledgeSourcesPage() {
                   id="text-tags"
                   placeholder="tag1, tag2, tag3"
                   value={textForm.tags}
-                  onChange={(e) => setTextForm({ ...textForm, tags: e.target.value })}
+                  onChange={(e) =>
+                    setTextForm({ ...textForm, tags: e.target.value })
+                  }
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -828,8 +947,8 @@ export default function KnowledgeSourcesPage() {
             </Button>
             <Button
               onClick={() => {
-                if (addType === 'url') addUrlSource();
-                else if (addType === 'document') addFileSource();
+                if (addType === "url") addUrlSource();
+                else if (addType === "document") addFileSource();
                 else addTextSource();
               }}
             >
@@ -845,8 +964,9 @@ export default function KnowledgeSourcesPage() {
           <DialogHeader>
             <DialogTitle>{selectedSource?.title}</DialogTitle>
             <DialogDescription>
-              {selectedSource?.sourceType} • Created{' '}
-              {selectedSource?.createdAt && new Date(selectedSource.createdAt).toLocaleDateString()}
+              {selectedSource?.sourceType} • Created{" "}
+              {selectedSource?.createdAt &&
+                new Date(selectedSource.createdAt).toLocaleDateString()}
             </DialogDescription>
           </DialogHeader>
 
@@ -854,13 +974,17 @@ export default function KnowledgeSourcesPage() {
             <div className="space-y-4">
               <div>
                 <Label>Status</Label>
-                <div className="mt-1">{getStatusBadge(selectedSource.status)}</div>
+                <div className="mt-1">
+                  {getStatusBadge(selectedSource.status)}
+                </div>
               </div>
 
               {selectedSource.description && (
                 <div>
                   <Label>Description</Label>
-                  <p className="mt-1 text-sm text-muted-foreground">{selectedSource.description}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedSource.description}
+                  </p>
                 </div>
               )}
 
@@ -882,8 +1006,10 @@ export default function KnowledgeSourcesPage() {
                 <div>
                   <Label>File</Label>
                   <p className="mt-1 text-sm">
-                    {selectedSource.fileName} ({selectedSource.fileType}) •{' '}
-                    {selectedSource.fileSize ? `${(selectedSource.fileSize / 1024).toFixed(1)} KB` : 'Unknown size'}
+                    {selectedSource.fileName} ({selectedSource.fileType}) •{" "}
+                    {selectedSource.fileSize
+                      ? `${(selectedSource.fileSize / 1024).toFixed(1)} KB`
+                      : "Unknown size"}
                   </p>
                 </div>
               )}
@@ -904,11 +1030,15 @@ export default function KnowledgeSourcesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Usage Count</Label>
-                  <p className="mt-1 text-2xl font-bold">{selectedSource.usageCount}</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selectedSource.usageCount}
+                  </p>
                 </div>
                 <div>
                   <Label>Helpful Count</Label>
-                  <p className="mt-1 text-2xl font-bold">{selectedSource.helpfulCount}</p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {selectedSource.helpfulCount}
+                  </p>
                 </div>
                 <div>
                   <Label>Relevance Score</Label>
@@ -921,14 +1051,26 @@ export default function KnowledgeSourcesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center justify-between">
                   <Label>FAQ Learning</Label>
-                  <Badge variant={selectedSource.enableForFaqLearning ? 'default' : 'outline'}>
-                    {selectedSource.enableForFaqLearning ? 'Enabled' : 'Disabled'}
+                  <Badge
+                    variant={
+                      selectedSource.enableForFaqLearning
+                        ? "default"
+                        : "outline"
+                    }
+                  >
+                    {selectedSource.enableForFaqLearning
+                      ? "Enabled"
+                      : "Disabled"}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Chat</Label>
-                  <Badge variant={selectedSource.enableForChat ? 'default' : 'outline'}>
-                    {selectedSource.enableForChat ? 'Enabled' : 'Disabled'}
+                  <Badge
+                    variant={
+                      selectedSource.enableForChat ? "default" : "outline"
+                    }
+                  >
+                    {selectedSource.enableForChat ? "Enabled" : "Disabled"}
                   </Badge>
                 </div>
               </div>
@@ -938,7 +1080,7 @@ export default function KnowledgeSourcesPage() {
                   <Label>Extracted Content (Preview)</Label>
                   <div className="mt-1 p-3 bg-muted rounded-md text-sm max-h-48 overflow-y-auto">
                     {selectedSource.extractedContent.substring(0, 500)}
-                    {selectedSource.extractedContent.length > 500 && '...'}
+                    {selectedSource.extractedContent.length > 500 && "..."}
                   </div>
                 </div>
               )}

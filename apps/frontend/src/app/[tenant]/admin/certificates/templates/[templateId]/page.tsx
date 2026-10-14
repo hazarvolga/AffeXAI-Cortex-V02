@@ -1,19 +1,36 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { certificatesService, type CertificateTemplate } from '@/lib/api/certificatesService';
-import { toast } from 'sonner';
-import { ArrowLeft, Save, Eye, Code, FileText, AlertCircle } from 'lucide-react';
-import Link from 'next/link';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import DOMPurify from 'dompurify';
+import { useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  certificatesService,
+  type CertificateTemplate,
+} from "@/lib/api/certificatesService";
+import { toast } from "@/lib/notify";
+import {
+  ArrowLeft,
+  Save,
+  Eye,
+  Code,
+  FileText,
+  AlertCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import DOMPurify from "dompurify";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 export default function TemplateEditorPage() {
   const router = useRouter();
@@ -21,15 +38,11 @@ export default function TemplateEditorPage() {
   const templateId = params.templateId as string;
 
   const [template, setTemplate] = useState<CertificateTemplate | null>(null);
-  const [htmlContent, setHtmlContent] = useState('');
-  const [description, setDescription] = useState('');
+  const [htmlContent, setHtmlContent] = useState("");
+  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
-
-  useEffect(() => {
-    loadTemplate();
-  }, [templateId]);
 
   const loadTemplate = async () => {
     try {
@@ -39,13 +52,17 @@ export default function TemplateEditorPage() {
       setHtmlContent(data.htmlContent);
       setDescription(data.description);
     } catch (error) {
-      console.error('Template yükleme hatası:', error);
-      toast.error('Template yüklenemedi');
-      router.push('/admin/certificates/templates');
+      console.error("Template yükleme hatası:", error);
+      toast.error("Template yüklenemedi");
+      router.push("/admin/certificates/templates");
     } finally {
       setLoading(false);
     }
   };
+
+  useAsyncEffect(() => {
+    loadTemplate();
+  }, [templateId]);
 
   const handleSave = async () => {
     try {
@@ -54,12 +71,12 @@ export default function TemplateEditorPage() {
         htmlContent,
         description,
       });
-      toast.success('Template başarıyla güncellendi');
+      toast.success("Template başarıyla güncellendi");
       setPreviewKey((prev) => prev + 1); // Refresh preview
       await loadTemplate(); // Reload to get updated data
     } catch (error) {
-      console.error('Template güncelleme hatası:', error);
-      toast.error('Template güncellenemedi');
+      console.error("Template güncelleme hatası:", error);
+      toast.error("Template güncellenemedi");
     } finally {
       setSaving(false);
     }
@@ -89,7 +106,7 @@ export default function TemplateEditorPage() {
           <Link href="/admin/certificates/templates">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Template'lere Dön
+              Template&apos;lere Dön
             </Button>
           </Link>
         </div>
@@ -100,12 +117,12 @@ export default function TemplateEditorPage() {
               {template.name}
             </h1>
             <p className="text-gray-600 mt-2">
-              HTML template'ini düzenleyin ve değişiklikleri önizleyin
+              HTML template&apos;ini düzenleyin ve değişiklikleri önizleyin
             </p>
           </div>
           <Button onClick={handleSave} disabled={saving} size="lg">
             <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </div>
       </div>
@@ -114,10 +131,11 @@ export default function TemplateEditorPage() {
       <Alert className="mb-6">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          <strong>Kullanılabilir Değişkenler:</strong>{' '}
-          {template.variables.map((v) => `{{${v}}}`).join(', ')}
+          <strong>Kullanılabilir Değişkenler:</strong>{" "}
+          {template.variables.map((v) => `{{${v}}}`).join(", ")}
           <br />
-          <strong>Sayfa Ayarları:</strong> {template.pageFormat} - {template.orientation}
+          <strong>Sayfa Ayarları:</strong> {template.pageFormat} -{" "}
+          {template.orientation}
         </AlertDescription>
       </Alert>
 
@@ -155,7 +173,11 @@ export default function TemplateEditorPage() {
                   placeholder="HTML içeriğini buraya yazın..."
                 />
               </div>
-              <Button onClick={handlePreview} variant="outline" className="w-full">
+              <Button
+                onClick={handlePreview}
+                variant="outline"
+                className="w-full"
+              >
                 <Eye className="w-4 h-4 mr-2" />
                 Önizlemeyi Güncelle
               </Button>
@@ -171,7 +193,7 @@ export default function TemplateEditorPage() {
               Canlı Önizleme
             </CardTitle>
             <CardDescription>
-              Template'in nasıl görüneceğini buradan kontrol edin
+              Template&apos;in nasıl görüneceğini buradan kontrol edin
             </CardDescription>
           </CardHeader>
           <CardContent className="h-[calc(100%-100px)]">
@@ -187,19 +209,36 @@ export default function TemplateEditorPage() {
                     key={previewKey}
                     className="bg-white shadow-lg mx-auto"
                     style={{
-                      width: template.orientation === 'landscape' ? '297mm' : '210mm',
-                      minHeight: template.orientation === 'landscape' ? '210mm' : '297mm',
-                      transform: 'scale(0.5)',
-                      transformOrigin: 'top left',
+                      width:
+                        template.orientation === "landscape"
+                          ? "297mm"
+                          : "210mm",
+                      minHeight:
+                        template.orientation === "landscape"
+                          ? "210mm"
+                          : "297mm",
+                      transform: "scale(0.5)",
+                      transformOrigin: "top left",
                     }}
                     dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(htmlContent
-                        .replace(/\{\{recipientName\}\}/g, 'Örnek Kullanıcı Adı')
-                        .replace(/\{\{recipientEmail\}\}/g, 'ornek@email.com')
-                        .replace(/\{\{trainingTitle\}\}/g, 'Örnek Eğitim Başlığı')
-                        .replace(/\{\{issueDate\}\}/g, new Date().toLocaleDateString('tr-TR'))
-                        .replace(/\{\{logoUrl\}\}/g, '')
-                        .replace(/\{\{signatureUrl\}\}/g, '')),
+                      __html: DOMPurify.sanitize(
+                        htmlContent
+                          .replace(
+                            /\{\{recipientName\}\}/g,
+                            "Örnek Kullanıcı Adı",
+                          )
+                          .replace(/\{\{recipientEmail\}\}/g, "ornek@email.com")
+                          .replace(
+                            /\{\{trainingTitle\}\}/g,
+                            "Örnek Eğitim Başlığı",
+                          )
+                          .replace(
+                            /\{\{issueDate\}\}/g,
+                            new Date().toLocaleDateString("tr-TR"),
+                          )
+                          .replace(/\{\{logoUrl\}\}/g, "")
+                          .replace(/\{\{signatureUrl\}\}/g, ""),
+                      ),
                     }}
                   />
                 </div>
@@ -231,7 +270,7 @@ export default function TemplateEditorPage() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-gray-600">
-              {new Date(template.updatedAt).toLocaleString('tr-TR')}
+              {new Date(template.updatedAt).toLocaleString("tr-TR")}
             </p>
           </CardContent>
         </Card>
@@ -241,7 +280,7 @@ export default function TemplateEditorPage() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-gray-600">
-              {template.isActive ? '✅ Aktif' : '❌ Pasif'}
+              {template.isActive ? "✅ Aktif" : "❌ Pasif"}
             </p>
           </CardContent>
         </Card>

@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,15 +17,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +33,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/lib/notify";
 import {
   CheckCircle2,
   XCircle,
@@ -42,7 +48,8 @@ import {
   Search,
   Filter,
   BarChart3,
-} from 'lucide-react';
+} from "lucide-react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 interface AiFaqEntry {
   id: string;
@@ -57,7 +64,7 @@ interface AiFaqEntry {
   notHelpfulCount: number;
   sourceTicketIds: string[];
   generatedBy: string;
-  status: 'draft' | 'approved' | 'archived';
+  status: "draft" | "approved" | "archived";
   approvedBy?: string;
   approvedAt?: string;
   createdAt: string;
@@ -81,34 +88,29 @@ export default function AIFaqPage() {
   const [selectedFaq, setSelectedFaq] = useState<AiFaqEntry | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-
-  useEffect(() => {
-    fetchFaqs();
-    fetchStats();
-  }, [activeTab, categoryFilter]);
+  const [activeTab, setActiveTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const fetchFaqs = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (activeTab !== 'all') params.append('status', activeTab);
-      if (categoryFilter !== 'all') params.append('categoryId', categoryFilter);
+      if (activeTab !== "all") params.append("status", activeTab);
+      if (categoryFilter !== "all") params.append("categoryId", categoryFilter);
 
       const response = await fetch(`/api/ai-faq?${params.toString()}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch FAQs');
+      if (!response.ok) throw new Error("Failed to fetch FAQs");
       const data = await response.json();
       setFaqs(data);
     } catch (error) {
-      console.error('Error fetching FAQs:', error);
-      toast.error('Failed to load FAQs');
+      console.error("Error fetching FAQs:", error);
+      toast.error("Failed to load FAQs");
     } finally {
       setLoading(false);
     }
@@ -116,47 +118,52 @@ export default function AIFaqPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/ai-faq/stats', {
+      const response = await fetch("/api/ai-faq/stats", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch stats');
+      if (!response.ok) throw new Error("Failed to fetch stats");
       const data = await response.json();
       setStats(data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error("Error fetching stats:", error);
     }
   };
+
+  useAsyncEffect(() => {
+    fetchFaqs();
+    fetchStats();
+  }, [activeTab, categoryFilter]);
 
   const generateFaqs = async () => {
     try {
       setGenerating(true);
-      const response = await fetch('/api/ai-faq/generate', {
-        method: 'POST',
+      const response = await fetch("/api/ai-faq/generate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
         body: JSON.stringify({
-          categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
+          categoryId: categoryFilter !== "all" ? categoryFilter : undefined,
           limit: 10,
           minTickets: 3,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate FAQs');
+      if (!response.ok) throw new Error("Failed to generate FAQs");
       const data = await response.json();
 
       toast.success(
-        `Successfully generated ${data.generated} FAQs from ${data.ticketsAnalyzed} tickets`
+        `Successfully generated ${data.generated} FAQs from ${data.ticketsAnalyzed} tickets`,
       );
       fetchFaqs();
       fetchStats();
     } catch (error) {
-      console.error('Error generating FAQs:', error);
-      toast.error('Failed to generate FAQs');
+      console.error("Error generating FAQs:", error);
+      toast.error("Failed to generate FAQs");
     } finally {
       setGenerating(false);
     }
@@ -165,77 +172,77 @@ export default function AIFaqPage() {
   const approveFaq = async (id: string) => {
     try {
       const response = await fetch(`/api/ai-faq/${id}/approve`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to approve FAQ');
-      toast.success('FAQ approved successfully');
+      if (!response.ok) throw new Error("Failed to approve FAQ");
+      toast.success("FAQ approved successfully");
       fetchFaqs();
       fetchStats();
     } catch (error) {
-      console.error('Error approving FAQ:', error);
-      toast.error('Failed to approve FAQ');
+      console.error("Error approving FAQ:", error);
+      toast.error("Failed to approve FAQ");
     }
   };
 
   const rejectFaq = async (id: string) => {
     try {
       const response = await fetch(`/api/ai-faq/${id}/reject`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to reject FAQ');
-      toast.success('FAQ rejected');
+      if (!response.ok) throw new Error("Failed to reject FAQ");
+      toast.success("FAQ rejected");
       fetchFaqs();
       fetchStats();
     } catch (error) {
-      console.error('Error rejecting FAQ:', error);
-      toast.error('Failed to reject FAQ');
+      console.error("Error rejecting FAQ:", error);
+      toast.error("Failed to reject FAQ");
     }
   };
 
   const archiveFaq = async (id: string) => {
     try {
       const response = await fetch(`/api/ai-faq/${id}/archive`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to archive FAQ');
-      toast.success('FAQ archived');
+      if (!response.ok) throw new Error("Failed to archive FAQ");
+      toast.success("FAQ archived");
       fetchFaqs();
       fetchStats();
     } catch (error) {
-      console.error('Error archiving FAQ:', error);
-      toast.error('Failed to archive FAQ');
+      console.error("Error archiving FAQ:", error);
+      toast.error("Failed to archive FAQ");
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved':
+      case "approved":
         return (
           <Badge variant="default" className="bg-green-500">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Approved
           </Badge>
         );
-      case 'draft':
+      case "draft":
         return (
           <Badge variant="secondary">
             <Clock className="w-3 h-3 mr-1" />
             Pending
           </Badge>
         );
-      case 'archived':
+      case "archived":
         return (
           <Badge variant="outline">
             <Archive className="w-3 h-3 mr-1" />
@@ -256,7 +263,7 @@ export default function AIFaqPage() {
   const filteredFaqs = faqs.filter(
     (faq) =>
       faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
+      faq.answer.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -271,7 +278,7 @@ export default function AIFaqPage() {
         </div>
         <Button onClick={generateFaqs} disabled={generating}>
           <Sparkles className="w-4 h-4 mr-2" />
-          {generating ? 'Generating...' : 'Generate FAQs'}
+          {generating ? "Generating..." : "Generate FAQs"}
         </Button>
       </div>
 
@@ -296,7 +303,9 @@ export default function AIFaqPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {stats.approved}
+              </div>
             </CardContent>
           </Card>
 
@@ -307,7 +316,9 @@ export default function AIFaqPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {stats.pending}
+              </div>
             </CardContent>
           </Card>
 
@@ -318,7 +329,9 @@ export default function AIFaqPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.avgHelpfulness.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">
+                {stats.avgHelpfulness.toFixed(1)}%
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -358,10 +371,13 @@ export default function AIFaqPage() {
 
             <TabsContent value={activeTab} className="mt-4">
               {loading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading...
+                </div>
               ) : filteredFaqs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No FAQs found. Click "Generate FAQs" to create new ones from resolved tickets.
+                  No FAQs found. Click &quot;Generate FAQs&quot; to create new
+                  ones from resolved tickets.
                 </div>
               ) : (
                 <Table>
@@ -380,7 +396,9 @@ export default function AIFaqPage() {
                     {filteredFaqs.map((faq) => (
                       <TableRow key={faq.id}>
                         <TableCell className="max-w-md">
-                          <div className="font-medium line-clamp-2">{faq.question}</div>
+                          <div className="font-medium line-clamp-2">
+                            {faq.question}
+                          </div>
                           {faq.summary && (
                             <div className="text-sm text-muted-foreground line-clamp-1 mt-1">
                               {faq.summary}
@@ -401,7 +419,9 @@ export default function AIFaqPage() {
                             {faq.confidence}%
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">{faq.useCount}</TableCell>
+                        <TableCell className="text-center">
+                          {faq.useCount}
+                        </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <span className="flex items-center text-green-600">
@@ -426,7 +446,7 @@ export default function AIFaqPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {faq.status === 'draft' && (
+                            {faq.status === "draft" && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -446,7 +466,7 @@ export default function AIFaqPage() {
                                 </Button>
                               </>
                             )}
-                            {faq.status === 'approved' && (
+                            {faq.status === "approved" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -472,13 +492,17 @@ export default function AIFaqPage() {
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>FAQ Details</DialogTitle>
-            <DialogDescription>Full question and answer details</DialogDescription>
+            <DialogDescription>
+              Full question and answer details
+            </DialogDescription>
           </DialogHeader>
           {selectedFaq && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Question</label>
-                <div className="mt-1 p-3 bg-muted rounded-md">{selectedFaq.question}</div>
+                <div className="mt-1 p-3 bg-muted rounded-md">
+                  {selectedFaq.question}
+                </div>
               </div>
 
               <div>
@@ -491,7 +515,9 @@ export default function AIFaqPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Status</label>
-                  <div className="mt-1">{getStatusBadge(selectedFaq.status)}</div>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedFaq.status)}
+                  </div>
                 </div>
 
                 <div>
@@ -506,12 +532,16 @@ export default function AIFaqPage() {
 
                 <div>
                   <label className="text-sm font-medium">Helpfulness</label>
-                  <div className="mt-1">{getHelpfulnessScore(selectedFaq)}%</div>
+                  <div className="mt-1">
+                    {getHelpfulnessScore(selectedFaq)}%
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium">Source Tickets</label>
-                  <div className="mt-1">{selectedFaq.sourceTicketIds.length} tickets</div>
+                  <div className="mt-1">
+                    {selectedFaq.sourceTicketIds.length} tickets
+                  </div>
                 </div>
 
                 <div>
@@ -522,7 +552,7 @@ export default function AIFaqPage() {
             </div>
           )}
           <DialogFooter>
-            {selectedFaq?.status === 'draft' && (
+            {selectedFaq?.status === "draft" && (
               <>
                 <Button
                   variant="outline"
@@ -543,7 +573,7 @@ export default function AIFaqPage() {
                 </Button>
               </>
             )}
-            {selectedFaq?.status === 'approved' && (
+            {selectedFaq?.status === "approved" && (
               <Button
                 variant="outline"
                 onClick={() => {

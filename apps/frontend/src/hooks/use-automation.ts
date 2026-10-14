@@ -3,28 +3,29 @@
  * React Query hooks for marketing automation
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { automationApi } from '@/lib/api/automation';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { automationApi } from "@/lib/api/automation";
 import type {
   Automation,
   CreateAutomationDto,
   UpdateAutomationDto,
   GetExecutionsQuery,
   AnalyticsQuery,
-} from '@/types/automation';
-import { toast } from 'sonner';
+} from "@/types/automation";
+import { toast } from "@/lib/notify";
 
 // Query keys
 export const automationKeys = {
-  all: ['automations'] as const,
-  lists: () => [...automationKeys.all, 'list'] as const,
+  all: ["automations"] as const,
+  lists: () => [...automationKeys.all, "list"] as const,
   list: (filters?: any) => [...automationKeys.lists(), filters] as const,
-  details: () => [...automationKeys.all, 'detail'] as const,
+  details: () => [...automationKeys.all, "detail"] as const,
   detail: (id: string) => [...automationKeys.details(), id] as const,
-  executions: (query: GetExecutionsQuery) => [...automationKeys.all, 'executions', query] as const,
+  executions: (query: GetExecutionsQuery) =>
+    [...automationKeys.all, "executions", query] as const,
   analytics: (id: string, query?: AnalyticsQuery) =>
-    [...automationKeys.all, 'analytics', id, query] as const,
-  queueMetrics: () => [...automationKeys.all, 'queue', 'metrics'] as const,
+    [...automationKeys.all, "analytics", id, query] as const,
+  queueMetrics: () => [...automationKeys.all, "queue", "metrics"] as const,
 };
 
 /**
@@ -58,10 +59,12 @@ export function useCreateAutomation() {
     mutationFn: (dto: CreateAutomationDto) => automationApi.create(dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
-      toast.success('Automation created successfully');
+      toast.success("Automation created successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create automation');
+      toast.error(
+        error.response?.data?.message || "Failed to create automation",
+      );
     },
   });
 }
@@ -77,11 +80,15 @@ export function useUpdateAutomation() {
       automationApi.update(id, dto),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: automationKeys.detail(data.id) });
-      toast.success('Automation updated successfully');
+      queryClient.invalidateQueries({
+        queryKey: automationKeys.detail(data.id),
+      });
+      toast.success("Automation updated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update automation');
+      toast.error(
+        error.response?.data?.message || "Failed to update automation",
+      );
     },
   });
 }
@@ -96,10 +103,12 @@ export function useDeleteAutomation() {
     mutationFn: (id: string) => automationApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
-      toast.success('Automation deleted successfully');
+      toast.success("Automation deleted successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete automation');
+      toast.error(
+        error.response?.data?.message || "Failed to delete automation",
+      );
     },
   });
 }
@@ -111,15 +120,24 @@ export function useActivateAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, registerExisting }: { id: string; registerExisting?: boolean }) =>
-      automationApi.activate(id, registerExisting),
+    mutationFn: ({
+      id,
+      registerExisting,
+    }: {
+      id: string;
+      registerExisting?: boolean;
+    }) => automationApi.activate(id, registerExisting),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: automationKeys.detail(data.id) });
-      toast.success('Automation activated successfully');
+      queryClient.invalidateQueries({
+        queryKey: automationKeys.detail(data.id),
+      });
+      toast.success("Automation activated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to activate automation');
+      toast.error(
+        error.response?.data?.message || "Failed to activate automation",
+      );
     },
   });
 }
@@ -131,15 +149,24 @@ export function usePauseAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, cancelPending }: { id: string; cancelPending?: boolean }) =>
-      automationApi.pause(id, cancelPending),
+    mutationFn: ({
+      id,
+      cancelPending,
+    }: {
+      id: string;
+      cancelPending?: boolean;
+    }) => automationApi.pause(id, cancelPending),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: automationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: automationKeys.detail(data.id) });
-      toast.success('Automation paused successfully');
+      queryClient.invalidateQueries({
+        queryKey: automationKeys.detail(data.id),
+      });
+      toast.success("Automation paused successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to pause automation');
+      toast.error(
+        error.response?.data?.message || "Failed to pause automation",
+      );
     },
   });
 }
@@ -180,10 +207,10 @@ export function useTestAutomation() {
       dryRun?: boolean;
     }) => automationApi.test(id, subscriberId, dryRun),
     onSuccess: () => {
-      toast.success('Test completed successfully');
+      toast.success("Test completed successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Test failed');
+      toast.error(error.response?.data?.message || "Test failed");
     },
   });
 }

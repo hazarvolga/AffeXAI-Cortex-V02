@@ -1,23 +1,29 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { certificatesService, type CertificateTemplate } from '@/lib/api/certificatesService';
-import { toast } from 'sonner';
-import { ArrowLeft, Edit, Eye, FileText, Calendar } from 'lucide-react';
-import Link from 'next/link';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  certificatesService,
+  type CertificateTemplate,
+} from "@/lib/api/certificatesService";
+import { toast } from "@/lib/notify";
+import { ArrowLeft, Edit, Eye, FileText, Calendar } from "lucide-react";
+import Link from "next/link";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 export default function TemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadTemplates();
-  }, []);
 
   const loadTemplates = async () => {
     try {
@@ -25,31 +31,37 @@ export default function TemplatesPage() {
       const data = await certificatesService.getTemplates();
       setTemplates(data);
     } catch (error) {
-      console.error('Template yükleme hatası:', error);
-      toast.error('Template\'ler yüklenemedi');
+      console.error("Template yükleme hatası:", error);
+      toast.error("Template'ler yüklenemedi");
     } finally {
       setLoading(false);
     }
   };
+
+  useAsyncEffect(() => {
+    loadTemplates();
+  }, []);
 
   const handleEdit = (templateId: string) => {
     router.push(`/admin/certificates/templates/${templateId}`);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("tr-TR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse text-lg">Template'ler yükleniyor...</div>
+        <div className="animate-pulse text-lg">
+          Template&apos;ler yükleniyor...
+        </div>
       </div>
     );
   }
@@ -66,9 +78,12 @@ export default function TemplatesPage() {
             </Button>
           </Link>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">Sertifika Template'leri</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Sertifika Template&apos;leri
+        </h1>
         <p className="text-gray-600 mt-2">
-          PDF sertifikaları için HTML template'lerini görüntüleyin ve düzenleyin
+          PDF sertifikaları için HTML template&apos;lerini görüntüleyin ve
+          düzenleyin
         </p>
       </div>
 
@@ -87,8 +102,8 @@ export default function TemplatesPage() {
                     {template.description}
                   </CardDescription>
                 </div>
-                <Badge variant={template.isActive ? 'default' : 'secondary'}>
-                  {template.isActive ? 'Aktif' : 'Pasif'}
+                <Badge variant={template.isActive ? "default" : "secondary"}>
+                  {template.isActive ? "Aktif" : "Pasif"}
                 </Badge>
               </div>
             </CardHeader>
@@ -99,7 +114,9 @@ export default function TemplatesPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500">Yönelim:</span>
-                    <p className="font-medium capitalize">{template.orientation}</p>
+                    <p className="font-medium capitalize">
+                      {template.orientation}
+                    </p>
                   </div>
                   <div>
                     <span className="text-gray-500">Sayfa:</span>
@@ -113,8 +130,14 @@ export default function TemplatesPage() {
                     <span className="text-gray-500">Değişkenler:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {template.variables.map((variable) => (
-                        <Badge key={variable} variant="outline" className="text-xs">
-                          {'{{'}{variable}{'}}'}
+                        <Badge
+                          key={variable}
+                          variant="outline"
+                          className="text-xs"
+                        >
+                          {"{{"}
+                          {variable}
+                          {"}}"}
                         </Badge>
                       ))}
                     </div>
@@ -142,7 +165,9 @@ export default function TemplatesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => window.open(template.previewImageUrl!, '_blank')}
+                      onClick={() =>
+                        window.open(template.previewImageUrl!, "_blank")
+                      }
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
