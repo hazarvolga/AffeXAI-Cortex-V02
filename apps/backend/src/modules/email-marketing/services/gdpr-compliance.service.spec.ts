@@ -1,176 +1,156 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { GDPRComplianceService } from './gdpr-compliance.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ConsentRecord } from '../entities/consent-record.entity';
-import { DataSubjectRequest } from '../entities/data-subject-request.entity';
+import { UnauthorizedException } from "@nestjs/common";
+import { SubscriberStatus } from "@affexai/shared-types";
+import { Repository } from "typeorm";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { Subscriber } from "../entities/subscriber.entity";
+import {
+  ConsentMethod,
+  ConsentStatus,
+  ConsentType,
+  GdprComplianceService,
+  LegalBasis,
+  RequestStatus,
+} from "./gdpr-compliance.service";
 
-describe('GDPRComplianceService', () => {
-    let service: GDPRComplianceService;
-    let consentRepository: Repository<ConsentRecord>;
-    let requestRepository: Repository<DataSubjectRequest>;
+const TENANT = "tenant-a";
+const EMAIL = "ada@example.com";
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        remove: jest.fn(),
-    };
+function setup(activeTenant: string | null = TENANT) {
+  const subscriber = {
+    id: "sub-1",
+    email: EMAIL,
+    firstName: "Ada",
+    lastName: "Lovelace",
+    phone: "5551234",
+    tenantId: TENANT,
+    status: SubscriberStatus.ACTIVE,
+    sent: 3,
+    opens: 2,
+    clicks: 1,
+  } as unknown as Subscriber;
+  const repository = {
+    findOne: jest.fn(async () => subscriber),
+    update: jest.fn(async () => ({ affected: 1 })),
+    delete: jest.fn(async () => ({ affected: 1 })),
+    count: jest.fn(async () => 0),
+  };
+  const tenants = { getTenantId: jest.fn(() => activeTenant) };
+  const service = new GdprComplianceService(
+    repository as unknown as Repository<Subscriber>,
+    tenants as unknown as TenantService,
+  );
+  return { service, repository, subscriber };
+}
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                GDPRComplianceService,
-                {
-                    provide: getRepositoryToken(ConsentRecord),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getRepositoryToken(DataSubjectRequest),
-                    useValue: mockRepository,
-                },
-            ],
-        }).compile();
-
-        service = module.get<GDPRComplianceService>(GDPRComplianceService);
-        consentRepository = module.get(getRepositoryToken(ConsentRecord));
-        requestRepository = module.get(getRepositoryToken(DataSubjectRequest));
-
-        jest.clearAllMocks();
+describe("GdprComplianceService", () => {
+  it("records consent against the subscriber of the active tenant", async () => {
+    const { service, repository } = setup();
+    const record = await service.trackConsent(
+      EMAIL,
+      ConsentType.EMAIL_MARKETING,
+      ConsentMethod.DOUBLE_OPT_IN,
+      LegalBasis.CONSENT,
+      {
+        dataProcessingPurposes: ["newsletter"],
+      },
+    );
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { email: EMAIL, tenantId: TENANT },
     });
-
-    describe('recordConsent', () => {
-        it('should record user consent', async () => {
-            const consent = {
-                email: 'test@example.com',
-                consentType: 'marketing',
-                granted: true,
-            };
-
-            mockRepository.create.mockReturnValue(consent);
-            mockRepository.save.mockResolvedValue(consent);
-
-            const result = await service.recordConsent(consent);
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result).toEqual(consent);
-        });
-
-        it('should include IP address and user agent', async () => {
-            const consent = {
-                email: 'test@example.com',
-                consentType: 'marketing',
-                granted: true,
-                ipAddress: '192.168.1.1',
-                userAgent: 'Mozilla/5.0',
-            };
-
-            mockRepository.create.mockReturnValue(consent);
-            mockRepository.save.mockResolvedValue(consent);
-
-            await service.recordConsent(consent);
-
-            expect(mockRepository.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    ipAddress: '192.168.1.1',
-                    userAgent: 'Mozilla/5.0',
-                }),
-            );
-        });
+    expect(record).toMatchObject({
+      subscriberId: "sub-1",
+      tenantId: TENANT,
+      consentStatus: ConsentStatus.GIVEN,
     });
+  });
 
-    describe('checkConsent', () => {
-        it('should return true if consent granted', async () => {
-            mockRepository.findOne.mockResolvedValue({
-                email: 'test@example.com',
-                granted: true,
-            });
+  it("unsubscribes with the stored enum value when marketing consent is withdrawn", async () => {
+    const { service, repository } = setup();
+    await service.withdrawConsent(EMAIL, ConsentType.EMAIL_MARKETING, "asked");
+    expect(repository.update).toHaveBeenCalledWith(
+      { email: EMAIL, tenantId: TENANT },
+      { status: SubscriberStatus.UNSUBSCRIBED },
+    );
+  });
 
-            const result = await service.checkConsent('test@example.com', 'marketing');
+  it("leaves the subscription alone when another consent is withdrawn", async () => {
+    const { service, repository } = setup();
+    await service.withdrawConsent(EMAIL, ConsentType.ANALYTICS);
+    expect(repository.update).not.toHaveBeenCalled();
+  });
 
-            expect(result).toBe(true);
-        });
+  it("anonymises instead of deleting when statistics are kept", async () => {
+    const { service, repository } = setup();
+    const request = await service.handleErasureRequest(EMAIL, true);
+    expect(request.status).toBe(RequestStatus.COMPLETED);
+    expect(repository.delete).not.toHaveBeenCalled();
+    const [where, updates] = repository.update.mock.calls[0] as unknown as [
+      object,
+      Record<string, string>,
+    ];
+    expect(where).toEqual({ email: EMAIL, tenantId: TENANT });
+    expect(updates.email).toMatch(/^[0-9a-f]{16}$/);
+    expect(updates.firstName).not.toBe("Ada");
+  });
 
-        it('should return false if consent not granted', async () => {
-            mockRepository.findOne.mockResolvedValue({
-                email: 'test@example.com',
-                granted: false,
-            });
-
-            const result = await service.checkConsent('test@example.com', 'marketing');
-
-            expect(result).toBe(false);
-        });
-
-        it('should return false if no consent record', async () => {
-            mockRepository.findOne.mockResolvedValue(null);
-
-            const result = await service.checkConsent('test@example.com', 'marketing');
-
-            expect(result).toBe(false);
-        });
+  it("deletes only inside the tenant on full erasure", async () => {
+    const { service, repository } = setup();
+    await service.handleErasureRequest(EMAIL, false);
+    expect(repository.delete).toHaveBeenCalledWith({
+      email: EMAIL,
+      tenantId: TENANT,
     });
+  });
 
-    describe('createDataSubjectRequest', () => {
-        it('should create data access request', async () => {
-            const request = {
-                email: 'test@example.com',
-                requestType: 'access',
-            };
-
-            mockRepository.create.mockReturnValue(request);
-            mockRepository.save.mockResolvedValue(request);
-
-            const result = await service.createDataSubjectRequest(request);
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(result).toEqual(request);
-        });
-
-        it('should create data deletion request', async () => {
-            const request = {
-                email: 'test@example.com',
-                requestType: 'deletion',
-            };
-
-            mockRepository.create.mockReturnValue(request);
-            mockRepository.save.mockResolvedValue(request);
-
-            const result = await service.createDataSubjectRequest(request);
-
-            expect(result.requestType).toBe('deletion');
-        });
+  it("exports portable data and rejects an unknown address", async () => {
+    const { service, repository } = setup();
+    const done = await service.handlePortabilityRequest(EMAIL);
+    expect(done.status).toBe(RequestStatus.COMPLETED);
+    expect(done.responseData.engagementData).toEqual({
+      emailsSent: 3,
+      emailsOpened: 2,
+      linksClicked: 1,
     });
+    repository.findOne.mockResolvedValueOnce(null as unknown as Subscriber);
+    await expect(
+      service.handlePortabilityRequest("nobody@example.com"),
+    ).resolves.toMatchObject({ status: RequestStatus.REJECTED });
+  });
 
-    describe('processDataDeletion', () => {
-        it('should delete user data', async () => {
-            mockRepository.find.mockResolvedValue([
-                { id: '1', email: 'test@example.com' },
-            ]);
-            mockRepository.remove.mockResolvedValue({});
-
-            await service.processDataDeletion('test@example.com');
-
-            expect(mockRepository.remove).toHaveBeenCalled();
-        });
+  it("counts active subscribers with the stored enum value", async () => {
+    const { service, repository } = setup();
+    await service.generateComplianceReport();
+    expect(repository.count).toHaveBeenCalledWith({
+      where: { status: SubscriberStatus.ACTIVE, tenantId: TENANT },
     });
+  });
 
-    describe('exportUserData', () => {
-        it('should export all user data', async () => {
-            const userData = {
-                email: 'test@example.com',
-                consents: [],
-                subscriptions: [],
-            };
-
-            mockRepository.find.mockResolvedValue([]);
-
-            const result = await service.exportUserData('test@example.com');
-
-            expect(result).toHaveProperty('email');
-            expect(result).toHaveProperty('consents');
-        });
+  it("generalises and suppresses export fields", async () => {
+    const { service, subscriber } = setup();
+    const [generalised] = await service.anonymizeDataForExport([subscriber], {
+      preserveStatistics: true,
+      anonymizationMethod: "generalize",
+      fieldsToAnonymize: ["email", "phone", "firstName"],
+      retainAggregateData: true,
     });
+    expect(generalised).toMatchObject({
+      email: "***@example.com",
+      phone: "*******",
+      firstName: "A**",
+    });
+    const [suppressed] = await service.anonymizeDataForExport([subscriber], {
+      preserveStatistics: false,
+      anonymizationMethod: "suppress",
+      fieldsToAnonymize: ["email"],
+      retainAggregateData: false,
+    });
+    expect(suppressed.email).toBe("[REDACTED]");
+    expect(suppressed.id).toBeUndefined();
+  });
+
+  it("requires a tenant context", async () => {
+    await expect(
+      setup(null).service.handleAccessRequest(EMAIL),
+    ).rejects.toThrow(UnauthorizedException);
+  });
 });

@@ -1,177 +1,134 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { MjmlRendererService } from './mjml-renderer.service';
+import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { SettingsService } from "../../settings/settings.service";
+import { EmailStructure, MjmlRendererService } from "./mjml-renderer.service";
 
-describe('MjmlRendererService', () => {
-    let service: MjmlRendererService;
+type Block = EmailStructure["rows"][0]["columns"][0]["blocks"][0];
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [MjmlRendererService],
-        }).compile();
+const block = (
+  type: string,
+  properties: Record<string, unknown>,
+  styles: Record<string, unknown> = {},
+): Block => ({
+  id: `${type}-1`,
+  type,
+  properties,
+  styles,
+});
 
-        service = module.get<MjmlRendererService>(MjmlRendererService);
-    });
+const structure = (...columns: Block[][]): EmailStructure => ({
+  rows: [
+    {
+      id: "row-1",
+      type: "section",
+      settings: {},
+      columns: columns.map((blocks, index) => ({
+        id: `col-${index}`,
+        width: `${100 / columns.length}%`,
+        blocks,
+      })),
+    },
+  ],
+  settings: { backgroundColor: "#f4f4f4" },
+});
 
-    describe('renderEmail', () => {
-        it('should render MJML structure to HTML', async () => {
-            const structure = {
-                rows: [
-                    {
-                        type: 'section',
-                        columns: [
-                            {
-                                blocks: [
-                                    {
-                                        type: 'text',
-                                        properties: { content: 'Hello World' },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            };
+function setup(tenant: string | null = "tenant-a") {
+  const settings = {
+    getSiteSettings: jest.fn(async () => ({
+      companyName: "XYZ Company",
+      logoUrl: "https://cdn.example.com/logo.png",
+      contact: { email: "hello@xyz.test" },
+    })),
+  };
+  const config = { get: jest.fn(() => undefined) };
+  const tenants = { getTenantId: jest.fn(() => tenant) };
+  const service = new MjmlRendererService(
+    settings as unknown as SettingsService,
+    config as unknown as ConfigService,
+    tenants as unknown as TenantService,
+  );
+  return { service, settings };
+}
 
-            const result = await service.renderEmail(structure);
+describe("MjmlRendererService", () => {
+  it("renders text, image and button blocks to HTML", async () => {
+    const { service } = setup();
+    const { html, errors } = await service.renderEmail(
+      structure([
+        block("text", { content: "Hello World" }),
+        block("image", {
+          src: "https://example.com/image.jpg",
+          alt: "Test Image",
+        }),
+        block("button", {
+          content: "Click Me",
+          href: "https://example.com/go",
+        }),
+      ]),
+      { skipHeaderFooter: true },
+    );
+    expect(errors).toEqual([]);
+    expect(html).toContain("Hello World");
+    expect(html).toContain("https://example.com/image.jpg");
+    expect(html).toContain("Test Image");
+    expect(html).toContain("Click Me");
+    expect(html).toContain("https://example.com/go");
+  });
 
-            expect(result).toHaveProperty('html');
-            expect(result).toHaveProperty('mjml');
-            expect(result.html).toContain('Hello World');
-        });
+  it("carries block styles into the MJML", async () => {
+    const { service } = setup();
+    const { mjml } = await service.renderEmail(
+      structure([
+        block(
+          "heading",
+          { content: "Title" },
+          { color: "#FF0000", fontSize: "20px" },
+        ),
+      ]),
+      { skipHeaderFooter: true },
+    );
+    expect(mjml).toContain('color="#FF0000"');
+    expect(mjml).toContain('font-size="20px"');
+    expect(mjml).toContain('background-color="#f4f4f4"');
+  });
 
-        it('should handle image blocks', async () => {
-            const structure = {
-                rows: [
-                    {
-                        type: 'section',
-                        columns: [
-                            {
-                                blocks: [
-                                    {
-                                        type: 'image',
-                                        properties: {
-                                            src: 'https://example.com/image.jpg',
-                                            alt: 'Test Image',
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            };
+  it("renders one column per entry", async () => {
+    const { service } = setup();
+    const { html, mjml } = await service.renderEmail(
+      structure(
+        [block("text", { content: "Column 1" })],
+        [block("text", { content: "Column 2" })],
+      ),
+      { skipHeaderFooter: true },
+    );
+    expect(html).toContain("Column 1");
+    expect(html).toContain("Column 2");
+    expect(mjml.match(/<mj-column/g)).toHaveLength(2);
+  });
 
-            const result = await service.renderEmail(structure);
+  it("wraps the content in the tenant header and footer without mutating the input", async () => {
+    const { service, settings } = setup();
+    const input = structure([block("text", { content: "Body" })]);
+    const { html } = await service.renderEmail(input);
+    expect(settings.getSiteSettings).toHaveBeenCalledWith("tenant-a");
+    expect(html).toContain("https://cdn.example.com/logo.png");
+    expect(html).toContain("XYZ Company");
+    expect(input.rows).toHaveLength(1);
+  });
 
-            expect(result.html).toContain('https://example.com/image.jpg');
-            expect(result.html).toContain('Test Image');
-        });
+  it("skips unknown blocks instead of emitting broken markup", async () => {
+    const { service } = setup();
+    const { mjml } = await service.renderEmail(
+      structure([block("carousel", {})]),
+      { skipHeaderFooter: true },
+    );
+    expect(mjml).not.toContain("carousel");
+  });
 
-        it('should handle button blocks', async () => {
-            const structure = {
-                rows: [
-                    {
-                        type: 'section',
-                        columns: [
-                            {
-                                blocks: [
-                                    {
-                                        type: 'button',
-                                        properties: {
-                                            text: 'Click Me',
-                                            href: 'https://example.com',
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            };
-
-            const result = await service.renderEmail(structure);
-
-            expect(result.html).toContain('Click Me');
-            expect(result.html).toContain('https://example.com');
-        });
-
-        it('should apply custom styles', async () => {
-            const structure = {
-                rows: [
-                    {
-                        type: 'section',
-                        columns: [
-                            {
-                                blocks: [
-                                    {
-                                        type: 'text',
-                                        properties: { content: 'Styled Text' },
-                                        styles: {
-                                            color: '#FF0000',
-                                            fontSize: '20px',
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            };
-
-            const result = await service.renderEmail(structure);
-
-            expect(result.mjml).toContain('color="#FF0000"');
-            expect(result.mjml).toContain('font-size="20px"');
-        });
-
-        it('should handle multiple columns', async () => {
-            const structure = {
-                rows: [
-                    {
-                        type: 'section',
-                        columns: [
-                            {
-                                blocks: [{ type: 'text', properties: { content: 'Column 1' } }],
-                            },
-                            {
-                                blocks: [{ type: 'text', properties: { content: 'Column 2' } }],
-                            },
-                        ],
-                    },
-                ],
-            };
-
-            const result = await service.renderEmail(structure);
-
-            expect(result.html).toContain('Column 1');
-            expect(result.html).toContain('Column 2');
-        });
-
-        it('should throw error for invalid MJML', async () => {
-            const invalidStructure = {
-                rows: [{ type: 'invalid-type' }],
-            };
-
-            await expect(service.renderEmail(invalidStructure)).rejects.toThrow();
-        });
-    });
-
-    describe('validateMJML', () => {
-        it('should validate correct MJML', () => {
-            const mjml = '<mjml><mj-body><mj-text>Hello</mj-text></mj-body></mjml>';
-
-            const result = service.validateMJML(mjml);
-
-            expect(result.isValid).toBe(true);
-        });
-
-        it('should reject invalid MJML', () => {
-            const mjml = '<mjml><invalid-tag></invalid-tag></mjml>';
-
-            const result = service.validateMJML(mjml);
-
-            expect(result.isValid).toBe(false);
-            expect(result.errors.length).toBeGreaterThan(0);
-        });
-    });
+  it("requires a tenant context", async () => {
+    await expect(
+      setup(null).service.renderEmail(structure([])),
+    ).rejects.toThrow(UnauthorizedException);
+  });
 });

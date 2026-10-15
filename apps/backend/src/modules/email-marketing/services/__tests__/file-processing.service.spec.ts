@@ -1,197 +1,233 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
-import { FileProcessingService } from '../file-processing.service';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { Test, TestingModule } from "@nestjs/testing";
+import { FileProcessingService } from "../file-processing.service";
+import { EnhancedFileSecurityService } from "../enhanced-file-security.service";
+import { CustomFieldService } from "../custom-field.service";
+import { S3Service } from "../../../media/s3.service";
+import * as path from "path";
 
-describe('FileProcessingService', () => {
+// file-type is ESM-only; Jest's CommonJS runtime cannot load it.
+jest.mock(
+  "file-type",
+  () => ({ fileTypeFromBuffer: jest.fn(async () => undefined) }),
+  { virtual: true },
+);
+
+describe("FileProcessingService", () => {
   let service: FileProcessingService;
+  const security = { performAdvancedMalwareScan: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [FileProcessingService],
+      providers: [
+        FileProcessingService,
+        { provide: EnhancedFileSecurityService, useValue: security },
+        {
+          provide: CustomFieldService,
+          useValue: {
+            getFieldsForMapping: jest.fn(async () =>
+              ["email", "firstName", "lastName", "company"].map((key) => ({
+                key,
+                label: key,
+                required: key === "email",
+                type: "text",
+              })),
+            ),
+          },
+        },
+        { provide: S3Service, useValue: {} },
+      ],
     }).compile();
 
     service = module.get<FileProcessingService>(FileProcessingService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('validateFileType', () => {
-    it('should validate CSV file successfully', async () => {
+  describe("validateFileType", () => {
+    it("should validate CSV file successfully", async () => {
       const mockFile = {
-        originalname: 'test.csv',
-        mimetype: 'text/csv',
+        originalname: "test.csv",
+        mimetype: "text/csv",
         size: 1024,
-        buffer: Buffer.from('email,name\ntest@example.com,Test User')
+        buffer: Buffer.from("email,name\ntest@example.com,Test User"),
       } as any;
 
       const result = await service.validateFileType(mockFile);
 
       expect(result.isValid).toBe(true);
-      expect(result.fileType).toBe('text/csv');
+      expect(result.fileType).toBe("text/csv");
       expect(result.fileSize).toBe(1024);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject file that is too large', async () => {
+    it("should reject file that is too large", async () => {
       const mockFile = {
-        originalname: 'large.csv',
-        mimetype: 'text/csv',
+        originalname: "large.csv",
+        mimetype: "text/csv",
         size: 100 * 1024 * 1024, // 100MB
-        buffer: Buffer.from('test')
+        buffer: Buffer.from("test"),
       } as any;
 
       const result = await service.validateFileType(mockFile);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain(expect.stringContaining('exceeds maximum allowed size'));
+      expect(result.errors).toContainEqual(
+        expect.stringContaining("exceeds maximum allowed size"),
+      );
     });
 
-    it('should reject unsupported file type', async () => {
+    it("should reject unsupported file type", async () => {
       const mockFile = {
-        originalname: 'test.exe',
-        mimetype: 'application/x-executable',
+        originalname: "test.exe",
+        mimetype: "application/x-executable",
         size: 1024,
-        buffer: Buffer.from('test')
+        buffer: Buffer.from("test"),
       } as any;
 
       const result = await service.validateFileType(mockFile);
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain(expect.stringContaining('is not allowed'));
+      expect(result.errors).toContainEqual(
+        expect.stringContaining("is not allowed"),
+      );
     });
   });
 
-  describe('detectColumns', () => {
-    it('should detect email column correctly', async () => {
+  describe("detectColumns", () => {
+    it("should detect email column correctly", async () => {
       const csvData = [
-        { email: 'test1@example.com', name: 'Test 1' },
-        { email: 'test2@example.com', name: 'Test 2' },
-        { email: 'test3@example.com', name: 'Test 3' }
+        { email: "test1@example.com", name: "Test 1" },
+        { email: "test2@example.com", name: "Test 2" },
+        { email: "test3@example.com", name: "Test 3" },
       ];
 
       const result = await service.detectColumns(csvData);
 
       expect(result.detectedColumns).toHaveLength(2);
-      
-      const emailColumn = result.detectedColumns.find(col => col.name === 'email');
-      expect(emailColumn?.type).toBe('email');
-      
-      const nameColumn = result.detectedColumns.find(col => col.name === 'name');
-      expect(nameColumn?.type).toBe('text');
+
+      const emailColumn = result.detectedColumns.find(
+        (col) => col.name === "email",
+      );
+      expect(emailColumn?.type).toBe("email");
+
+      const nameColumn = result.detectedColumns.find(
+        (col) => col.name === "name",
+      );
+      expect(nameColumn?.type).toBe("text");
     });
 
-    it('should suggest field mappings', async () => {
+    it("should suggest field mappings", async () => {
       const csvData = [
-        { 'Email Address': 'test1@example.com', 'First Name': 'Test' },
-        { 'Email Address': 'test2@example.com', 'First Name': 'User' }
+        { "Email Address": "test1@example.com", "First Name": "Test" },
+        { "Email Address": "test2@example.com", "First Name": "User" },
       ];
 
       const result = await service.detectColumns(csvData);
 
       expect(result.suggestions).toHaveLength(2);
-      
-      const emailSuggestion = result.suggestions.find(s => s.suggestedField === 'email');
+
+      const emailSuggestion = result.suggestions.find(
+        (s) => s.suggestedField === "email",
+      );
       expect(emailSuggestion).toBeDefined();
       expect(emailSuggestion?.confidence).toBeGreaterThan(0.7);
-      
-      const firstNameSuggestion = result.suggestions.find(s => s.suggestedField === 'firstName');
+
+      const firstNameSuggestion = result.suggestions.find(
+        (s) => s.suggestedField === "firstName",
+      );
       expect(firstNameSuggestion).toBeDefined();
     });
   });
 
-  describe('validateColumnMapping', () => {
-    it('should validate correct mapping', async () => {
-      const mapping = {
-        'Email Address': 'email',
-        'First Name': 'firstName',
-        'Company': 'company'
-      };
-
-      const result = await service.validateColumnMapping(mapping);
-      expect(result).toBe(true);
-    });
-
-    it('should reject mapping without required email field', async () => {
-      const mapping = {
-        'First Name': 'firstName',
-        'Company': 'company'
-      };
-
-      const result = await service.validateColumnMapping(mapping);
-      expect(result).toBe(false);
-    });
-
-    it('should reject mapping with invalid field', async () => {
-      const mapping = {
-        'Email Address': 'email',
-        'Invalid Field': 'invalidField'
-      };
-
-      const result = await service.validateColumnMapping(mapping);
-      expect(result).toBe(false);
+  describe("validateColumnMapping", () => {
+    it("requires a mapped email and known target fields", async () => {
+      expect(
+        await service.validateColumnMapping({
+          "Email Address": "email",
+          "First Name": "firstName",
+          Company: "company",
+        }),
+      ).toBe(true);
+      expect(
+        await service.validateColumnMapping({
+          "First Name": "firstName",
+          Company: "company",
+        }),
+      ).toBe(false);
+      expect(
+        await service.validateColumnMapping({
+          "Email Address": "email",
+          "Invalid Field": "invalidField",
+        }),
+      ).toBe(false);
     });
   });
 
-  describe('generateSecureFilePath', () => {
-    it('should generate secure file path', () => {
-      const originalFileName = 'test file.csv';
-      const jobId = 'test-job-123';
-
-      const result = service.generateSecureFilePath(originalFileName, jobId);
-
-      expect(result).toContain('temp/imports/test-job-123');
-      expect(result).toContain('test_file.csv');
-      expect(result).not.toContain(' '); // Spaces should be replaced
-    });
-
-    it('should sanitize dangerous file names', () => {
-      const dangerousFileName = '../../../etc/passwd';
-      const jobId = 'test-job-123';
-
-      const result = service.generateSecureFilePath(dangerousFileName, jobId);
-
-      expect(result).not.toContain('../');
-      expect(result).toContain('___etc_passwd');
+  describe("detectColumns date handling", () => {
+    it("recognises ISO and day-first dates but not free text with numbers", async () => {
+      const result = await service.detectColumns([
+        { joined: "2026-10-15", local: "15.10.2026", label: "Test 1" },
+        { joined: "2026-10-16", local: "16.10.2026", label: "Test 2" },
+      ]);
+      const types = Object.fromEntries(
+        result.detectedColumns.map((column) => [column.name, column.type]),
+      );
+      expect(types).toEqual({ joined: "date", local: "date", label: "text" });
     });
   });
 
-  describe('scanForMalware', () => {
-    it('should pass clean CSV content', async () => {
-      // Create a temporary clean CSV file
-      const tempDir = path.join(__dirname, 'temp');
-      await fs.mkdir(tempDir, { recursive: true });
-      
-      const cleanCsvPath = path.join(tempDir, 'clean.csv');
-      await fs.writeFile(cleanCsvPath, 'email,name\ntest@example.com,Test User');
-
-      const result = await service.scanForMalware(cleanCsvPath);
-
-      expect(result).toBe(true);
-
-      // Cleanup
-      await fs.unlink(cleanCsvPath);
-      await fs.rmdir(tempDir);
+  describe("generateSecureFilePath", () => {
+    it("keeps the file inside the job folder and replaces whitespace", () => {
+      const result = service.generateSecureFilePath(
+        "test file.csv",
+        "test-job-123",
+      );
+      expect(result).toContain(path.join("temp", "imports", "test-job-123"));
+      expect(result).toMatch(/test_file\.csv$/);
+      expect(result).not.toContain(" ");
     });
 
-    it('should detect suspicious script content', async () => {
-      // Create a temporary file with suspicious content
-      const tempDir = path.join(__dirname, 'temp');
-      await fs.mkdir(tempDir, { recursive: true });
-      
-      const suspiciousPath = path.join(tempDir, 'suspicious.csv');
-      await fs.writeFile(suspiciousPath, 'email,name\n<script>alert("xss")</script>,Test User');
+    it("neutralises path traversal in the file name", () => {
+      const result = service.generateSecureFilePath(
+        "../../../etc/passwd",
+        "test-job-123",
+      );
+      expect(result).not.toContain("../");
+      expect(path.basename(result)).toContain("___etc_passwd");
+    });
+  });
 
-      const result = await service.scanForMalware(suspiciousPath);
+  describe("scanForMalware", () => {
+    it("passes a file the scanner reports clean", async () => {
+      security.performAdvancedMalwareScan.mockResolvedValueOnce({
+        isClean: true,
+        threats: [],
+      });
+      await expect(service.scanForMalware("/tmp/clean.csv")).resolves.toBe(
+        true,
+      );
+      expect(security.performAdvancedMalwareScan).toHaveBeenCalledWith(
+        "/tmp/clean.csv",
+      );
+    });
 
-      expect(result).toBe(false);
+    it("rejects a file with threats", async () => {
+      security.performAdvancedMalwareScan.mockResolvedValueOnce({
+        isClean: false,
+        threats: ["script"],
+      });
+      await expect(service.scanForMalware("/tmp/suspicious.csv")).resolves.toBe(
+        false,
+      );
+    });
 
-      // Cleanup
-      await fs.unlink(suspiciousPath);
-      await fs.rmdir(tempDir);
+    it("fails closed when the scanner errors", async () => {
+      security.performAdvancedMalwareScan.mockRejectedValueOnce(
+        new Error("scanner down"),
+      );
+      await expect(service.scanForMalware("/tmp/any.csv")).resolves.toBe(false);
     });
   });
 });

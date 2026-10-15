@@ -1,9 +1,9 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import mjml2html from 'mjml';
-import { SettingsService } from '../../settings/settings.service';
-import { SiteSettingsDto } from '../../settings/dto/site-settings.dto';
-import { TenantService } from '../../../core/tenant/tenant.service';
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import mjml2html from "mjml";
+import { SettingsService } from "../../settings/settings.service";
+import { SiteSettingsDto } from "../../settings/dto/site-settings.dto";
+import { TenantService } from "../../../core/tenant/tenant.service";
 
 export interface EmailStructure {
   rows: Array<{
@@ -36,20 +36,20 @@ export class MjmlRendererService {
     private readonly settingsService: SettingsService,
     private readonly configService: ConfigService,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Build base URL dynamically from environment variables
    * This ensures URLs work in development, staging, and production
    */
   private getBaseUrl(): string {
-    const protocol = this.configService.get<string>('APP_PROTOCOL') || 'http';
-    const host = this.configService.get<string>('APP_HOST') || 'localhost';
-    const port = this.configService.get<string>('PORT') || '9006';
+    const protocol = this.configService.get<string>("APP_PROTOCOL") || "http";
+    const host = this.configService.get<string>("APP_HOST") || "localhost";
+    const port = this.configService.get<string>("PORT") || "9006";
 
     // In production, port might be omitted (e.g., https://api.affexai.com)
     // In development, include port (e.g., http://localhost:9006)
-    if (port && (host === 'localhost' || host === '127.0.0.1')) {
+    if (port && (host === "localhost" || host === "127.0.0.1")) {
       return `${protocol}://${host}:${port}`;
     }
 
@@ -60,11 +60,17 @@ export class MjmlRendererService {
    * Build frontend URL for user-facing links (unsubscribe, etc.)
    */
   private getFrontendUrl(): string {
-    const frontendProtocol = this.configService.get<string>('FRONTEND_PROTOCOL') || 'http';
-    const frontendHost = this.configService.get<string>('FRONTEND_HOST') || 'localhost';
-    const frontendPort = this.configService.get<string>('FRONTEND_PORT') || '9003';
+    const frontendProtocol =
+      this.configService.get<string>("FRONTEND_PROTOCOL") || "http";
+    const frontendHost =
+      this.configService.get<string>("FRONTEND_HOST") || "localhost";
+    const frontendPort =
+      this.configService.get<string>("FRONTEND_PORT") || "9003";
 
-    if (frontendPort && (frontendHost === 'localhost' || frontendHost === '127.0.0.1')) {
+    if (
+      frontendPort &&
+      (frontendHost === "localhost" || frontendHost === "127.0.0.1")
+    ) {
       return `${frontendProtocol}://${frontendHost}:${frontendPort}`;
     }
 
@@ -83,7 +89,7 @@ export class MjmlRendererService {
           ${this.renderHead(settings)}
         </mj-head>
         <mj-body ${this.renderBodyAttributes(settings)}>
-          ${rows.map((row) => this.renderRow(row)).join('\n')}
+          ${rows.map((row) => this.renderRow(row)).join("\n")}
         </mj-body>
       </mjml>
     `;
@@ -97,7 +103,7 @@ export class MjmlRendererService {
   mjmlToHtml(mjml: string): { html: string; errors: any[] } {
     try {
       const result = mjml2html(mjml, {
-        validationLevel: 'soft',
+        validationLevel: "soft",
         minify: false,
       });
 
@@ -106,7 +112,7 @@ export class MjmlRendererService {
         errors: result.errors || [],
       };
     } catch (error) {
-      this.logger.error('MJML compilation error:', error);
+      this.logger.error("MJML compilation error:", error);
       throw new Error(`MJML compilation failed: ${error.message}`);
     }
   }
@@ -117,14 +123,14 @@ export class MjmlRendererService {
    */
   async renderEmail(
     structure: EmailStructure,
-    options: { skipHeaderFooter?: boolean } = {}
+    options: { skipHeaderFooter?: boolean } = {},
   ): Promise<{
     mjml: string;
     html: string;
     errors: any[];
   }> {
     const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) throw new UnauthorizedException('Tenant context required');
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
 
     // Get site settings for header/footer
     const siteSettings = await this.settingsService.getSiteSettings(tenantId);
@@ -150,7 +156,7 @@ export class MjmlRendererService {
   /**
    * Render MJML head section (styles, fonts, meta tags)
    */
-  private renderHead(settings: EmailStructure['settings']): string {
+  private renderHead(settings: EmailStructure["settings"]): string {
     const fonts = settings.fonts || [];
 
     return `
@@ -159,7 +165,7 @@ export class MjmlRendererService {
         <mj-text font-size="14px" color="#333333" line-height="1.6" />
         <mj-button font-size="14px" border-radius="4px" />
       </mj-attributes>
-      ${fonts.map((font) => `<mj-font name="${font}" href="https://fonts.googleapis.com/css?family=${font}" />`).join('\n')}
+      ${fonts.map((font) => `<mj-font name="${font}" href="https://fonts.googleapis.com/css?family=${font}" />`).join("\n")}
       <mj-style>
         .link { color: #0066cc; text-decoration: none; }
         .link:hover { text-decoration: underline; }
@@ -170,7 +176,7 @@ export class MjmlRendererService {
   /**
    * Render body attributes
    */
-  private renderBodyAttributes(settings: EmailStructure['settings']): string {
+  private renderBodyAttributes(settings: EmailStructure["settings"]): string {
     const attrs: string[] = [];
 
     if (settings.backgroundColor) {
@@ -180,20 +186,20 @@ export class MjmlRendererService {
       attrs.push(`width="${settings.contentWidth}"`);
     }
 
-    return attrs.join(' ');
+    return attrs.join(" ");
   }
 
   /**
    * Render a single row (section)
    */
-  private renderRow(row: EmailStructure['rows'][0]): string {
+  private renderRow(row: EmailStructure["rows"][0]): string {
     const { columns, settings } = row;
 
     const sectionAttrs = this.renderSectionAttributes(settings);
 
     return `
       <mj-section ${sectionAttrs}>
-        ${columns.map((col) => this.renderColumn(col)).join('\n')}
+        ${columns.map((col) => this.renderColumn(col)).join("\n")}
       </mj-section>
     `;
   }
@@ -214,18 +220,20 @@ export class MjmlRendererService {
       attrs.push(`padding-bottom="${settings.paddingBottom}"`);
     }
 
-    return attrs.join(' ');
+    return attrs.join(" ");
   }
 
   /**
    * Render a column
    */
-  private renderColumn(column: EmailStructure['rows'][0]['columns'][0]): string {
+  private renderColumn(
+    column: EmailStructure["rows"][0]["columns"][0],
+  ): string {
     const { width, blocks } = column;
 
     return `
       <mj-column width="${width}">
-        ${blocks.map((block) => this.renderBlock(block)).join('\n')}
+        ${blocks.map((block) => this.renderBlock(block)).join("\n")}
       </mj-column>
     `;
   }
@@ -233,130 +241,152 @@ export class MjmlRendererService {
   /**
    * Render a block based on its type
    */
-  private renderBlock(block: EmailStructure['rows'][0]['columns'][0]['blocks'][0]): string {
+  private renderBlock(
+    block: EmailStructure["rows"][0]["columns"][0]["blocks"][0],
+  ): string {
     const { type, properties, styles } = block;
 
     switch (type) {
-      case 'heading':
+      case "heading":
         return this.renderHeading(properties, styles);
-      case 'text':
+      case "text":
         return this.renderText(properties, styles);
-      case 'button':
+      case "button":
         return this.renderButton(properties, styles);
-      case 'image':
+      case "image":
         return this.renderImage(properties, styles);
-      case 'divider':
+      case "divider":
         return this.renderDivider(properties, styles);
-      case 'spacer':
+      case "spacer":
         return this.renderSpacer(properties, styles);
-      case 'html':
+      case "html":
         return this.renderHtml(properties);
       default:
         this.logger.warn(`Unknown block type: ${type}`);
-        return '';
+        return "";
     }
   }
 
-  private renderHeading(props: Record<string, any>, styles: Record<string, any>): string {
+  private renderHeading(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
     const attrs = this.buildAttributes({
-      'font-size': styles.fontSize || '24px',
-      'font-weight': styles.fontWeight || 'bold',
-      'color': styles.color || '#333333',
-      'align': styles.textAlign || props.align || 'left',
-      'padding': styles.padding || '10px 0',
+      "font-size": styles.fontSize || "24px",
+      "font-weight": styles.fontWeight || "bold",
+      color: styles.color || "#333333",
+      align: styles.textAlign || props.align || "left",
+      padding: styles.padding || "10px 0",
     });
 
     // Support both 'content' (Email Builder) and 'text' (legacy)
-    const text = props.content || props.text || '';
+    const text = props.content || props.text || "";
     return `<mj-text ${attrs}>${text}</mj-text>`;
   }
 
-  private renderText(props: Record<string, any>, styles: Record<string, any>): string {
+  private renderText(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
     const attrs = this.buildAttributes({
-      'font-size': styles.fontSize || '14px',
-      'color': styles.color || '#333333',
-      'align': styles.textAlign || props.align || 'left',
-      'padding': styles.padding || '10px 0',
-      'line-height': styles.lineHeight || '1.6',
+      "font-size": styles.fontSize || "14px",
+      color: styles.color || "#333333",
+      align: styles.textAlign || props.align || "left",
+      padding: styles.padding || "10px 0",
+      "line-height": styles.lineHeight || "1.6",
     });
 
     // Support both 'content' (Email Builder) and 'text' (legacy)
-    const text = props.content || props.text || '';
+    const text = props.content || props.text || "";
     return `<mj-text ${attrs}>${text}</mj-text>`;
   }
 
-  private renderButton(props: Record<string, any>, styles: Record<string, any>): string {
+  private renderButton(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
     const attrs = this.buildAttributes({
-      'background-color': styles.backgroundColor || '#0066cc',
-      'color': styles.color || '#ffffff',
-      'font-size': styles.fontSize || '14px',
-      'font-weight': styles.fontWeight || 'bold',
-      'border-radius': styles.borderRadius || '4px',
-      'padding': styles.padding || '12px 24px',
-      'align': styles.textAlign || props.align || 'center',
-      'href': props.href || props.url || '#',
+      "background-color": styles.backgroundColor || "#0066cc",
+      color: styles.color || "#ffffff",
+      "font-size": styles.fontSize || "14px",
+      "font-weight": styles.fontWeight || "bold",
+      "border-radius": styles.borderRadius || "4px",
+      padding: styles.padding || "12px 24px",
+      align: styles.textAlign || props.align || "center",
+      href: props.href || props.url || "#",
     });
 
     // Support both 'content' (Email Builder) and 'text' (legacy)
-    const text = props.content || props.text || 'Click here';
+    const text = props.content || props.text || "Click here";
     return `<mj-button ${attrs}>${text}</mj-button>`;
   }
 
-  private renderImage(props: Record<string, any>, styles: Record<string, any>): string {
+  private renderImage(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
     const attrs = this.buildAttributes({
-      'src': props.src || '',
-      'alt': props.alt || '',
-      'width': styles.width || 'auto',
-      'align': props.align || 'center',
-      'padding': styles.padding || '10px 0',
+      src: props.src || "",
+      alt: props.alt || "",
+      width: styles.width || undefined,
+      align: props.align || "center",
+      padding: styles.padding || "10px 0",
+      href: props.href || undefined,
     });
 
-    if (props.href) {
-      attrs.push(`href="${props.href}"`);
-    }
-
-    return `<mj-image ${attrs.join(' ')} />`;
+    return `<mj-image ${attrs} />`;
   }
 
-  private renderDivider(props: Record<string, any>, styles: Record<string, any>): string {
+  private renderDivider(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
     const attrs = this.buildAttributes({
-      'border-color': styles.borderColor || '#dddddd',
-      'border-width': styles.borderWidth || '1px',
-      'padding': styles.padding || '10px 0',
+      "border-color": styles.borderColor || "#dddddd",
+      "border-width": styles.borderWidth || "1px",
+      padding: styles.padding || "10px 0",
     });
 
     return `<mj-divider ${attrs} />`;
   }
 
-  private renderSpacer(props: Record<string, any>, styles: Record<string, any>): string {
-    const height = styles.height || '20px';
+  private renderSpacer(
+    props: Record<string, any>,
+    styles: Record<string, any>,
+  ): string {
+    const height = styles.height || "20px";
     return `<mj-spacer height="${height}" />`;
   }
 
   private renderHtml(props: Record<string, any>): string {
-    return `<mj-raw>${props.html || ''}</mj-raw>`;
+    return `<mj-raw>${props.html || ""}</mj-raw>`;
   }
 
   /**
-   * Helper: Build attribute string from object
+   * Helper: Build a space-separated attribute string; MJML rejects comma-joined lists.
    */
-  private buildAttributes(attrs: Record<string, string>): string[] {
+  private buildAttributes(attrs: Record<string, string | undefined>): string {
     return Object.entries(attrs)
-      .filter(([_, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => `${key}="${value}"`);
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(
+        ([key, value]) => `${key}="${String(value).replace(/"/g, "&quot;")}"`,
+      )
+      .join(" ");
   }
 
   /**
    * Create email header row with logo and company name
    */
-  private createHeaderRow(siteSettings: SiteSettingsDto): EmailStructure['rows'][0] {
+  private createHeaderRow(
+    siteSettings: SiteSettingsDto,
+  ): EmailStructure["rows"][0] {
     // Build full URL for logo using environment-based base URL
     const baseUrl = this.getBaseUrl();
-    let logoUrl = 'https://via.placeholder.com/200x60?text=Logo';
+    let logoUrl = "https://via.placeholder.com/200x60?text=Logo";
 
     if (siteSettings.logoUrl) {
       // If logoUrl is absolute (S3), use it directly
-      if (siteSettings.logoUrl.startsWith('http')) {
+      if (siteSettings.logoUrl.startsWith("http")) {
         logoUrl = siteSettings.logoUrl;
       } else {
         // Otherwise assume local upload
@@ -365,33 +395,33 @@ export class MjmlRendererService {
     }
 
     return {
-      id: 'header-row',
-      type: 'section',
+      id: "header-row",
+      type: "section",
       columns: [
         {
-          id: 'header-col',
-          width: '100%',
+          id: "header-col",
+          width: "100%",
           blocks: [
             // Logo
             {
-              id: 'header-logo',
-              type: 'image',
+              id: "header-logo",
+              type: "image",
               properties: {
                 src: logoUrl,
-                alt: siteSettings.companyName || 'Company Logo',
-                href: '#',
+                alt: siteSettings.companyName || "Company Logo",
+                href: "#",
               },
               styles: {
-                width: '200px',
-                padding: '20px 0 10px 0',
+                width: "200px",
+                padding: "20px 0 10px 0",
               },
             },
           ],
         },
       ],
       settings: {
-        backgroundColor: '#ffffff',
-        padding: '20px 0',
+        backgroundColor: "#ffffff",
+        padding: "20px 0",
       },
     };
   }
@@ -399,34 +429,36 @@ export class MjmlRendererService {
   /**
    * Create email footer row with contact info and social links
    */
-  private createFooterRow(siteSettings: SiteSettingsDto): EmailStructure['rows'][0] {
-    const footerBlocks: EmailStructure['rows'][0]['columns'][0]['blocks'] = [];
+  private createFooterRow(
+    siteSettings: SiteSettingsDto,
+  ): EmailStructure["rows"][0] {
+    const footerBlocks: EmailStructure["rows"][0]["columns"][0]["blocks"] = [];
 
     // Divider
     footerBlocks.push({
-      id: 'footer-divider',
-      type: 'divider',
+      id: "footer-divider",
+      type: "divider",
       properties: {},
       styles: {
-        borderColor: '#e2e8f0',
-        borderWidth: '1px',
-        padding: '20px 0',
+        borderColor: "#e2e8f0",
+        borderWidth: "1px",
+        padding: "20px 0",
       },
     });
 
     // Company name
     if (siteSettings.companyName) {
       footerBlocks.push({
-        id: 'footer-company',
-        type: 'text',
+        id: "footer-company",
+        type: "text",
         properties: {
           content: `<strong>${siteSettings.companyName}</strong>`,
         },
         styles: {
-          fontSize: '14px',
-          color: '#1a202c',
-          textAlign: 'center',
-          padding: '10px 0 5px 0',
+          fontSize: "14px",
+          color: "#1a202c",
+          textAlign: "center",
+          padding: "10px 0 5px 0",
         },
       });
     }
@@ -445,23 +477,26 @@ export class MjmlRendererService {
 
     if (contactParts.length > 0) {
       footerBlocks.push({
-        id: 'footer-contact',
-        type: 'text',
+        id: "footer-contact",
+        type: "text",
         properties: {
-          content: contactParts.join(' | '),
+          content: contactParts.join(" | "),
         },
         styles: {
-          fontSize: '12px',
-          color: '#64748b',
-          textAlign: 'center',
-          padding: '5px 0',
-          lineHeight: '1.5',
+          fontSize: "12px",
+          color: "#64748b",
+          textAlign: "center",
+          padding: "5px 0",
+          lineHeight: "1.5",
         },
       });
     }
 
     // Social media icons with links
-    if (siteSettings.socialMedia && Object.keys(siteSettings.socialMedia).length > 0) {
+    if (
+      siteSettings.socialMedia &&
+      Object.keys(siteSettings.socialMedia).length > 0
+    ) {
       const socialIcons: string[] = [];
 
       if (siteSettings.socialMedia.facebook) {
@@ -502,13 +537,13 @@ export class MjmlRendererService {
 
       if (socialIcons.length > 0) {
         footerBlocks.push({
-          id: 'footer-social',
-          type: 'text',
+          id: "footer-social",
+          type: "text",
           properties: {
-            content: `<div style="text-align: center;">${socialIcons.join('')}</div>`,
+            content: `<div style="text-align: center;">${socialIcons.join("")}</div>`,
           },
           styles: {
-            padding: '15px 0',
+            padding: "15px 0",
           },
         });
       }
@@ -517,32 +552,32 @@ export class MjmlRendererService {
     // Unsubscribe link - token will be injected during actual email sending
     const frontendUrl = this.getFrontendUrl();
     footerBlocks.push({
-      id: 'footer-unsubscribe',
-      type: 'text',
+      id: "footer-unsubscribe",
+      type: "text",
       properties: {
         content: `<a href="${frontendUrl}/unsubscribe?token={{unsubscribeToken}}" style="color: #94a3b8; text-decoration: underline;">Abonelikten Çık / Unsubscribe</a>`,
       },
       styles: {
-        fontSize: '11px',
-        color: '#94a3b8',
-        textAlign: 'center',
-        padding: '10px 0 20px 0',
+        fontSize: "11px",
+        color: "#94a3b8",
+        textAlign: "center",
+        padding: "10px 0 20px 0",
       },
     });
 
     return {
-      id: 'footer-row',
-      type: 'section',
+      id: "footer-row",
+      type: "section",
       columns: [
         {
-          id: 'footer-col',
-          width: '100%',
+          id: "footer-col",
+          width: "100%",
           blocks: footerBlocks,
         },
       ],
       settings: {
-        backgroundColor: '#f8fafc',
-        padding: '0 20px',
+        backgroundColor: "#f8fafc",
+        padding: "0 20px",
       },
     };
   }

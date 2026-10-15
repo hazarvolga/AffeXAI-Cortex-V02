@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import { Subscriber } from '../entities/subscriber.entity';
-import { ConsentRecord } from '../entities/consent-record.entity';
-import { DataSubjectRequest } from '../entities/data-subject-request.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { SubscriberStatus } from "@affexai/shared-types";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { Subscriber } from "../entities/subscriber.entity";
+import { ConsentRecord } from "../entities/consent-record.entity";
+import { DataSubjectRequest } from "../entities/data-subject-request.entity";
 import {
   GdprComplianceService,
   ConsentType,
@@ -13,8 +14,8 @@ import {
   AnonymizationConfig,
   DataSubjectRequestType,
   RequestStatus,
-  ConsentStatus
-} from './gdpr-compliance.service';
+  ConsentStatus,
+} from "./gdpr-compliance.service";
 
 export interface BulkImportComplianceOptions {
   requireExplicitConsent: boolean;
@@ -44,7 +45,7 @@ export interface ComplianceValidationResult {
 }
 
 export interface BulkComplianceReport {
-  operation: 'import' | 'export';
+  operation: "import" | "export";
   timestamp: Date;
   totalRecords: number;
   compliantRecords: number;
@@ -68,7 +69,7 @@ export class BulkOperationsComplianceService {
     private readonly requestRepository: Repository<DataSubjectRequest>,
     private readonly gdprService: GdprComplianceService,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
@@ -83,61 +84,86 @@ export class BulkOperationsComplianceService {
    */
   async validateBulkImportCompliance(
     subscriberData: any[],
-    options: BulkImportComplianceOptions
+    options: BulkImportComplianceOptions,
   ): Promise<ComplianceValidationResult> {
     const result: ComplianceValidationResult = {
       isCompliant: true,
       issues: [],
       warnings: [],
       recommendations: [],
-      affectedSubscribers: subscriberData.length
+      affectedSubscribers: subscriberData.length,
     };
 
     try {
       // Check if explicit consent is required but not provided
-      if (options.requireExplicitConsent && options.consentMethod === ConsentMethod.IMPLIED_CONSENT) {
-        result.issues.push('Explicit consent required but implied consent method specified');
+      if (
+        options.requireExplicitConsent &&
+        options.consentMethod === ConsentMethod.IMPLIED_CONSENT
+      ) {
+        result.issues.push(
+          "Explicit consent required but implied consent method specified",
+        );
         result.isCompliant = false;
       }
 
       // Validate legal basis for processing
-      if (options.legalBasis === LegalBasis.CONSENT && !options.requireExplicitConsent) {
-        result.warnings.push('Legal basis is consent but explicit consent not required');
+      if (
+        options.legalBasis === LegalBasis.CONSENT &&
+        !options.requireExplicitConsent
+      ) {
+        result.warnings.push(
+          "Legal basis is consent but explicit consent not required",
+        );
       }
 
       // Check for existing withdrawn consents
-      const emails = subscriberData.map(sub => sub.email).filter(Boolean);
+      const emails = subscriberData.map((sub) => sub.email).filter(Boolean);
       const withdrawnConsents = await this.checkWithdrawnConsents(emails);
 
       if (withdrawnConsents.length > 0) {
-        result.issues.push(`${withdrawnConsents.length} subscribers have previously withdrawn consent`);
+        result.issues.push(
+          `${withdrawnConsents.length} subscribers have previously withdrawn consent`,
+        );
         result.isCompliant = false;
       }
 
       // Validate data processing purposes
-      if (!options.dataProcessingPurposes || options.dataProcessingPurposes.length === 0) {
-        result.issues.push('Data processing purposes must be specified');
+      if (
+        !options.dataProcessingPurposes ||
+        options.dataProcessingPurposes.length === 0
+      ) {
+        result.issues.push("Data processing purposes must be specified");
         result.isCompliant = false;
       }
 
       // Check retention period compliance
       if (options.gdprRegion && !options.retentionPeriod) {
-        result.warnings.push('Retention period should be specified for GDPR compliance');
+        result.warnings.push(
+          "Retention period should be specified for GDPR compliance",
+        );
       }
 
       // Validate data minimization principle
       const dataFields = Object.keys(subscriberData[0] || {});
-      const unnecessaryFields = this.identifyUnnecessaryFields(dataFields, options.dataProcessingPurposes);
+      const unnecessaryFields = this.identifyUnnecessaryFields(
+        dataFields,
+        options.dataProcessingPurposes,
+      );
 
       if (unnecessaryFields.length > 0) {
-        result.warnings.push(`Potentially unnecessary data fields: ${unnecessaryFields.join(', ')}`);
-        result.recommendations.push('Consider removing unnecessary fields to comply with data minimization principle');
+        result.warnings.push(
+          `Potentially unnecessary data fields: ${unnecessaryFields.join(", ")}`,
+        );
+        result.recommendations.push(
+          "Consider removing unnecessary fields to comply with data minimization principle",
+        );
       }
 
-      this.logger.log(`Bulk import compliance validation: ${result.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT'}`);
-
+      this.logger.log(
+        `Bulk import compliance validation: ${result.isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}`,
+      );
     } catch (error) {
-      this.logger.error('Bulk import compliance validation failed:', error);
+      this.logger.error("Bulk import compliance validation failed:", error);
       result.issues.push(`Validation failed: ${error.message}`);
       result.isCompliant = false;
     }
@@ -151,10 +177,10 @@ export class BulkOperationsComplianceService {
   async processBulkImportWithCompliance(
     subscriberData: any[],
     options: BulkImportComplianceOptions,
-    jobId: string
+    jobId: string,
   ): Promise<BulkComplianceReport> {
     const report: BulkComplianceReport = {
-      operation: 'import',
+      operation: "import",
       timestamp: new Date(),
       totalRecords: subscriberData.length,
       compliantRecords: 0,
@@ -162,23 +188,28 @@ export class BulkOperationsComplianceService {
       consentTracked: 0,
       anonymizedRecords: 0,
       issues: [],
-      gdprRegionAffected: options.gdprRegion || false
+      gdprRegionAffected: options.gdprRegion || false,
     };
 
     try {
       for (const subscriberInfo of subscriberData) {
         try {
           // Check if subscriber has withdrawn consent
-          const hasWithdrawnConsent = await this.hasWithdrawnConsent(subscriberInfo.email);
+          const hasWithdrawnConsent = await this.hasWithdrawnConsent(
+            subscriberInfo.email,
+          );
 
           if (hasWithdrawnConsent) {
             report.nonCompliantRecords++;
-            report.issues.push(`Skipped ${subscriberInfo.email}: consent previously withdrawn`);
+            report.issues.push(
+              `Skipped ${subscriberInfo.email}: consent previously withdrawn`,
+            );
             continue;
           }
 
           // Create or update subscriber
-          const subscriber = await this.createOrUpdateSubscriber(subscriberInfo);
+          const subscriber =
+            await this.createOrUpdateSubscriber(subscriberInfo);
 
           // Track consent for GDPR compliance
           if (options.requireExplicitConsent || options.gdprRegion) {
@@ -192,26 +223,28 @@ export class BulkOperationsComplianceService {
                 retentionPeriod: options.retentionPeriod,
                 metadata: {
                   importJobId: jobId,
-                  source: 'bulk_import',
-                  ...options.sourceMetadata
-                }
-              }
+                  source: "bulk_import",
+                  ...options.sourceMetadata,
+                },
+              },
             );
             report.consentTracked++;
           }
 
           report.compliantRecords++;
-
         } catch (error) {
           report.nonCompliantRecords++;
-          report.issues.push(`Failed to process ${subscriberInfo.email}: ${error.message}`);
+          report.issues.push(
+            `Failed to process ${subscriberInfo.email}: ${error.message}`,
+          );
         }
       }
 
-      this.logger.log(`Bulk import compliance processing completed: ${report.compliantRecords}/${report.totalRecords} compliant`);
-
+      this.logger.log(
+        `Bulk import compliance processing completed: ${report.compliantRecords}/${report.totalRecords} compliant`,
+      );
     } catch (error) {
-      this.logger.error('Bulk import compliance processing failed:', error);
+      this.logger.error("Bulk import compliance processing failed:", error);
       report.issues.push(`Processing failed: ${error.message}`);
     }
 
@@ -223,60 +256,74 @@ export class BulkOperationsComplianceService {
    */
   async validateBulkExportCompliance(
     exportFilters: any,
-    options: BulkExportComplianceOptions
+    options: BulkExportComplianceOptions,
   ): Promise<ComplianceValidationResult> {
     const result: ComplianceValidationResult = {
       isCompliant: true,
       issues: [],
       warnings: [],
       recommendations: [],
-      affectedSubscribers: 0
+      affectedSubscribers: 0,
     };
 
     try {
       // Count affected subscribers
       const tenantId = this.getActiveTenantId();
-      const query = this.subscriberRepository.createQueryBuilder('subscriber')
-        .where('subscriber.tenantId = :tenantId', { tenantId });
+      const query = this.subscriberRepository
+        .createQueryBuilder("subscriber")
+        .where("subscriber.tenantId = :tenantId", { tenantId });
 
       // Apply filters (this would be more complex in real implementation)
       if (exportFilters.status) {
-        query.andWhere('subscriber.status IN (:...statuses)', { statuses: exportFilters.status });
+        query.andWhere("subscriber.status IN (:...statuses)", {
+          statuses: exportFilters.status,
+        });
       }
 
       result.affectedSubscribers = await query.getCount();
 
       // Check if only consented subscribers should be exported
       if (options.onlyConsentedSubscribers) {
-        const consentedCount = await this.getConsentedSubscribersCount(exportFilters);
+        const consentedCount =
+          await this.getConsentedSubscribersCount(exportFilters);
         if (consentedCount < result.affectedSubscribers) {
-          result.warnings.push(`${result.affectedSubscribers - consentedCount} subscribers without explicit consent will be excluded`);
+          result.warnings.push(
+            `${result.affectedSubscribers - consentedCount} subscribers without explicit consent will be excluded`,
+          );
         }
       }
 
       // Validate anonymization requirements
       if (options.anonymizeData && !options.anonymizationConfig) {
-        result.issues.push('Anonymization requested but configuration not provided');
+        result.issues.push(
+          "Anonymization requested but configuration not provided",
+        );
         result.isCompliant = false;
       }
 
       // Check for withdrawn consents
       if (options.excludeWithdrawnConsent) {
-        const withdrawnCount = await this.getWithdrawnConsentCount(exportFilters);
+        const withdrawnCount =
+          await this.getWithdrawnConsentCount(exportFilters);
         if (withdrawnCount > 0) {
-          result.warnings.push(`${withdrawnCount} subscribers with withdrawn consent will be excluded`);
+          result.warnings.push(
+            `${withdrawnCount} subscribers with withdrawn consent will be excluded`,
+          );
         }
       }
 
       // Recommend audit trail
       if (!options.auditExport) {
-        result.recommendations.push('Enable export auditing for compliance tracking');
+        result.recommendations.push(
+          "Enable export auditing for compliance tracking",
+        );
       }
 
-      this.logger.log(`Bulk export compliance validation: ${result.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT'}`);
-
+      this.logger.log(
+        `Bulk export compliance validation: ${result.isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}`,
+      );
     } catch (error) {
-      this.logger.error('Bulk export compliance validation failed:', error);
+      this.logger.error("Bulk export compliance validation failed:", error);
       result.issues.push(`Validation failed: ${error.message}`);
       result.isCompliant = false;
     }
@@ -290,10 +337,10 @@ export class BulkOperationsComplianceService {
   async processBulkExportWithCompliance(
     subscribers: Subscriber[],
     options: BulkExportComplianceOptions,
-    jobId: string
+    jobId: string,
   ): Promise<{ data: any[]; report: BulkComplianceReport }> {
     const report: BulkComplianceReport = {
-      operation: 'export',
+      operation: "export",
       timestamp: new Date(),
       totalRecords: subscribers.length,
       compliantRecords: 0,
@@ -301,7 +348,7 @@ export class BulkOperationsComplianceService {
       consentTracked: 0,
       anonymizedRecords: 0,
       issues: [],
-      gdprRegionAffected: true // Assume GDPR applies to exports
+      gdprRegionAffected: true, // Assume GDPR applies to exports
     };
 
     let processedData: any[] = [];
@@ -311,12 +358,15 @@ export class BulkOperationsComplianceService {
       let filteredSubscribers = subscribers;
 
       if (options.onlyConsentedSubscribers) {
-        filteredSubscribers = await this.filterConsentedSubscribers(subscribers);
-        report.nonCompliantRecords = subscribers.length - filteredSubscribers.length;
+        filteredSubscribers =
+          await this.filterConsentedSubscribers(subscribers);
+        report.nonCompliantRecords =
+          subscribers.length - filteredSubscribers.length;
       }
 
       if (options.excludeWithdrawnConsent) {
-        filteredSubscribers = await this.filterWithdrawnConsents(filteredSubscribers);
+        filteredSubscribers =
+          await this.filterWithdrawnConsents(filteredSubscribers);
       }
 
       report.compliantRecords = filteredSubscribers.length;
@@ -325,11 +375,11 @@ export class BulkOperationsComplianceService {
       if (options.anonymizeData && options.anonymizationConfig) {
         processedData = await this.gdprService.anonymizeDataForExport(
           filteredSubscribers,
-          options.anonymizationConfig
+          options.anonymizationConfig,
         );
         report.anonymizedRecords = processedData.length;
       } else {
-        processedData = filteredSubscribers.map(sub => ({ ...sub }));
+        processedData = filteredSubscribers.map((sub) => ({ ...sub }));
       }
 
       // Add consent history if requested
@@ -346,10 +396,11 @@ export class BulkOperationsComplianceService {
         await this.createExportAuditRecord(jobId, report, options);
       }
 
-      this.logger.log(`Bulk export compliance processing completed: ${report.compliantRecords}/${report.totalRecords} compliant`);
-
+      this.logger.log(
+        `Bulk export compliance processing completed: ${report.compliantRecords}/${report.totalRecords} compliant`,
+      );
     } catch (error) {
-      this.logger.error('Bulk export compliance processing failed:', error);
+      this.logger.error("Bulk export compliance processing failed:", error);
       report.issues.push(`Processing failed: ${error.message}`);
     }
 
@@ -361,7 +412,7 @@ export class BulkOperationsComplianceService {
    */
   async handleDataSubjectRequestsForBulkOperation(
     emails: string[],
-    operationType: 'import' | 'export'
+    operationType: "import" | "export",
   ): Promise<{
     blockedEmails: string[];
     pendingRequests: string[];
@@ -370,7 +421,7 @@ export class BulkOperationsComplianceService {
     const result = {
       blockedEmails: [] as string[],
       pendingRequests: [] as string[],
-      warnings: [] as string[]
+      warnings: [] as string[],
     };
 
     try {
@@ -382,14 +433,16 @@ export class BulkOperationsComplianceService {
           requestType: DataSubjectRequestType.ERASURE,
           status: In([RequestStatus.PENDING, RequestStatus.IN_PROGRESS]),
           tenantId,
-        }
+        },
       });
 
       for (const request of pendingErasureRequests) {
-        if (operationType === 'import') {
+        if (operationType === "import") {
           result.blockedEmails.push(request.email);
         } else {
-          result.warnings.push(`Export includes subscriber with pending erasure request: ${request.email}`);
+          result.warnings.push(
+            `Export includes subscriber with pending erasure request: ${request.email}`,
+          );
         }
       }
 
@@ -399,14 +452,15 @@ export class BulkOperationsComplianceService {
           email: In(emails),
           status: In([RequestStatus.PENDING, RequestStatus.IN_PROGRESS]),
           tenantId,
-        }
+        },
       });
 
-      result.pendingRequests = otherPendingRequests.map(req => req.email);
-
+      result.pendingRequests = otherPendingRequests.map((req) => req.email);
     } catch (error) {
-      this.logger.error('Error checking data subject requests:', error);
-      result.warnings.push(`Failed to check data subject requests: ${error.message}`);
+      this.logger.error("Error checking data subject requests:", error);
+      result.warnings.push(
+        `Failed to check data subject requests: ${error.message}`,
+      );
     }
 
     return result;
@@ -421,10 +475,10 @@ export class BulkOperationsComplianceService {
         email: In(emails),
         consentStatus: ConsentStatus.WITHDRAWN,
         tenantId,
-      }
+      },
     });
 
-    return withdrawnConsents.map(consent => consent.email);
+    return withdrawnConsents.map((consent) => consent.email);
   }
 
   private async hasWithdrawnConsent(email: string): Promise<boolean> {
@@ -434,7 +488,7 @@ export class BulkOperationsComplianceService {
         email,
         consentStatus: ConsentStatus.WITHDRAWN,
         tenantId,
-      }
+      },
     });
 
     return !!withdrawnConsent;
@@ -442,43 +496,57 @@ export class BulkOperationsComplianceService {
 
   private identifyUnnecessaryFields(
     dataFields: string[],
-    purposes: string[]
+    purposes: string[],
   ): string[] {
     const necessaryFieldsMap: Record<string, string[]> = {
-      'email_marketing': ['email', 'firstName', 'lastName', 'status'],
-      'analytics': ['email', 'opens', 'clicks', 'sent'],
-      'segmentation': ['email', 'groups', 'segments', 'customerStatus'],
-      'personalization': ['email', 'firstName', 'lastName', 'company', 'location']
+      email_marketing: ["email", "firstName", "lastName", "status"],
+      analytics: ["email", "opens", "clicks", "sent"],
+      segmentation: ["email", "groups", "segments", "customerStatus"],
+      personalization: [
+        "email",
+        "firstName",
+        "lastName",
+        "company",
+        "location",
+      ],
     };
 
     const necessaryFields = new Set<string>();
 
     for (const purpose of purposes) {
       const fields = necessaryFieldsMap[purpose.toLowerCase()] || [];
-      fields.forEach(field => necessaryFields.add(field));
+      fields.forEach((field) => necessaryFields.add(field));
     }
 
-    return dataFields.filter(field => !necessaryFields.has(field));
+    return dataFields.filter((field) => !necessaryFields.has(field));
   }
 
-  private async createOrUpdateSubscriber(subscriberInfo: any): Promise<Subscriber> {
+  private async createOrUpdateSubscriber(
+    subscriberInfo: any,
+  ): Promise<Subscriber> {
     const tenantId = this.getActiveTenantId();
     const existingSubscriber = await this.subscriberRepository.findOne({
-      where: { email: subscriberInfo.email, tenantId }
+      where: { email: subscriberInfo.email, tenantId },
     });
 
     if (existingSubscriber) {
       // Update existing subscriber
       await this.subscriberRepository.update(
         { email: subscriberInfo.email, tenantId },
-        subscriberInfo
+        subscriberInfo,
       );
       return { ...existingSubscriber, ...subscriberInfo } as Subscriber;
     } else {
       // Create new subscriber
-      const subscriber = this.subscriberRepository.create({ ...subscriberInfo, tenantId });
-      const createdSubscriber = await this.subscriberRepository.save(subscriber);
-      return (Array.isArray(createdSubscriber) ? createdSubscriber[0] : createdSubscriber) as unknown as Subscriber;
+      const subscriber = this.subscriberRepository.create({
+        ...subscriberInfo,
+        tenantId,
+      });
+      const createdSubscriber =
+        await this.subscriberRepository.save(subscriber);
+      return (Array.isArray(createdSubscriber)
+        ? createdSubscriber[0]
+        : createdSubscriber) as unknown as Subscriber;
     }
   }
 
@@ -486,7 +554,7 @@ export class BulkOperationsComplianceService {
     const tenantId = this.getActiveTenantId();
     // This would join with consent records to count only consented subscribers
     return this.subscriberRepository.count({
-      where: { status: 'ACTIVE', tenantId }
+      where: { status: SubscriberStatus.ACTIVE, tenantId },
     });
   }
 
@@ -495,64 +563,70 @@ export class BulkOperationsComplianceService {
     return 0;
   }
 
-  private async filterConsentedSubscribers(subscribers: Subscriber[]): Promise<Subscriber[]> {
+  private async filterConsentedSubscribers(
+    subscribers: Subscriber[],
+  ): Promise<Subscriber[]> {
     const consentedEmails = new Set<string>();
     const tenantId = this.getActiveTenantId();
 
     // Get all consented emails
     const consentRecords = await this.consentRepository.find({
       where: {
-        email: In(subscribers.map(s => s.email)),
+        email: In(subscribers.map((s) => s.email)),
         consentStatus: ConsentStatus.GIVEN,
         tenantId,
-      }
+      },
     });
 
-    consentRecords.forEach(record => consentedEmails.add(record.email));
+    consentRecords.forEach((record) => consentedEmails.add(record.email));
 
-    return subscribers.filter(sub => consentedEmails.has(sub.email));
+    return subscribers.filter((sub) => consentedEmails.has(sub.email));
   }
 
-  private async filterWithdrawnConsents(subscribers: Subscriber[]): Promise<Subscriber[]> {
+  private async filterWithdrawnConsents(
+    subscribers: Subscriber[],
+  ): Promise<Subscriber[]> {
     const withdrawnEmails = new Set<string>();
     const tenantId = this.getActiveTenantId();
 
     // Get all withdrawn consent emails
     const withdrawnRecords = await this.consentRepository.find({
       where: {
-        email: In(subscribers.map(s => s.email)),
+        email: In(subscribers.map((s) => s.email)),
         consentStatus: ConsentStatus.WITHDRAWN,
         tenantId,
-      }
+      },
     });
 
-    withdrawnRecords.forEach(record => withdrawnEmails.add(record.email));
+    withdrawnRecords.forEach((record) => withdrawnEmails.add(record.email));
 
-    return subscribers.filter(sub => !withdrawnEmails.has(sub.email));
+    return subscribers.filter((sub) => !withdrawnEmails.has(sub.email));
   }
 
   private async getConsentHistory(email: string): Promise<any[]> {
     const tenantId = this.getActiveTenantId();
     const consentRecords = await this.consentRepository.find({
       where: { email, tenantId },
-      order: { consentDate: 'DESC' }
+      order: { consentDate: "DESC" },
     });
 
-    return consentRecords.map(record => ({
+    return consentRecords.map((record) => ({
       type: record.consentType,
       status: record.consentStatus,
       date: record.consentDate,
       method: record.consentMethod,
-      legalBasis: record.legalBasis
+      legalBasis: record.legalBasis,
     }));
   }
 
   private async createExportAuditRecord(
     jobId: string,
     report: BulkComplianceReport,
-    options: BulkExportComplianceOptions
+    options: BulkExportComplianceOptions,
   ): Promise<void> {
     // In a real implementation, this would create an audit record in a dedicated table
-    this.logger.log(`Export audit record created for job ${jobId}: ${report.compliantRecords} records exported`);
+    this.logger.log(
+      `Export audit record created for job ${jobId}: ${report.compliantRecords} records exported`,
+    );
   }
 }

@@ -1,113 +1,102 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
-import { SegmentService } from '../segment.service';
-import { Segment } from '../entities/segment.entity';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Repository } from "typeorm";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { Segment } from "./entities/segment.entity";
+import { SegmentService } from "./segment.service";
 
-describe('SegmentService', () => {
-    let service: SegmentService;
-    let segmentRepository: Repository<Segment>;
+const TENANT = "tenant-a";
 
-    const mockSegment: Partial<Segment> = {
-        id: '123',
-        name: 'Test Segment',
-        description: 'Test Description',
-        conditions: {},
-        isActive: true,
-        subscriberCount: 0,
-    };
+function setup(activeTenant: string | null = TENANT) {
+  const segment = {
+    id: "s1",
+    name: "Active",
+    description: "d",
+    tenantId: TENANT,
+    subscriberCount: 4,
+    openRate: "12.5",
+    clickRate: "3.25",
+  } as unknown as Segment;
+  const repository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+    find: jest.fn(async () => [segment]),
+    findOne: jest.fn(async () => segment),
+    remove: jest.fn(async (value) => value),
+  };
+  const tenants = { getTenantId: jest.fn(() => activeTenant) };
+  const service = new SegmentService(
+    repository as unknown as Repository<Segment>,
+    tenants as unknown as TenantService,
+  );
+  return { service, repository, segment };
+}
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        update: jest.fn(),
-        remove: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                SegmentService,
-                {
-                    provide: getRepositoryToken(Segment),
-                    useValue: mockRepository,
-                },
-            ],
-        }).compile();
-
-        service = module.get<SegmentService>(SegmentService);
-        segmentRepository = module.get(getRepositoryToken(Segment));
-
-        jest.clearAllMocks();
+describe("SegmentService", () => {
+  it("creates the segment in the active tenant", async () => {
+    const { service, repository } = setup();
+    await service.create({ name: "Active", criteria: "opens > 1" } as never);
+    expect(repository.create).toHaveBeenCalledWith({
+      name: "Active",
+      criteria: "opens > 1",
+      tenantId: TENANT,
     });
+  });
 
-    describe('create', () => {
-        it('should create a new segment', async () => {
-            mockRepository.create.mockReturnValue(mockSegment);
-            mockRepository.save.mockResolvedValue(mockSegment);
+  it("rejects fields a caller may not write", async () => {
+    const { service, repository } = setup();
+    await expect(
+      service.create({ name: "x", subscriberCount: 99 } as never),
+    ).rejects.toThrow(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
 
-            const result = await service.create({
-                name: 'Test Segment',
-                conditions: {},
-            });
+  it("lists only the active tenant and converts decimal rates for import", async () => {
+    const { service, repository } = setup();
+    await expect(service.findAllForImport()).resolves.toEqual([
+      {
+        id: "s1",
+        name: "Active",
+        description: "d",
+        subscriberCount: 4,
+        openRate: 12.5,
+        clickRate: 3.25,
+      },
+    ]);
+    expect(repository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tenantId: TENANT } }),
+    );
+  });
 
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result).toEqual(mockSegment);
-        });
+  it("finds by id inside the tenant and reports a missing segment", async () => {
+    const { service, repository } = setup();
+    await service.findOne("s1");
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: "s1", tenantId: TENANT },
     });
+    repository.findOne.mockResolvedValueOnce(null as unknown as Segment);
+    await expect(service.findOne("missing")).rejects.toThrow(NotFoundException);
+  });
 
-    describe('findAll', () => {
-        it('should return all segments', async () => {
-            mockRepository.find.mockResolvedValue([mockSegment]);
+  it("updates and removes the tenant segment", async () => {
+    const { service, repository, segment } = setup();
+    await expect(
+      service.update("s1", { name: "Renamed" } as never),
+    ).resolves.toMatchObject({ name: "Renamed", tenantId: TENANT });
+    await service.remove("s1");
+    expect(repository.remove).toHaveBeenCalledWith(segment);
+  });
 
-            const result = await service.findAll();
-
-            expect(mockRepository.find).toHaveBeenCalled();
-            expect(result).toEqual([mockSegment]);
-        });
-    });
-
-    describe('findOne', () => {
-        it('should return a segment by id', async () => {
-            mockRepository.findOne.mockResolvedValue(mockSegment);
-
-            const result = await service.findOne('123');
-
-            expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: '123' } });
-            expect(result).toEqual(mockSegment);
-        });
-
-        it('should throw NotFoundException if segment not found', async () => {
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
-        });
-    });
-
-    describe('update', () => {
-        it('should update a segment', async () => {
-            mockRepository.findOne.mockResolvedValue(mockSegment);
-            mockRepository.save.mockResolvedValue({ ...mockSegment, name: 'Updated' });
-
-            const result = await service.update('123', { name: 'Updated' });
-
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result.name).toBe('Updated');
-        });
-    });
-
-    describe('remove', () => {
-        it('should remove a segment', async () => {
-            mockRepository.findOne.mockResolvedValue(mockSegment);
-            mockRepository.remove.mockResolvedValue(mockSegment);
-
-            await service.remove('123');
-
-            expect(mockRepository.remove).toHaveBeenCalledWith(mockSegment);
-        });
-    });
+  it("requires a tenant context and refuses another tenant", async () => {
+    await expect(setup(null).service.findAll()).rejects.toThrow(
+      UnauthorizedException,
+    );
+    await expect(setup().service.findAll("tenant-b")).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
 });

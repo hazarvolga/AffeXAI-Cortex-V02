@@ -462,3 +462,14 @@ Açık: G4 sonrası gerçek öneri ve onay akışı; sosyal medya migration'ı; 
 - **Bilinen not:** `theme_settings` entity'si hem `headerMenuId`/`createdById` (integer) hem `header_menu_id`/`created_by` (uuid) sütunlarını eşliyor; tablo bunu yansıtıyor. Entity temizliği CMS/tema işiyle birlikte yapılacak.
 - **Doğrulama:** izole DB'de `migration-test` → 1 migration koştu, 8 tablo + 8 FK var; `tsc -p tsconfig.build.json` 0; ilgili spec'ler yeşil; `bcc-honesty` 8/8; backend logunda "Brand source unavailable" 0.
 - **Sıradaki (S1 P1/P2):** `TenantService`/`JwtService` DI eksikleri (chat gateway, escalation), tickets / email-marketing / certificates TS sürüklenmesi, ardından chat, faq-learning, analytics, media, notifications kırıkları.
+
+### Sprint 1 P1 — email-marketing spec'leri, 1. parti (2026-10-15)
+
+Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mevcut servislere göre yeniden yazıldı. Yazarken bulunan gerçek hatalar:
+
+- **GDPR:** onay geri çekilince abone `'UNSUBSCRIBED'`, uyum raporu `'ACTIVE'` ile sayılıyordu; Postgres enum değerleri küçük harf (`unsubscribed`, `active`), sorgular gerçek DB'de hata verirdi. `SubscriberStatus` sabitleri kullanılıyor (`bulk-operations-compliance` de). Tenant bağlamı yoksa artık 401.
+- **MJML:** `buildAttributes` dizi döndürüyor, şablonda virgülle birleşiyordu (`font-size="14px",color=…`). MJML bunları "illegal attribute" sayıp attığı için başlık, metin, buton ve ayraç stilleri e-postalara hiç yansımıyordu. Boşlukla birleşiyor, `"` kaçışlanıyor; görselde geçersiz `width="auto"` yazılmıyor.
+- **İçe aktarma kolon tespiti:** `Date.parse` "Test 1" gibi metinleri tarih sayıyordu (isim kolonu tarih çıkıyordu), `15.10.2026`yı ise reddediyordu. Tarih biçimi kalıbıyla tespit ediliyor. Dosya adındaki boşluklar `_` oluyor.
+- **Not:** `file-type` yalnız ESM; Node 24 çalışma zamanında sorun yok, Jest için spec'te sanal mock var.
+- Certificates `certificate-email` spec'i `path` modülünü tümden mock'luyordu (`path.dirname` yok hatası); mock kaldırıldı.
+- Sıradaki parti: email-marketing controller/service DI, automation, workflow-executor, trigger-evaluator, send-time-optimization, predictive-analytics, ab-test, bulk import/export, ip-reputation, subscriber, template, tracking.

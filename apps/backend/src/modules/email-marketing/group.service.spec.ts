@@ -1,112 +1,101 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
-import { GroupService } from '../group.service';
-import { SubscriberGroup } from '../entities/subscriber-group.entity';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Repository } from "typeorm";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { Group } from "./entities/group.entity";
+import { GroupService } from "./group.service";
 
-describe('GroupService', () => {
-    let service: GroupService;
-    let groupRepository: Repository<SubscriberGroup>;
+const TENANT = "tenant-a";
 
-    const mockGroup: Partial<SubscriberGroup> = {
-        id: '123',
-        name: 'Test Group',
-        description: 'Test Description',
-        isActive: true,
-        subscriberCount: 0,
-    };
+function setup(activeTenant: string | null = TENANT) {
+  const group = {
+    id: "g1",
+    name: "Test Group",
+    description: "d",
+    tenantId: TENANT,
+    subscriberCount: 3,
+  } as Group;
+  const repository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+    find: jest.fn(async () => [group]),
+    findOne: jest.fn(async () => group),
+    remove: jest.fn(async (value) => value),
+  };
+  const tenants = { getTenantId: jest.fn(() => activeTenant) };
+  const service = new GroupService(
+    repository as unknown as Repository<Group>,
+    tenants as unknown as TenantService,
+  );
+  return { service, repository, group };
+}
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        update: jest.fn(),
-        remove: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                GroupService,
-                {
-                    provide: getRepositoryToken(SubscriberGroup),
-                    useValue: mockRepository,
-                },
-            ],
-        }).compile();
-
-        service = module.get<GroupService>(GroupService);
-        groupRepository = module.get(getRepositoryToken(SubscriberGroup));
-
-        jest.clearAllMocks();
+describe("GroupService", () => {
+  it("creates the group in the active tenant", async () => {
+    const { service, repository } = setup();
+    await service.create({ name: "Test Group", description: "d" });
+    expect(repository.create).toHaveBeenCalledWith({
+      name: "Test Group",
+      description: "d",
+      tenantId: TENANT,
     });
+  });
 
-    describe('create', () => {
-        it('should create a new group', async () => {
-            mockRepository.create.mockReturnValue(mockGroup);
-            mockRepository.save.mockResolvedValue(mockGroup);
+  it("rejects fields a caller may not write", async () => {
+    const { service, repository } = setup();
+    await expect(
+      service.create({ name: "x", tenantId: "tenant-b" } as never),
+    ).rejects.toThrow();
+    expect(repository.save).not.toHaveBeenCalled();
+  });
 
-            const result = await service.create({
-                name: 'Test Group',
-                description: 'Test Description',
-            });
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result).toEqual(mockGroup);
-        });
+  it("lists only the active tenant, ordered by name", async () => {
+    const { service, repository } = setup();
+    await service.findAll();
+    expect(repository.find).toHaveBeenCalledWith({
+      where: { tenantId: TENANT },
+      order: { name: "ASC" },
     });
+  });
 
-    describe('findAll', () => {
-        it('should return all groups', async () => {
-            mockRepository.find.mockResolvedValue([mockGroup]);
+  it("maps import options with an empty description fallback", async () => {
+    const { service, repository, group } = setup();
+    repository.find.mockResolvedValueOnce([
+      { ...group, description: null } as unknown as Group,
+    ]);
+    await expect(service.findAllForImport()).resolves.toEqual([
+      { id: "g1", name: "Test Group", description: "", subscriberCount: 3 },
+    ]);
+  });
 
-            const result = await service.findAll();
-
-            expect(mockRepository.find).toHaveBeenCalled();
-            expect(result).toEqual([mockGroup]);
-        });
+  it("finds by id inside the tenant and reports a missing group", async () => {
+    const { service, repository } = setup();
+    await service.findOne("g1");
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: "g1", tenantId: TENANT },
     });
+    repository.findOne.mockResolvedValueOnce(null as unknown as Group);
+    await expect(service.findOne("missing")).rejects.toThrow(NotFoundException);
+  });
 
-    describe('findOne', () => {
-        it('should return a group by id', async () => {
-            mockRepository.findOne.mockResolvedValue(mockGroup);
+  it("updates and removes the tenant group", async () => {
+    const { service, repository, group } = setup();
+    await expect(
+      service.update("g1", { name: "Updated" }),
+    ).resolves.toMatchObject({ name: "Updated", tenantId: TENANT });
+    await service.remove("g1");
+    expect(repository.remove).toHaveBeenCalledWith(group);
+  });
 
-            const result = await service.findOne('123');
-
-            expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: '123' } });
-            expect(result).toEqual(mockGroup);
-        });
-
-        it('should throw NotFoundException if group not found', async () => {
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
-        });
-    });
-
-    describe('update', () => {
-        it('should update a group', async () => {
-            mockRepository.findOne.mockResolvedValue(mockGroup);
-            mockRepository.save.mockResolvedValue({ ...mockGroup, name: 'Updated' });
-
-            const result = await service.update('123', { name: 'Updated' });
-
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result.name).toBe('Updated');
-        });
-    });
-
-    describe('remove', () => {
-        it('should remove a group', async () => {
-            mockRepository.findOne.mockResolvedValue(mockGroup);
-            mockRepository.remove.mockResolvedValue(mockGroup);
-
-            await service.remove('123');
-
-            expect(mockRepository.remove).toHaveBeenCalledWith(mockGroup);
-        });
-    });
+  it("requires a tenant context and refuses another tenant", async () => {
+    await expect(setup(null).service.findAll()).rejects.toThrow(
+      UnauthorizedException,
+    );
+    await expect(setup().service.findAll("tenant-b")).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
 });

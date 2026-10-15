@@ -1,13 +1,16 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { promises as fs } from 'fs';
-import * as path from 'path';
-import * as Papa from 'papaparse';
-import { fileTypeFromBuffer } from 'file-type';
-import { createReadStream } from 'fs';
-import * as crypto from 'crypto';
-import { EnhancedFileSecurityService, FileSecurityReport } from './enhanced-file-security.service';
-import { CustomFieldService } from './custom-field.service';
-import { S3Service } from '../../media/s3.service';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { promises as fs } from "fs";
+import * as path from "path";
+import * as Papa from "papaparse";
+import { fileTypeFromBuffer } from "file-type";
+import { createReadStream } from "fs";
+import * as crypto from "crypto";
+import {
+  EnhancedFileSecurityService,
+  FileSecurityReport,
+} from "./enhanced-file-security.service";
+import { CustomFieldService } from "./custom-field.service";
+import { S3Service } from "../../media/s3.service";
 
 export interface CsvParseResult {
   headers: string[];
@@ -30,7 +33,7 @@ export interface ColumnDetectionResult {
 
 export interface DetectedColumn {
   name: string;
-  type: 'email' | 'text' | 'number' | 'date' | 'unknown';
+  type: "email" | "text" | "number" | "date" | "unknown";
   samples: string[];
   nullCount: number;
   uniqueCount: number;
@@ -58,16 +61,16 @@ export class FileProcessingService {
   constructor(
     private readonly enhancedSecurityService: EnhancedFileSecurityService,
     private readonly customFieldService: CustomFieldService,
-    private readonly s3Service: S3Service
-  ) { }
+    private readonly s3Service: S3Service,
+  ) {}
 
   // Allowed file types for upload
   private readonly ALLOWED_MIME_TYPES = [
-    'text/csv',
-    'application/csv',
-    'text/plain',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    "text/csv",
+    "application/csv",
+    "text/plain",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ];
 
   // Maximum file size (50MB)
@@ -80,34 +83,24 @@ export class FileProcessingService {
       /^email.*address$/i,
       /^contact.*email$/i,
       /^user.*email$/i,
-      /^subscriber.*email$/i
+      /^subscriber.*email$/i,
     ],
-    firstName: [
-      /^first.*name$/i,
-      /^fname$/i,
-      /^given.*name$/i,
-      /^forename$/i
-    ],
-    lastName: [
-      /^last.*name$/i,
-      /^lname$/i,
-      /^surname$/i,
-      /^family.*name$/i
-    ],
+    firstName: [/^first.*name$/i, /^fname$/i, /^given.*name$/i, /^forename$/i],
+    lastName: [/^last.*name$/i, /^lname$/i, /^surname$/i, /^family.*name$/i],
     phone: [
       /^phone$/i,
       /^telephone$/i,
       /^mobile$/i,
       /^cell$/i,
-      /^contact.*number$/i
+      /^contact.*number$/i,
     ],
     company: [
       /^company$/i,
       /^organization$/i,
       /^org$/i,
       /^business$/i,
-      /^employer$/i
-    ]
+      /^employer$/i,
+    ],
   };
 
   /**
@@ -119,38 +112,50 @@ export class FileProcessingService {
       fileType: file.mimetype,
       fileSize: file.size,
       errors: [],
-      warnings: []
+      warnings: [],
     };
 
     try {
       // Check file size
       if (file.size > this.MAX_FILE_SIZE) {
-        result.errors.push(`File size ${file.size} bytes exceeds maximum allowed size of ${this.MAX_FILE_SIZE} bytes`);
+        result.errors.push(
+          `File size ${file.size} bytes exceeds maximum allowed size of ${this.MAX_FILE_SIZE} bytes`,
+        );
         result.isValid = false;
       }
 
       // Check MIME type
       if (!this.ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-        result.errors.push(`File type ${file.mimetype} is not allowed. Allowed types: ${this.ALLOWED_MIME_TYPES.join(', ')}`);
+        result.errors.push(
+          `File type ${file.mimetype} is not allowed. Allowed types: ${this.ALLOWED_MIME_TYPES.join(", ")}`,
+        );
         result.isValid = false;
       }
 
       // Verify actual file type matches MIME type
       if (file.buffer) {
         const detectedType = await fileTypeFromBuffer(file.buffer);
-        if (detectedType && !this.isCompatibleFileType(file.mimetype, detectedType.mime)) {
-          result.warnings.push(`Detected file type ${detectedType.mime} differs from declared type ${file.mimetype}`);
+        if (
+          detectedType &&
+          !this.isCompatibleFileType(file.mimetype, detectedType.mime)
+        ) {
+          result.warnings.push(
+            `Detected file type ${detectedType.mime} differs from declared type ${file.mimetype}`,
+          );
         }
       }
 
       // Check file extension
       const extension = path.extname(file.originalname).toLowerCase();
-      if (!['.csv', '.txt', '.xls', '.xlsx'].includes(extension)) {
-        result.warnings.push(`File extension ${extension} may not be compatible`);
+      if (![".csv", ".txt", ".xls", ".xlsx"].includes(extension)) {
+        result.warnings.push(
+          `File extension ${extension} may not be compatible`,
+        );
       }
 
-      this.logger.log(`File validation completed for ${file.originalname}: ${result.isValid ? 'VALID' : 'INVALID'}`);
-
+      this.logger.log(
+        `File validation completed for ${file.originalname}: ${result.isValid ? "VALID" : "INVALID"}`,
+      );
     } catch (error) {
       this.logger.error(`Error validating file ${file.originalname}:`, error);
       result.errors.push(`File validation failed: ${error.message}`);
@@ -165,10 +170,13 @@ export class FileProcessingService {
    */
   async scanForMalware(filePath: string): Promise<boolean> {
     try {
-      const scanResult = await this.enhancedSecurityService.performAdvancedMalwareScan(filePath);
+      const scanResult =
+        await this.enhancedSecurityService.performAdvancedMalwareScan(filePath);
 
       if (!scanResult.isClean) {
-        this.logger.warn(`Malware detected in ${filePath}: ${scanResult.threats.join(', ')}`);
+        this.logger.warn(
+          `Malware detected in ${filePath}: ${scanResult.threats.join(", ")}`,
+        );
       }
 
       return scanResult.isClean;
@@ -181,12 +189,23 @@ export class FileProcessingService {
   /**
    * Perform comprehensive security validation and storage
    */
-  async secureFileProcessing(filePath: string, jobId: string): Promise<FileSecurityReport> {
+  async secureFileProcessing(
+    filePath: string,
+    jobId: string,
+  ): Promise<FileSecurityReport> {
     try {
-      return await this.enhancedSecurityService.secureFileStorage(filePath, jobId);
+      return await this.enhancedSecurityService.secureFileStorage(
+        filePath,
+        jobId,
+      );
     } catch (error) {
-      this.logger.error(`Secure file processing failed for ${filePath}:`, error);
-      throw new BadRequestException(`File security processing failed: ${error.message}`);
+      this.logger.error(
+        `Secure file processing failed for ${filePath}:`,
+        error,
+      );
+      throw new BadRequestException(
+        `File security processing failed: ${error.message}`,
+      );
     }
   }
 
@@ -194,12 +213,15 @@ export class FileProcessingService {
    * Parse CSV file with comprehensive error handling
    * Supports local paths and S3 URLs
    */
-  async parseCsvFile(filePathOrUrl: string, tenantId: string): Promise<CsvParseResult> {
+  async parseCsvFile(
+    filePathOrUrl: string,
+    tenantId: string,
+  ): Promise<CsvParseResult> {
     const result: CsvParseResult = {
       headers: [],
       data: [],
       totalRows: 0,
-      errors: []
+      errors: [],
     };
 
     let localFilePath = filePathOrUrl;
@@ -207,24 +229,26 @@ export class FileProcessingService {
 
     try {
       // Check if it's an S3 URL
-      if (filePathOrUrl.startsWith('http')) {
+      if (filePathOrUrl.startsWith("http")) {
         this.logger.log(`Downloading CSV from S3: ${filePathOrUrl}`);
         const url = new URL(filePathOrUrl);
         // Assuming path structure /bucket/key
-        const pathParts = url.pathname.split('/');
+        const pathParts = url.pathname.split("/");
         if (pathParts.length >= 3) {
-          const key = pathParts.slice(2).join('/');
-          const tempDir = await fs.mkdtemp(path.join(process.cwd(), 'temp', 'csv-download-'));
+          const key = pathParts.slice(2).join("/");
+          const tempDir = await fs.mkdtemp(
+            path.join(process.cwd(), "temp", "csv-download-"),
+          );
           localFilePath = path.join(tempDir, `download-${Date.now()}.csv`);
           await this.s3Service.downloadFile(key, tenantId, localFilePath);
           isTempFile = true;
           this.logger.log(`Downloaded to temporary file: ${localFilePath}`);
         } else {
-          throw new Error('Invalid S3 URL format');
+          throw new Error("Invalid S3 URL format");
         }
       }
 
-      const fileContent = await fs.readFile(localFilePath, 'utf8');
+      const fileContent = await fs.readFile(localFilePath, "utf8");
 
       const parsePromise = new Promise<CsvParseResult>((resolve, reject) => {
         Papa.parse(fileContent, {
@@ -239,28 +263,35 @@ export class FileProcessingService {
 
             // Convert Papa Parse errors to our format
             if (results.errors && results.errors.length > 0) {
-              result.errors = results.errors.map(error => ({
+              result.errors = results.errors.map((error) => ({
                 row: error.row || 0,
                 message: error.message,
-                code: error.code || 'PARSE_ERROR'
+                code: error.code || "PARSE_ERROR",
               }));
             }
 
-            this.logger.log(`CSV parsing completed: ${result.totalRows} rows, ${result.headers.length} columns, ${result.errors.length} errors`);
+            this.logger.log(
+              `CSV parsing completed: ${result.totalRows} rows, ${result.headers.length} columns, ${result.errors.length} errors`,
+            );
             resolve(result);
           },
           error: (error) => {
             this.logger.error(`CSV parsing failed: ${error.message}`);
-            reject(new BadRequestException(`Failed to parse CSV file: ${error.message}`));
-          }
+            reject(
+              new BadRequestException(
+                `Failed to parse CSV file: ${error.message}`,
+              ),
+            );
+          },
         });
       });
 
       return await parsePromise;
-
     } catch (error) {
       this.logger.error(`Error reading/parsing CSV file: ${error.message}`);
-      throw new BadRequestException(`Failed to read/parse CSV file: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to read/parse CSV file: ${error.message}`,
+      );
     } finally {
       // Clean up temp file if we downloaded it
       if (isTempFile && localFilePath) {
@@ -269,7 +300,10 @@ export class FileProcessingService {
           await fs.rmdir(path.dirname(localFilePath)); // Remove temp dir
           this.logger.log(`Cleaned up temp download file: ${localFilePath}`);
         } catch (cleanupError) {
-          this.logger.warn(`Failed to cleanup temp download file: ${localFilePath}`, cleanupError);
+          this.logger.warn(
+            `Failed to cleanup temp download file: ${localFilePath}`,
+            cleanupError,
+          );
         }
       }
     }
@@ -283,7 +317,7 @@ export class FileProcessingService {
       return {
         detectedColumns: [],
         suggestions: [],
-        confidence: 0
+        confidence: 0,
       };
     }
 
@@ -304,25 +338,30 @@ export class FileProcessingService {
     }
 
     // Calculate overall confidence based on successful mappings
-    const successfulMappings = suggestions.filter(s => s.confidence > 0.7).length;
-    const confidence = headers.length > 0 ? successfulMappings / headers.length : 0;
+    const successfulMappings = suggestions.filter(
+      (s) => s.confidence > 0.7,
+    ).length;
+    const confidence =
+      headers.length > 0 ? successfulMappings / headers.length : 0;
 
     return {
       detectedColumns,
       suggestions,
-      confidence
+      confidence,
     };
   }
 
   /**
    * Validate column mapping configuration with custom fields support
    */
-  async validateColumnMapping(mapping: Record<string, string>): Promise<boolean> {
-    const requiredFields = ['email'];
+  async validateColumnMapping(
+    mapping: Record<string, string>,
+  ): Promise<boolean> {
+    const requiredFields = ["email"];
 
     // Get available fields including custom fields
     const availableFields = await this.customFieldService.getFieldsForMapping();
-    const validFieldKeys = availableFields.map(field => field.key);
+    const validFieldKeys = availableFields.map((field) => field.key);
 
     // Check if required fields are mapped
     for (const field of requiredFields) {
@@ -336,7 +375,9 @@ export class FileProcessingService {
     // Check if mapped fields are valid
     for (const [csvColumn, field] of Object.entries(mapping)) {
       if (!validFieldKeys.includes(field)) {
-        this.logger.warn(`Invalid field mapping: '${field}' is not a valid field`);
+        this.logger.warn(
+          `Invalid field mapping: '${field}' is not a valid field`,
+        );
         return false;
       }
     }
@@ -349,7 +390,7 @@ export class FileProcessingService {
    */
   async processSubscriberData(
     csvData: any[],
-    columnMapping: Record<string, string>
+    columnMapping: Record<string, string>,
   ): Promise<{
     processedData: any[];
     errors: string[];
@@ -363,7 +404,7 @@ export class FileProcessingService {
     for (let i = 0; i < csvData.length; i++) {
       const row = csvData[i];
       const subscriberData: any = {
-        customFields: {}
+        customFields: {},
       };
 
       try {
@@ -371,15 +412,23 @@ export class FileProcessingService {
         for (const [csvColumn, fieldKey] of Object.entries(columnMapping)) {
           const value = row[csvColumn];
 
-          if (fieldKey.startsWith('custom_')) {
+          if (fieldKey.startsWith("custom_")) {
             // Handle custom field
-            const customFieldName = fieldKey.replace('custom_', '');
-            const customField = customFields.find(f => f.name === customFieldName);
+            const customFieldName = fieldKey.replace("custom_", "");
+            const customField = customFields.find(
+              (f) => f.name === customFieldName,
+            );
 
             if (customField) {
-              const validation = await this.customFieldService.validateCustomFieldValue(customField, value);
+              const validation =
+                await this.customFieldService.validateCustomFieldValue(
+                  customField,
+                  value,
+                );
               if (!validation.isValid) {
-                errors.push(`Row ${i + 1}, ${customField.label}: ${validation.error}`);
+                errors.push(
+                  `Row ${i + 1}, ${customField.label}: ${validation.error}`,
+                );
                 continue;
               }
               subscriberData.customFields[customFieldName] = value;
@@ -391,7 +440,6 @@ export class FileProcessingService {
         }
 
         processedData.push(subscriberData);
-
       } catch (error) {
         errors.push(`Row ${i + 1}: ${error.message}`);
       }
@@ -406,15 +454,23 @@ export class FileProcessingService {
   async cleanupTempFiles(jobId: string): Promise<void> {
     try {
       // Use enhanced security service for secure cleanup
-      const cleanupResult = await this.enhancedSecurityService.automaticSensitiveFileCleanup(jobId);
+      const cleanupResult =
+        await this.enhancedSecurityService.automaticSensitiveFileCleanup(jobId);
 
-      this.logger.log(`Secure cleanup completed for job ${jobId}: ${cleanupResult.cleanedFiles} files, ${cleanupResult.totalSize} bytes`);
+      this.logger.log(
+        `Secure cleanup completed for job ${jobId}: ${cleanupResult.cleanedFiles} files, ${cleanupResult.totalSize} bytes`,
+      );
 
       if (cleanupResult.errors.length > 0) {
-        this.logger.warn(`Cleanup errors for job ${jobId}: ${cleanupResult.errors.join(', ')}`);
+        this.logger.warn(
+          `Cleanup errors for job ${jobId}: ${cleanupResult.errors.join(", ")}`,
+        );
       }
     } catch (error) {
-      this.logger.error(`Error cleaning up temporary files for job ${jobId}:`, error);
+      this.logger.error(
+        `Error cleaning up temporary files for job ${jobId}:`,
+        error,
+      );
     }
   }
 
@@ -423,9 +479,15 @@ export class FileProcessingService {
    */
   async verifyFileIntegrity(filePath: string, jobId: string): Promise<boolean> {
     try {
-      return await this.enhancedSecurityService.verifyFileIntegrity(filePath, jobId);
+      return await this.enhancedSecurityService.verifyFileIntegrity(
+        filePath,
+        jobId,
+      );
     } catch (error) {
-      this.logger.error(`File integrity verification failed for ${filePath}:`, error);
+      this.logger.error(
+        `File integrity verification failed for ${filePath}:`,
+        error,
+      );
       return false;
     }
   }
@@ -436,9 +498,18 @@ export class FileProcessingService {
   generateSecureFilePath(originalFileName: string, jobId: string): string {
     const sanitizedName = this.sanitizeFileName(originalFileName);
     const timestamp = Date.now();
-    const hash = crypto.createHash('md5').update(`${jobId}-${timestamp}`).digest('hex').substring(0, 8);
+    const hash = crypto
+      .createHash("md5")
+      .update(`${jobId}-${timestamp}`)
+      .digest("hex")
+      .substring(0, 8);
 
-    return path.join('temp', 'imports', jobId, `${timestamp}-${hash}-${sanitizedName}`);
+    return path.join(
+      "temp",
+      "imports",
+      jobId,
+      `${timestamp}-${hash}-${sanitizedName}`,
+    );
   }
 
   /**
@@ -447,46 +518,58 @@ export class FileProcessingService {
   private sanitizeFileName(fileName: string): string {
     // Remove path separators and dangerous characters
     return fileName
-      .replace(/[\/\\:*?"<>|]/g, '_')
-      .replace(/\.\./g, '_')
-      .replace(/^\.+/, '')
+      .replace(/[\/\\:*?"<>|]/g, "_")
+      .replace(/\s+/g, "_")
+      .replace(/\.\./g, "_")
+      .replace(/^\.+/, "")
       .substring(0, 100); // Limit length
   }
 
   /**
    * Check if detected file type is compatible with declared MIME type
    */
-  private isCompatibleFileType(declaredType: string, detectedType: string): boolean {
+  private isCompatibleFileType(
+    declaredType: string,
+    detectedType: string,
+  ): boolean {
     const compatibilityMap: Record<string, string[]> = {
-      'text/csv': ['text/plain'],
-      'application/csv': ['text/plain', 'text/csv'],
-      'text/plain': ['text/csv', 'application/csv']
+      "text/csv": ["text/plain"],
+      "application/csv": ["text/plain", "text/csv"],
+      "text/plain": ["text/csv", "application/csv"],
     };
 
-    return declaredType === detectedType ||
-      (compatibilityMap[declaredType] && compatibilityMap[declaredType].includes(detectedType));
+    return (
+      declaredType === detectedType ||
+      (compatibilityMap[declaredType] &&
+        compatibilityMap[declaredType].includes(detectedType))
+    );
   }
 
   /**
    * Analyze individual column to determine type and characteristics
    */
-  private async analyzeColumn(header: string, data: any[]): Promise<DetectedColumn> {
-    const values = data.map(row => row[header]).filter(val => val != null && val !== '');
+  private async analyzeColumn(
+    header: string,
+    data: any[],
+  ): Promise<DetectedColumn> {
+    const values = data
+      .map((row) => row[header])
+      .filter((val) => val != null && val !== "");
     const samples = values.slice(0, 5);
     const nullCount = data.length - values.length;
     const uniqueCount = new Set(values).size;
 
     // Determine column type
-    let type: DetectedColumn['type'] = 'unknown';
+    let type: DetectedColumn["type"] = "unknown";
 
     if (this.isEmailColumn(values)) {
-      type = 'email';
+      type = "email";
     } else if (this.isNumberColumn(values)) {
-      type = 'number';
+      type = "number";
     } else if (this.isDateColumn(values)) {
-      type = 'date';
+      type = "date";
     } else {
-      type = 'text';
+      type = "text";
     }
 
     return {
@@ -494,7 +577,7 @@ export class FileProcessingService {
       type,
       samples,
       nullCount,
-      uniqueCount
+      uniqueCount,
     };
   }
 
@@ -505,7 +588,7 @@ export class FileProcessingService {
     if (values.length === 0) return false;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const emailCount = values.filter(val => emailRegex.test(val)).length;
+    const emailCount = values.filter((val) => emailRegex.test(val)).length;
 
     return emailCount / values.length > 0.8; // 80% of values should be valid emails
   }
@@ -516,7 +599,7 @@ export class FileProcessingService {
   private isNumberColumn(values: string[]): boolean {
     if (values.length === 0) return false;
 
-    const numberCount = values.filter(val => !isNaN(Number(val))).length;
+    const numberCount = values.filter((val) => !isNaN(Number(val))).length;
     return numberCount / values.length > 0.8;
   }
 
@@ -526,14 +609,22 @@ export class FileProcessingService {
   private isDateColumn(values: string[]): boolean {
     if (values.length === 0) return false;
 
-    const dateCount = values.filter(val => !isNaN(Date.parse(val))).length;
+    // Date.parse accepts free text such as "Test 1" and rejects 15.10.2026; match date shapes instead.
+    const datePattern =
+      /^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})([ T]\d{1,2}:\d{2}(:\d{2})?)?$/;
+    const dateCount = values.filter((val) =>
+      datePattern.test(String(val).trim()),
+    ).length;
     return dateCount / values.length > 0.8;
   }
 
   /**
    * Suggest field mapping based on column name and content
    */
-  private suggestFieldMapping(columnName: string, column: DetectedColumn): ColumnSuggestion | null {
+  private suggestFieldMapping(
+    columnName: string,
+    column: DetectedColumn,
+  ): ColumnSuggestion | null {
     // Check against known patterns
     for (const [fieldName, patterns] of Object.entries(this.FIELD_PATTERNS)) {
       for (const pattern of patterns) {
@@ -542,19 +633,19 @@ export class FileProcessingService {
             csvColumn: columnName,
             suggestedField: fieldName,
             confidence: 0.9,
-            reason: `Column name matches ${fieldName} pattern`
+            reason: `Column name matches ${fieldName} pattern`,
           };
         }
       }
     }
 
     // Check based on column type
-    if (column.type === 'email') {
+    if (column.type === "email") {
       return {
         csvColumn: columnName,
-        suggestedField: 'email',
+        suggestedField: "email",
         confidence: 0.8,
-        reason: 'Column contains email addresses'
+        reason: "Column contains email addresses",
       };
     }
 

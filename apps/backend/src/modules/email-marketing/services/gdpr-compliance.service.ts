@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import { Subscriber } from '../entities/subscriber.entity';
-import * as crypto from 'crypto';
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { SubscriberStatus } from "@affexai/shared-types";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { Subscriber } from "../entities/subscriber.entity";
+import * as crypto from "crypto";
 
 export interface ConsentRecord {
   id: string;
@@ -25,35 +26,35 @@ export interface ConsentRecord {
 }
 
 export enum ConsentType {
-  EMAIL_MARKETING = 'EMAIL_MARKETING',
-  DATA_PROCESSING = 'DATA_PROCESSING',
-  PROFILING = 'PROFILING',
-  THIRD_PARTY_SHARING = 'THIRD_PARTY_SHARING',
-  ANALYTICS = 'ANALYTICS'
+  EMAIL_MARKETING = "EMAIL_MARKETING",
+  DATA_PROCESSING = "DATA_PROCESSING",
+  PROFILING = "PROFILING",
+  THIRD_PARTY_SHARING = "THIRD_PARTY_SHARING",
+  ANALYTICS = "ANALYTICS",
 }
 
 export enum ConsentStatus {
-  GIVEN = 'GIVEN',
-  WITHDRAWN = 'WITHDRAWN',
-  EXPIRED = 'EXPIRED',
-  PENDING = 'PENDING'
+  GIVEN = "GIVEN",
+  WITHDRAWN = "WITHDRAWN",
+  EXPIRED = "EXPIRED",
+  PENDING = "PENDING",
 }
 
 export enum ConsentMethod {
-  EXPLICIT_OPT_IN = 'EXPLICIT_OPT_IN',
-  DOUBLE_OPT_IN = 'DOUBLE_OPT_IN',
-  IMPLIED_CONSENT = 'IMPLIED_CONSENT',
-  LEGITIMATE_INTEREST = 'LEGITIMATE_INTEREST',
-  IMPORT = 'IMPORT'
+  EXPLICIT_OPT_IN = "EXPLICIT_OPT_IN",
+  DOUBLE_OPT_IN = "DOUBLE_OPT_IN",
+  IMPLIED_CONSENT = "IMPLIED_CONSENT",
+  LEGITIMATE_INTEREST = "LEGITIMATE_INTEREST",
+  IMPORT = "IMPORT",
 }
 
 export enum LegalBasis {
-  CONSENT = 'CONSENT',
-  CONTRACT = 'CONTRACT',
-  LEGAL_OBLIGATION = 'LEGAL_OBLIGATION',
-  VITAL_INTERESTS = 'VITAL_INTERESTS',
-  PUBLIC_TASK = 'PUBLIC_TASK',
-  LEGITIMATE_INTERESTS = 'LEGITIMATE_INTERESTS'
+  CONSENT = "CONSENT",
+  CONTRACT = "CONTRACT",
+  LEGAL_OBLIGATION = "LEGAL_OBLIGATION",
+  VITAL_INTERESTS = "VITAL_INTERESTS",
+  PUBLIC_TASK = "PUBLIC_TASK",
+  LEGITIMATE_INTERESTS = "LEGITIMATE_INTERESTS",
 }
 
 export interface DataSubjectRequest {
@@ -71,26 +72,26 @@ export interface DataSubjectRequest {
 }
 
 export enum DataSubjectRequestType {
-  ACCESS = 'ACCESS', // Article 15 - Right of access
-  RECTIFICATION = 'RECTIFICATION', // Article 16 - Right to rectification
-  ERASURE = 'ERASURE', // Article 17 - Right to erasure (right to be forgotten)
-  RESTRICT_PROCESSING = 'RESTRICT_PROCESSING', // Article 18 - Right to restriction of processing
-  DATA_PORTABILITY = 'DATA_PORTABILITY', // Article 20 - Right to data portability
-  OBJECT = 'OBJECT', // Article 21 - Right to object
-  WITHDRAW_CONSENT = 'WITHDRAW_CONSENT' // Withdraw consent
+  ACCESS = "ACCESS", // Article 15 - Right of access
+  RECTIFICATION = "RECTIFICATION", // Article 16 - Right to rectification
+  ERASURE = "ERASURE", // Article 17 - Right to erasure (right to be forgotten)
+  RESTRICT_PROCESSING = "RESTRICT_PROCESSING", // Article 18 - Right to restriction of processing
+  DATA_PORTABILITY = "DATA_PORTABILITY", // Article 20 - Right to data portability
+  OBJECT = "OBJECT", // Article 21 - Right to object
+  WITHDRAW_CONSENT = "WITHDRAW_CONSENT", // Withdraw consent
 }
 
 export enum RequestStatus {
-  PENDING = 'PENDING',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  REJECTED = 'REJECTED',
-  EXPIRED = 'EXPIRED'
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
 }
 
 export interface AnonymizationConfig {
   preserveStatistics: boolean;
-  anonymizationMethod: 'hash' | 'pseudonymize' | 'generalize' | 'suppress';
+  anonymizationMethod: "hash" | "pseudonymize" | "generalize" | "suppress";
   fieldsToAnonymize: string[];
   retainAggregateData: boolean;
 }
@@ -111,7 +112,7 @@ export interface ComplianceReport {
     lastAnonymizationDate: Date;
   };
   riskAssessment: {
-    level: 'LOW' | 'MEDIUM' | 'HIGH';
+    level: "LOW" | "MEDIUM" | "HIGH";
     issues: string[];
     recommendations: string[];
   };
@@ -125,14 +126,16 @@ export class GdprComplianceService {
     @InjectRepository(Subscriber)
     private readonly subscriberRepository: Repository<Subscriber>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
    * @private
    */
   private getActiveTenantId(): string {
-    return this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   /**
@@ -149,16 +152,16 @@ export class GdprComplianceService {
       dataProcessingPurposes: string[];
       retentionPeriod?: number;
       metadata?: Record<string, any>;
-    }
+    },
   ): Promise<ConsentRecord> {
     const tenantId = this.getActiveTenantId();
     const subscriber = await this.subscriberRepository.findOne({
-      where: { email, tenantId }
+      where: { email, tenantId },
     });
 
     const consentRecord: ConsentRecord = {
       id: crypto.randomUUID(),
-      subscriberId: subscriber?.id || '',
+      subscriberId: subscriber?.id || "",
       email,
       consentType,
       consentStatus: ConsentStatus.GIVEN,
@@ -176,7 +179,9 @@ export class GdprComplianceService {
     // In a real implementation, this would be stored in a dedicated consent table
     await this.storeConsentRecord(consentRecord);
 
-    this.logger.log(`Consent tracked for ${email}: ${consentType} via ${consentMethod}`);
+    this.logger.log(
+      `Consent tracked for ${email}: ${consentType} via ${consentMethod}`,
+    );
     return consentRecord;
   }
 
@@ -186,7 +191,7 @@ export class GdprComplianceService {
   async withdrawConsent(
     email: string,
     consentType: ConsentType,
-    reason?: string
+    reason?: string,
   ): Promise<void> {
     const consentRecords = await this.getConsentRecords(email, consentType);
 
@@ -205,7 +210,7 @@ export class GdprComplianceService {
       const tenantId = this.getActiveTenantId();
       await this.subscriberRepository.update(
         { email, tenantId },
-        { status: 'UNSUBSCRIBED' }
+        { status: SubscriberStatus.UNSUBSCRIBED },
       );
     }
 
@@ -218,11 +223,11 @@ export class GdprComplianceService {
   async hasValidConsent(
     email: string,
     consentType: ConsentType,
-    purpose?: string
+    purpose?: string,
   ): Promise<boolean> {
     const consentRecords = await this.getConsentRecords(email, consentType);
 
-    const validConsent = consentRecords.find(record => {
+    const validConsent = consentRecords.find((record) => {
       // Check if consent is currently valid
       if (record.consentStatus !== ConsentStatus.GIVEN) {
         return false;
@@ -259,7 +264,7 @@ export class GdprComplianceService {
       requestType: DataSubjectRequestType.ACCESS,
       requestDate: new Date(),
       status: RequestStatus.IN_PROGRESS,
-      verificationMethod: 'email_verification',
+      verificationMethod: "email_verification",
       tenantId: this.getActiveTenantId(),
     };
 
@@ -267,7 +272,7 @@ export class GdprComplianceService {
       // Collect all data for the subscriber
       const tenantId = this.getActiveTenantId();
       const subscriber = await this.subscriberRepository.findOne({
-        where: { email, tenantId }
+        where: { email, tenantId },
       });
       const consentRecords = await this.getAllConsentRecords(email);
 
@@ -276,7 +281,7 @@ export class GdprComplianceService {
         consentHistory: consentRecords,
         dataProcessingActivities: await this.getDataProcessingActivities(email),
         dataRetentionInfo: await this.getDataRetentionInfo(email),
-        thirdPartySharing: await this.getThirdPartySharing(email)
+        thirdPartySharing: await this.getThirdPartySharing(email),
       };
 
       request.responseData = responseData;
@@ -287,7 +292,6 @@ export class GdprComplianceService {
 
       this.logger.log(`Access request completed for ${email}`);
       return request;
-
     } catch (error) {
       request.status = RequestStatus.REJECTED;
       request.notes = `Error processing request: ${error.message}`;
@@ -302,7 +306,7 @@ export class GdprComplianceService {
    */
   async handleErasureRequest(
     email: string,
-    retainStatistics: boolean = true
+    retainStatistics: boolean = true,
   ): Promise<DataSubjectRequest> {
     const request: DataSubjectRequest = {
       id: crypto.randomUUID(),
@@ -310,9 +314,9 @@ export class GdprComplianceService {
       requestType: DataSubjectRequestType.ERASURE,
       requestDate: new Date(),
       status: RequestStatus.IN_PROGRESS,
-      verificationMethod: 'email_verification',
+      verificationMethod: "email_verification",
       tenantId: this.getActiveTenantId(),
-      requestDetails: { retainStatistics }
+      requestDetails: { retainStatistics },
     };
 
     try {
@@ -321,7 +325,7 @@ export class GdprComplianceService {
 
       if (hasLegalGrounds) {
         request.status = RequestStatus.REJECTED;
-        request.notes = 'Data retention required for legal compliance';
+        request.notes = "Data retention required for legal compliance";
         await this.storeDataSubjectRequest(request);
         return request;
       }
@@ -330,9 +334,15 @@ export class GdprComplianceService {
         // Anonymize instead of delete
         await this.anonymizeSubscriberData(email, {
           preserveStatistics: true,
-          anonymizationMethod: 'hash',
-          fieldsToAnonymize: ['email', 'firstName', 'lastName', 'phone', 'company'],
-          retainAggregateData: true
+          anonymizationMethod: "hash",
+          fieldsToAnonymize: [
+            "email",
+            "firstName",
+            "lastName",
+            "phone",
+            "company",
+          ],
+          retainAggregateData: true,
         });
       } else {
         // Complete deletion
@@ -346,7 +356,6 @@ export class GdprComplianceService {
 
       this.logger.log(`Erasure request completed for ${email}`);
       return request;
-
     } catch (error) {
       request.status = RequestStatus.REJECTED;
       request.notes = `Error processing erasure request: ${error.message}`;
@@ -366,19 +375,19 @@ export class GdprComplianceService {
       requestType: DataSubjectRequestType.DATA_PORTABILITY,
       requestDate: new Date(),
       status: RequestStatus.IN_PROGRESS,
-      verificationMethod: 'email_verification',
+      verificationMethod: "email_verification",
       tenantId: this.getActiveTenantId(),
     } as any;
 
     try {
       const tenantId = this.getActiveTenantId();
       const subscriber = await this.subscriberRepository.findOne({
-        where: { email, tenantId }
+        where: { email, tenantId },
       });
 
       if (!subscriber) {
         request.status = RequestStatus.REJECTED;
-        request.notes = 'No data found for the provided email';
+        request.notes = "No data found for the provided email";
         await this.storeDataSubjectRequest(request);
         return request;
       }
@@ -391,19 +400,19 @@ export class GdprComplianceService {
           lastName: subscriber.lastName,
           company: subscriber.company,
           phone: subscriber.phone,
-          subscribedAt: subscriber.subscribedAt
+          subscribedAt: subscriber.subscribedAt,
         },
         preferences: {
           groups: subscriber.groups,
           segments: subscriber.segments,
-          status: subscriber.status
+          status: subscriber.status,
         },
         engagementData: {
           emailsSent: subscriber.sent,
           emailsOpened: subscriber.opens,
-          linksClicked: subscriber.clicks
+          linksClicked: subscriber.clicks,
         },
-        consentHistory: await this.getAllConsentRecords(email)
+        consentHistory: await this.getAllConsentRecords(email),
       };
 
       request.responseData = portableData;
@@ -414,7 +423,6 @@ export class GdprComplianceService {
 
       this.logger.log(`Data portability request completed for ${email}`);
       return request;
-
     } catch (error) {
       request.status = RequestStatus.REJECTED;
       request.notes = `Error processing portability request: ${error.message}`;
@@ -429,25 +437,28 @@ export class GdprComplianceService {
    */
   async anonymizeDataForExport(
     subscribers: Subscriber[],
-    config: AnonymizationConfig
+    config: AnonymizationConfig,
   ): Promise<any[]> {
-    return subscribers.map(subscriber => {
+    return subscribers.map((subscriber) => {
       const anonymized = { ...subscriber };
 
       for (const field of config.fieldsToAnonymize) {
         if (anonymized[field]) {
           switch (config.anonymizationMethod) {
-            case 'hash':
+            case "hash":
               anonymized[field] = this.hashValue(anonymized[field]);
               break;
-            case 'pseudonymize':
+            case "pseudonymize":
               anonymized[field] = this.pseudonymizeValue(anonymized[field]);
               break;
-            case 'generalize':
-              anonymized[field] = this.generalizeValue(anonymized[field], field);
+            case "generalize":
+              anonymized[field] = this.generalizeValue(
+                anonymized[field],
+                field,
+              );
               break;
-            case 'suppress':
-              anonymized[field] = '[REDACTED]';
+            case "suppress":
+              anonymized[field] = "[REDACTED]";
               break;
           }
         }
@@ -469,10 +480,10 @@ export class GdprComplianceService {
   async generateComplianceReport(): Promise<ComplianceReport> {
     const tenantId = this.getActiveTenantId();
     const totalSubscribers = await this.subscriberRepository.count({
-      where: { tenantId }
+      where: { tenantId },
     });
     const consentedSubscribers = await this.subscriberRepository.count({
-      where: { status: 'ACTIVE', tenantId }
+      where: { status: SubscriberStatus.ACTIVE, tenantId },
     });
 
     // These would typically come from dedicated tables
@@ -489,16 +500,16 @@ export class GdprComplianceService {
       completedRequests,
       dataRetentionCompliance: {
         expiredRecords: await this.getExpiredRecordsCount(),
-        scheduledDeletions: 0
+        scheduledDeletions: 0,
       },
       anonymizationStats: {
         anonymizedRecords: 0,
-        lastAnonymizationDate: new Date()
+        lastAnonymizationDate: new Date(),
       },
-      riskAssessment: await this.assessComplianceRisk()
+      riskAssessment: await this.assessComplianceRisk(),
     };
 
-    this.logger.log('GDPR compliance report generated');
+    this.logger.log("GDPR compliance report generated");
     return report;
   }
 
@@ -513,7 +524,7 @@ export class GdprComplianceService {
     const result = {
       deletedRecords: 0,
       anonymizedRecords: 0,
-      errors: [] as string[]
+      errors: [] as string[],
     };
 
     try {
@@ -522,15 +533,17 @@ export class GdprComplianceService {
 
       for (const subscriber of expiredSubscribers) {
         try {
-          const hasLegalGrounds = await this.checkLegalGroundsForRetention(subscriber.email);
+          const hasLegalGrounds = await this.checkLegalGroundsForRetention(
+            subscriber.email,
+          );
 
           if (hasLegalGrounds) {
             // Anonymize instead of delete
             await this.anonymizeSubscriberData(subscriber.email, {
               preserveStatistics: true,
-              anonymizationMethod: 'hash',
-              fieldsToAnonymize: ['email', 'firstName', 'lastName', 'phone'],
-              retainAggregateData: true
+              anonymizationMethod: "hash",
+              fieldsToAnonymize: ["email", "firstName", "lastName", "phone"],
+              retainAggregateData: true,
             });
             result.anonymizedRecords++;
           } else {
@@ -539,14 +552,17 @@ export class GdprComplianceService {
             result.deletedRecords++;
           }
         } catch (error) {
-          result.errors.push(`Failed to process ${subscriber.email}: ${error.message}`);
+          result.errors.push(
+            `Failed to process ${subscriber.email}: ${error.message}`,
+          );
         }
       }
 
-      this.logger.log(`Data retention cleanup completed: ${result.deletedRecords} deleted, ${result.anonymizedRecords} anonymized`);
-
+      this.logger.log(
+        `Data retention cleanup completed: ${result.deletedRecords} deleted, ${result.anonymizedRecords} anonymized`,
+      );
     } catch (error) {
-      this.logger.error('Data retention cleanup failed:', error);
+      this.logger.error("Data retention cleanup failed:", error);
       result.errors.push(`Cleanup failed: ${error.message}`);
     }
 
@@ -565,7 +581,10 @@ export class GdprComplianceService {
     this.logger.debug(`Updating consent record for ${record.email}`);
   }
 
-  private async getConsentRecords(email: string, consentType: ConsentType): Promise<ConsentRecord[]> {
+  private async getConsentRecords(
+    email: string,
+    consentType: ConsentType,
+  ): Promise<ConsentRecord[]> {
     // In a real implementation, query from dedicated consent_records table
     return [];
   }
@@ -575,7 +594,9 @@ export class GdprComplianceService {
     return [];
   }
 
-  private async storeDataSubjectRequest(request: DataSubjectRequest): Promise<void> {
+  private async storeDataSubjectRequest(
+    request: DataSubjectRequest,
+  ): Promise<void> {
     // In a real implementation, store in dedicated data_subject_requests table
     this.logger.debug(`Storing data subject request for ${request.email}`);
   }
@@ -584,19 +605,19 @@ export class GdprComplianceService {
     // Return list of data processing activities for this subscriber
     return [
       {
-        activity: 'Email Marketing',
-        purpose: 'Send promotional emails',
+        activity: "Email Marketing",
+        purpose: "Send promotional emails",
         legalBasis: LegalBasis.CONSENT,
-        dataCategories: ['email', 'name', 'preferences']
-      }
+        dataCategories: ["email", "name", "preferences"],
+      },
     ];
   }
 
   private async getDataRetentionInfo(email: string): Promise<any> {
     return {
-      retentionPeriod: '24 months',
+      retentionPeriod: "24 months",
       lastReviewDate: new Date(),
-      scheduledDeletion: null
+      scheduledDeletion: null,
     };
   }
 
@@ -609,10 +630,13 @@ export class GdprComplianceService {
     return false;
   }
 
-  private async anonymizeSubscriberData(email: string, config: AnonymizationConfig): Promise<void> {
+  private async anonymizeSubscriberData(
+    email: string,
+    config: AnonymizationConfig,
+  ): Promise<void> {
     const tenantId = this.getActiveTenantId();
     const subscriber = await this.subscriberRepository.findOne({
-      where: { email, tenantId }
+      where: { email, tenantId },
     });
 
     if (!subscriber) {
@@ -624,16 +648,16 @@ export class GdprComplianceService {
     for (const field of config.fieldsToAnonymize) {
       if (subscriber[field]) {
         switch (config.anonymizationMethod) {
-          case 'hash':
+          case "hash":
             updates[field] = this.hashValue(subscriber[field]);
             break;
-          case 'pseudonymize':
+          case "pseudonymize":
             updates[field] = this.pseudonymizeValue(subscriber[field]);
             break;
-          case 'generalize':
+          case "generalize":
             updates[field] = this.generalizeValue(subscriber[field], field);
             break;
-          case 'suppress':
+          case "suppress":
             updates[field] = null;
             break;
         }
@@ -662,7 +686,7 @@ export class GdprComplianceService {
   }
 
   private async assessComplianceRisk(): Promise<{
-    level: 'LOW' | 'MEDIUM' | 'HIGH';
+    level: "LOW" | "MEDIUM" | "HIGH";
     issues: string[];
     recommendations: string[];
   }> {
@@ -672,43 +696,52 @@ export class GdprComplianceService {
     // Check for common compliance issues
     const tenantId = this.getActiveTenantId();
     const totalSubscribers = await this.subscriberRepository.count({
-      where: { tenantId }
+      where: { tenantId },
     });
     const activeSubscribers = await this.subscriberRepository.count({
-      where: { status: 'ACTIVE', tenantId }
+      where: { status: SubscriberStatus.ACTIVE, tenantId },
     });
 
     if (activeSubscribers / totalSubscribers < 0.5) {
-      issues.push('High percentage of inactive subscribers');
-      recommendations.push('Review consent status and clean up inactive subscribers');
+      issues.push("High percentage of inactive subscribers");
+      recommendations.push(
+        "Review consent status and clean up inactive subscribers",
+      );
     }
 
-    const level = issues.length === 0 ? 'LOW' : issues.length < 3 ? 'MEDIUM' : 'HIGH';
+    const level =
+      issues.length === 0 ? "LOW" : issues.length < 3 ? "MEDIUM" : "HIGH";
 
     return { level, issues, recommendations };
   }
 
   private hashValue(value: string): string {
-    return crypto.createHash('sha256').update(value).digest('hex').substring(0, 16);
+    return crypto
+      .createHash("sha256")
+      .update(value)
+      .digest("hex")
+      .substring(0, 16);
   }
 
   private pseudonymizeValue(value: string): string {
     // Create a consistent pseudonym for the value
-    const hash = crypto.createHash('md5').update(value).digest('hex');
+    const hash = crypto.createHash("md5").update(value).digest("hex");
     return `pseudo_${hash.substring(0, 8)}`;
   }
 
   private generalizeValue(value: string, field: string): string {
     switch (field) {
-      case 'email':
-        return value.split('@')[1] ? `***@${value.split('@')[1]}` : '***@***.***';
-      case 'phone':
-        return value.replace(/\d/g, '*');
-      case 'firstName':
-      case 'lastName':
-        return value.charAt(0) + '*'.repeat(value.length - 1);
+      case "email":
+        return value.split("@")[1]
+          ? `***@${value.split("@")[1]}`
+          : "***@***.***";
+      case "phone":
+        return value.replace(/\d/g, "*");
+      case "firstName":
+      case "lastName":
+        return value.charAt(0) + "*".repeat(value.length - 1);
       default:
-        return '***';
+        return "***";
     }
   }
 }

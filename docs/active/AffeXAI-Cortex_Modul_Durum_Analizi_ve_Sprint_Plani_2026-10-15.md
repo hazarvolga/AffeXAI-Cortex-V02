@@ -117,3 +117,4 @@ analytics, insight-engine, neural-grid/crawler (SSRF), system-logs redaksiyonu, 
 |---|---|---|---|
 | 2026-10-15 | S1 P0 — test kimliği organizasyon üyeliği taşıyor (`withMembership`), 16 HTTP spec'i | `0706180` | 16 spec, 213 test, her biri tek worker'la yeşil |
 | 2026-10-15 | S1 P0 — 8 eksik tablo migration'ı (`MissingModuleTables1791453600000`), `data-source` entity listesi, kalıcı entity ↔ migration kapsam spec'i; sosyal etkileşim penceresi parametre hatası | bu commit | İzole DB'de migration koştu, 8 tablo + 8 FK var; `bcc-honesty` 8/8, backend logunda kaynak hatası 0 |
+| 2026-10-15 | S1 P1 — certificates ve email-marketing spec sürüklenmesi (1. parti): group, segment, gdpr, email-validation, mjml-renderer, file-processing; bulunan 4 servis hatası düzeltildi | bu commit | 7 suite / 63 test yeşil; tickets'in 5 "kırık" suite'i yalnız bellek kesintisiydi (tek worker'la yeşil) |
