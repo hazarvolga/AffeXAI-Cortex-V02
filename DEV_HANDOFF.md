@@ -489,3 +489,8 @@ Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mev
 - **Kiracı:** gönderim zamanı ve tahmin servisleri bağlam yoksa `'default'` kiracısına düşüyordu; artık 401.
 - **S3 için not:** kampanya oluşturma sihirbazındaki "AI optimal zaman önerisi" istemci tarafında simüle ediliyor (`campaigns/new/page.tsx`).
 - **Bellek gözlemi:** ts-jest tam tip denetimi yaptığı için tek worker'lı 4 spec'lik koşu ~4,7 GB RSS'e çıktı. `isolatedModules` (yalnız transpile) belleği belirgin düşürür ama spec'lerin tip denetimini ayrı bir `tsc` adımına taşımayı gerektirir; karar bekliyor.
+
+### Sprint 1 P1 — email-marketing spec'leri, 4. parti (2026-10-15)
+
+- **A/B test:** varyantlar `tenantId` olmadan oluşturuluyordu, `updateVariant` ise kiracıyla aradığı için yeni varyantlar hiç düzenlenemiyordu. `sendAbTest` hiçbir e-posta kuyruğa koymadan "gönderim başladı" deyip testi `testing` durumuna alıyordu; test silinemez hale gelip boş veriyle kazanan cron'una giriyordu. Artık yalnız dağıtım planını `sent: false` ile döndürür, durumu değiştirmez (gerçek varyant gönderimi S3). Silmede `winnerSelectionDate` "şimdi" yerine `null`.
+- **IP itibarı (DNSBL):** ağ/çözücü hataları "listede değil" sayılıp önbelleğe yazılıyordu; ağ yokken her IP "temiz" görünürdü. Spamhaus'un genel çözücülere verdiği `127.255.255.x` ret kodları "listelenmiş" sayılıyordu. Hatalar artık `errors`'ta, hiçbir liste yanıt vermezse sonuç `unknown` ve önbelleğe yazılmaz; yalnız `127.*` (ret kodları hariç) listeleme sayılır. Her sorguda 8 adet 5 sn'lik zamanlayıcı açık kalıyordu; temizleniyor.
