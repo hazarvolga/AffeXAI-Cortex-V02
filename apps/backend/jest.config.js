@@ -1,3 +1,14 @@
+const path = require("path");
+
+// @nestjs/mapped-types 12 ships ESM only, which Jest's CommonJS runtime cannot load.
+// Tests use the CommonJS 2.x copy installed for @nestjs/swagger (same helper API);
+// Node 24 loads the ESM build at runtime.
+const mappedTypesCjs = path.dirname(
+  require.resolve("@nestjs/mapped-types/package.json", {
+    paths: [path.dirname(require.resolve("@nestjs/swagger/package.json"))],
+  }),
+);
+
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
@@ -8,6 +19,7 @@ module.exports = {
   workerIdleMemoryLimit: "1GB",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@nestjs/mapped-types$": mappedTypesCjs,
   },
   testPathIgnorePatterns: [
     "<rootDir>/.next/",

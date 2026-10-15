@@ -183,7 +183,7 @@ const certificate = await fetch('http://localhost:9005/certificates/v2', {
   body: JSON.stringify({
     recipientName: 'Ahmet Yılmaz',
     recipientEmail: 'ahmet@example.com',
-    trainingTitle: 'Allplan Temel Eğitimi',
+    trainingTitle: 'XYZ Suite Temel Eğitimi',
     description: 'Mimari tasarım eğitimi başarıyla tamamlandı',
     templateId: 'premium-template-uuid',
     logoUrl: 'https://cdn.example.com/logo.png',

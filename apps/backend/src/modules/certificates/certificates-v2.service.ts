@@ -1,18 +1,23 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Certificate, CertificateStatus } from './entities/certificate.entity';
-import { CertificateTemplate } from './entities/certificate-template.entity';
-import { CreateCertificateDto } from './dto/create-certificate.dto';
-import { UpdateCertificateDto } from './dto/update-certificate.dto';
-import { CreateCertificateTemplateDto } from './dto/create-template.dto';
-import { UpdateCertificateTemplateDto } from './dto/update-template.dto';
-import { PdfGeneratorService } from './pdf-generator.service';
-import { CertificateEmailService } from './certificate-email.service';
-import { UsersService } from '../users/users.service';
-import { MediaService } from '../media/media.service';
-import { getEmailLogoUrl, getCompanyName, getContactInfo } from '../../lib/server/siteSettings';
-import { EventBusService } from '../platform-integration/services/event-bus.service';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Certificate, CertificateStatus } from "./entities/certificate.entity";
+import { CertificateTemplate } from "./entities/certificate-template.entity";
+import { CreateCertificateDto } from "./dto/create-certificate.dto";
+import { UpdateCertificateDto } from "./dto/update-certificate.dto";
+import { CreateCertificateTemplateDto } from "./dto/create-template.dto";
+import { UpdateCertificateTemplateDto } from "./dto/update-template.dto";
+import { PdfGeneratorService } from "./pdf-generator.service";
+import { CertificateEmailService } from "./certificate-email.service";
+import { UsersService } from "../users/users.service";
+import { MediaService } from "../media/media.service";
+import { SettingsService } from "../settings/settings.service";
+import { EventBusService } from "../platform-integration/services/event-bus.service";
 
 @Injectable()
 export class CertificatesServiceV2 {
@@ -28,11 +33,15 @@ export class CertificatesServiceV2 {
     private usersService: UsersService,
     private mediaService: MediaService,
     private eventBusService: EventBusService,
-  ) { }
+    private readonly settingsService: SettingsService,
+  ) {}
 
   // ============ CERTIFICATE OPERATIONS ============
 
-  async createCertificate(dto: CreateCertificateDto, tenantId: string): Promise<Certificate> {
+  async createCertificate(
+    dto: CreateCertificateDto,
+    tenantId: string,
+  ): Promise<Certificate> {
     try {
       const certificate = new Certificate();
       certificate.tenantId = tenantId;
@@ -52,19 +61,21 @@ export class CertificatesServiceV2 {
 
       // Relations
       if (dto.userId) {
-        const user = await this.usersService.findOne(dto.userId);
-        if (user) {
-          certificate.userId = dto.userId;
-          certificate.user = user;
-        }
+        const user = await this.tenantUser(dto.userId, tenantId);
+        certificate.userId = dto.userId;
+        certificate.user = user;
       }
 
       certificate.eventId = dto.eventId || null;
 
       // Backward compatibility
       certificate.name = dto.name || dto.trainingTitle;
-      certificate.issueDate = dto.issueDate ? new Date(dto.issueDate) : certificate.issuedAt;
-      certificate.expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : certificate.validUntil;
+      certificate.issueDate = dto.issueDate
+        ? new Date(dto.issueDate)
+        : certificate.issuedAt;
+      certificate.expiryDate = dto.expiryDate
+        ? new Date(dto.expiryDate)
+        : certificate.validUntil;
 
       const saved = await this.certificatesRepository.save(certificate);
       this.logger.log(`Certificate created: ${saved.id}`);
@@ -73,25 +84,30 @@ export class CertificatesServiceV2 {
       if (saved.status === CertificateStatus.ISSUED) {
         await this.eventBusService.publishCertificateIssued(
           saved.id,
-          saved.userId || 'unknown',
+          saved.userId || "unknown",
           saved.eventId || undefined,
         );
       }
 
       return saved;
     } catch (error) {
-      this.logger.error('Failed to create certificate', error);
+      this.logger.error("Failed to create certificate", error);
       throw error;
     }
   }
 
-  async findAllCertificates(tenantId: string, userId?: string): Promise<Certificate[]> {
-    const query = this.certificatesRepository.createQueryBuilder('certificate')
-      .leftJoinAndSelect('certificate.user', 'user')
-      .where('certificate.tenantId = :tenantId', { tenantId });
+  async findAllCertificates(
+    tenantId: string,
+    userId?: string,
+  ): Promise<Certificate[]> {
+    const query = this.certificatesRepository
+      .createQueryBuilder("certificate")
+      .leftJoinAndSelect("certificate.user", "user")
+      .where("certificate.tenantId = :tenantId", { tenantId });
 
+    // andWhere: a second where() would replace the tenant condition.
     if (userId) {
-      query.where('certificate.userId = :userId', { userId });
+      query.andWhere("certificate.userId = :userId", { userId });
     }
 
     return query.getMany();
@@ -100,7 +116,7 @@ export class CertificatesServiceV2 {
   async findOneCertificate(id: string, tenantId: string): Promise<Certificate> {
     const certificate = await this.certificatesRepository.findOne({
       where: { id, tenantId } as any,
-      relations: ['user'],
+      relations: ["user"],
     });
 
     if (!certificate) {
@@ -110,18 +126,25 @@ export class CertificatesServiceV2 {
     return certificate;
   }
 
-  async updateCertificate(id: string, tenantId: string, dto: UpdateCertificateDto): Promise<Certificate> {
+  async updateCertificate(
+    id: string,
+    tenantId: string,
+    dto: UpdateCertificateDto,
+  ): Promise<Certificate> {
     const certificate = await this.findOneCertificate(id, tenantId);
 
     // Update fields if provided
     if (dto.recipientName) certificate.recipientName = dto.recipientName;
     if (dto.recipientEmail) certificate.recipientEmail = dto.recipientEmail;
     if (dto.trainingTitle) certificate.trainingTitle = dto.trainingTitle;
-    if (dto.description !== undefined) certificate.description = dto.description;
+    if (dto.description !== undefined)
+      certificate.description = dto.description;
     if (dto.templateId) certificate.templateId = dto.templateId;
     if (dto.logoUrl !== undefined) certificate.logoUrl = dto.logoUrl;
-    if (dto.logoMediaId !== undefined) certificate.logoMediaId = dto.logoMediaId;
-    if (dto.signatureUrl !== undefined) certificate.signatureUrl = dto.signatureUrl;
+    if (dto.logoMediaId !== undefined)
+      certificate.logoMediaId = dto.logoMediaId;
+    if (dto.signatureUrl !== undefined)
+      certificate.signatureUrl = dto.signatureUrl;
     if (dto.issuedAt) certificate.issuedAt = new Date(dto.issuedAt);
     if (dto.validUntil !== undefined) {
       certificate.validUntil = dto.validUntil ? new Date(dto.validUntil) : null;
@@ -130,11 +153,9 @@ export class CertificatesServiceV2 {
 
     // Update relations
     if (dto.userId) {
-      const user = await this.usersService.findOne(dto.userId);
-      if (user) {
-        certificate.userId = dto.userId;
-        certificate.user = user;
-      }
+      const user = await this.tenantUser(dto.userId, tenantId);
+      certificate.userId = dto.userId;
+      certificate.user = user;
     }
 
     // Backward compatibility
@@ -161,12 +182,18 @@ export class CertificatesServiceV2 {
 
   // ============ PDF GENERATION ============
 
-  async generatePdf(certificateId: string, tenantId: string, regenerate = false): Promise<string> {
+  async generatePdf(
+    certificateId: string,
+    tenantId: string,
+    regenerate = false,
+  ): Promise<string> {
     const certificate = await this.findOneCertificate(certificateId, tenantId);
 
     // Check if PDF already exists
     if (certificate.pdfUrl && !regenerate) {
-      const exists = await this.pdfGeneratorService.pdfExists(certificate.pdfUrl);
+      const exists = await this.pdfGeneratorService.pdfExists(
+        certificate.pdfUrl,
+      );
       if (exists) {
         this.logger.log(`PDF already exists: ${certificate.pdfUrl}`);
         return certificate.pdfUrl;
@@ -174,7 +201,9 @@ export class CertificatesServiceV2 {
     }
 
     // Get template
-    const template = await this.getTemplate(certificate.templateId || 'default');
+    const template = await this.getTemplate(
+      certificate.templateId || "default",
+    );
 
     // Resolve logo URL from logoMediaId if present (custom logo)
     let customLogoUrl = certificate.logoUrl;
@@ -182,17 +211,19 @@ export class CertificatesServiceV2 {
       try {
         const media = await this.mediaService.findOne(certificate.logoMediaId);
         if (media) {
-          customLogoUrl = `${process.env.API_URL || 'http://localhost:9005'}${media.url}`;
+          customLogoUrl = `${process.env.API_URL || "http://localhost:9005"}${media.url}`;
         }
       } catch (error) {
-        this.logger.warn(`Failed to resolve logo from mediaId ${certificate.logoMediaId}: ${error.message}`);
+        this.logger.warn(
+          `Failed to resolve logo from mediaId ${certificate.logoMediaId}: ${error.message}`,
+        );
       }
     }
 
-    // Get site settings data
-    const companyName = getCompanyName();
-    const contactInfo = getContactInfo();
-    const companyLogoUrl = await getEmailLogoUrl(false); // Light version for certificate
+    // The tenant's own site settings name the issuer on the certificate.
+    const site = await this.settingsService.getSiteSettings(tenantId);
+    const companyName = site?.companyName || "";
+    const companyLogoUrl = site?.logoUrl || null;
 
     // Prepare certificate data
     const certificateData = {
@@ -209,7 +240,7 @@ export class CertificatesServiceV2 {
       eventId: certificate.eventId,
       // New template variables
       companyName,
-      companyAddress: contactInfo?.address || '',
+      companyAddress: site?.contact?.address || "",
       companyLogoUrl, // Light version for white background
     };
 
@@ -238,7 +269,9 @@ export class CertificatesServiceV2 {
 
     // Ensure PDF is generated
     if (!certificate.pdfUrl) {
-      throw new BadRequestException('Certificate PDF must be generated before sending email');
+      throw new BadRequestException(
+        "Certificate PDF must be generated before sending email",
+      );
     }
 
     await this.emailService.sendCertificateEmail(certificate);
@@ -253,7 +286,9 @@ export class CertificatesServiceV2 {
 
   // ============ TEMPLATE OPERATIONS ============
 
-  async createTemplate(dto: CreateCertificateTemplateDto): Promise<CertificateTemplate> {
+  async createTemplate(
+    dto: CreateCertificateTemplateDto,
+  ): Promise<CertificateTemplate> {
     const template = this.templatesRepository.create(dto);
     return this.templatesRepository.save(template);
   }
@@ -261,7 +296,7 @@ export class CertificatesServiceV2 {
   async findAllTemplates(): Promise<CertificateTemplate[]> {
     return this.templatesRepository.find({
       where: { isActive: true },
-      order: { name: 'ASC' },
+      order: { name: "ASC" },
     });
   }
 
@@ -275,7 +310,10 @@ export class CertificatesServiceV2 {
     return template;
   }
 
-  async updateTemplate(id: string, dto: UpdateCertificateTemplateDto): Promise<CertificateTemplate> {
+  async updateTemplate(
+    id: string,
+    dto: UpdateCertificateTemplateDto,
+  ): Promise<CertificateTemplate> {
     const template = await this.findOneTemplate(id);
     Object.assign(template, dto);
     return this.templatesRepository.save(template);
@@ -288,6 +326,15 @@ export class CertificatesServiceV2 {
 
   // ============ HELPER METHODS ============
 
+  /** A certificate may only be linked to a user of its own tenant. */
+  private async tenantUser(userId: string, tenantId: string) {
+    const user = await this.usersService.findOne(userId).catch(() => null);
+    if (!user || user.tenantId !== tenantId) {
+      throw new BadRequestException("User not found in this tenant");
+    }
+    return user;
+  }
+
   private async getTemplate(templateId: string): Promise<CertificateTemplate> {
     try {
       return await this.findOneTemplate(templateId);
@@ -295,11 +342,13 @@ export class CertificatesServiceV2 {
       // If template not found, return default template
       this.logger.warn(`Template ${templateId} not found, using default`);
       const defaultTemplate = await this.templatesRepository.findOne({
-        where: { name: 'Default' },
+        where: { name: "Default" },
       });
 
       if (!defaultTemplate) {
-        throw new NotFoundException('Default template not found. Please seed templates.');
+        throw new NotFoundException(
+          "Default template not found. Please seed templates.",
+        );
       }
 
       return defaultTemplate;
@@ -312,7 +361,11 @@ export class CertificatesServiceV2 {
     options: { sendEmail?: boolean; regenerate?: boolean } = {},
   ): Promise<{ pdfUrl: string; emailSent: boolean }> {
     // Generate PDF
-    const pdfUrl = await this.generatePdf(certificateId, tenantId, options.regenerate);
+    const pdfUrl = await this.generatePdf(
+      certificateId,
+      tenantId,
+      options.regenerate,
+    );
 
     // Send email if requested
     let emailSent = false;
@@ -326,29 +379,43 @@ export class CertificatesServiceV2 {
 
   // ============ STATISTICS ============
 
-  async getStatistics(userId?: string): Promise<any> {
-    const query = this.certificatesRepository.createQueryBuilder('certificate');
+  async getStatistics(tenantId: string, userId?: string): Promise<any> {
+    const query = this.certificatesRepository
+      .createQueryBuilder("certificate")
+      .where("certificate.tenantId = :tenantId", { tenantId });
 
     if (userId) {
-      query.where('certificate.userId = :userId', { userId });
+      query.andWhere("certificate.userId = :userId", { userId });
     }
 
     const total = await query.getCount();
 
-    const draft = await query.clone()
-      .andWhere('certificate.status = :status', { status: CertificateStatus.DRAFT })
+    const draft = await query
+      .clone()
+      .andWhere("certificate.status = :status", {
+        status: CertificateStatus.DRAFT,
+      })
       .getCount();
 
-    const issued = await query.clone()
-      .andWhere('certificate.status = :status', { status: CertificateStatus.ISSUED })
+    const issued = await query
+      .clone()
+      .andWhere("certificate.status = :status", {
+        status: CertificateStatus.ISSUED,
+      })
       .getCount();
 
-    const sent = await query.clone()
-      .andWhere('certificate.status = :status', { status: CertificateStatus.SENT })
+    const sent = await query
+      .clone()
+      .andWhere("certificate.status = :status", {
+        status: CertificateStatus.SENT,
+      })
       .getCount();
 
-    const revoked = await query.clone()
-      .andWhere('certificate.status = :status', { status: CertificateStatus.REVOKED })
+    const revoked = await query
+      .clone()
+      .andWhere("certificate.status = :status", {
+        status: CertificateStatus.REVOKED,
+      })
       .getCount();
 
     return {
