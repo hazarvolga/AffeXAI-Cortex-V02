@@ -1,15 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function PropertiesPanel({
   block,
@@ -20,28 +25,20 @@ export function PropertiesPanel({
   onBlockUpdate: (block: any) => void;
   onClose?: () => void;
 }) {
-  const [properties, setProperties] = useState(block.properties || {});
-  const [styles, setStyles] = useState(block.styles || {});
-
-  useEffect(() => {
-    setProperties(block.properties || {});
-    setStyles(block.styles || {});
-  }, [block]);
+  // The parent owns the block; edits go straight back to it.
+  const properties = block.properties || {};
+  const styles = block.styles || {};
 
   const handlePropertyChange = (key: string, value: any) => {
-    const newProperties = { ...properties, [key]: value };
-    setProperties(newProperties);
-    onBlockUpdate({ ...block, properties: newProperties });
+    onBlockUpdate({ ...block, properties: { ...properties, [key]: value } });
   };
 
   const handleStyleChange = (key: string, value: any) => {
-    const newStyles = { ...styles, [key]: value };
-    setStyles(newStyles);
-    onBlockUpdate({ ...block, styles: newStyles });
+    onBlockUpdate({ ...block, styles: { ...styles, [key]: value } });
   };
 
   return (
-    <div className="w-80 border-l bg-card flex flex-col">
+    <div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-card flex flex-col">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="text-lg font-semibold">Özellikler</h2>
         {onClose && (
@@ -55,12 +52,20 @@ export function PropertiesPanel({
         <div className="p-4">
           <Tabs defaultValue="properties">
             <TabsList className="w-full">
-              <TabsTrigger value="properties" className="flex-1">İçerik</TabsTrigger>
-              <TabsTrigger value="styles" className="flex-1">Stil</TabsTrigger>
+              <TabsTrigger value="properties" className="flex-1">
+                İçerik
+              </TabsTrigger>
+              <TabsTrigger value="styles" className="flex-1">
+                Stil
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="properties" className="space-y-4 mt-4">
-              {renderPropertiesForm(block.type, properties, handlePropertyChange)}
+              {renderPropertiesForm(
+                block.type,
+                properties,
+                handlePropertyChange,
+              )}
             </TabsContent>
 
             <TabsContent value="styles" className="space-y-4 mt-4">
@@ -76,24 +81,27 @@ export function PropertiesPanel({
 function renderPropertiesForm(
   blockType: string,
   properties: Record<string, any>,
-  onChange: (key: string, value: any) => void
+  onChange: (key: string, value: any) => void,
 ) {
   switch (blockType) {
-    case 'heading':
+    case "heading":
       return (
         <>
           <div>
             <Label htmlFor="text">Başlık Metni</Label>
             <Input
               id="text"
-              value={properties.text || ''}
-              onChange={(e) => onChange('text', e.target.value)}
+              value={properties.text || ""}
+              onChange={(e) => onChange("text", e.target.value)}
               placeholder="Başlığınızı girin"
             />
           </div>
           <div>
             <Label htmlFor="level">Seviye</Label>
-            <Select value={properties.level || 'h1'} onValueChange={(v) => onChange('level', v)}>
+            <Select
+              value={properties.level || "h1"}
+              onValueChange={(v) => onChange("level", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -107,7 +115,10 @@ function renderPropertiesForm(
           </div>
           <div>
             <Label htmlFor="align">Hizalama</Label>
-            <Select value={properties.align || 'left'} onValueChange={(v) => onChange('align', v)}>
+            <Select
+              value={properties.align || "left"}
+              onValueChange={(v) => onChange("align", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -121,22 +132,25 @@ function renderPropertiesForm(
         </>
       );
 
-    case 'text':
+    case "text":
       return (
         <>
           <div>
             <Label htmlFor="text">Metin</Label>
             <textarea
               id="text"
-              value={properties.text || ''}
-              onChange={(e) => onChange('text', e.target.value)}
+              value={properties.text || ""}
+              onChange={(e) => onChange("text", e.target.value)}
               placeholder="Paragraf metnini girin"
               className="w-full min-h-[100px] p-2 border rounded-md"
             />
           </div>
           <div>
             <Label htmlFor="align">Hizalama</Label>
-            <Select value={properties.align || 'left'} onValueChange={(v) => onChange('align', v)}>
+            <Select
+              value={properties.align || "left"}
+              onValueChange={(v) => onChange("align", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -150,15 +164,15 @@ function renderPropertiesForm(
         </>
       );
 
-    case 'button':
+    case "button":
       return (
         <>
           <div>
             <Label htmlFor="text">Buton Metni</Label>
             <Input
               id="text"
-              value={properties.text || ''}
-              onChange={(e) => onChange('text', e.target.value)}
+              value={properties.text || ""}
+              onChange={(e) => onChange("text", e.target.value)}
               placeholder="Tıklayın"
             />
           </div>
@@ -166,14 +180,17 @@ function renderPropertiesForm(
             <Label htmlFor="href">Link (URL)</Label>
             <Input
               id="href"
-              value={properties.href || ''}
-              onChange={(e) => onChange('href', e.target.value)}
+              value={properties.href || ""}
+              onChange={(e) => onChange("href", e.target.value)}
               placeholder="https://..."
             />
           </div>
           <div>
             <Label htmlFor="align">Hizalama</Label>
-            <Select value={properties.align || 'center'} onValueChange={(v) => onChange('align', v)}>
+            <Select
+              value={properties.align || "center"}
+              onValueChange={(v) => onChange("align", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -187,15 +204,15 @@ function renderPropertiesForm(
         </>
       );
 
-    case 'image':
+    case "image":
       return (
         <>
           <div>
-            <Label htmlFor="src">Resim URL'si</Label>
+            <Label htmlFor="src">Resim URL&rsquo;si</Label>
             <Input
               id="src"
-              value={properties.src || ''}
-              onChange={(e) => onChange('src', e.target.value)}
+              value={properties.src || ""}
+              onChange={(e) => onChange("src", e.target.value)}
               placeholder="https://..."
             />
           </div>
@@ -203,8 +220,8 @@ function renderPropertiesForm(
             <Label htmlFor="alt">Alt Metin</Label>
             <Input
               id="alt"
-              value={properties.alt || ''}
-              onChange={(e) => onChange('alt', e.target.value)}
+              value={properties.alt || ""}
+              onChange={(e) => onChange("alt", e.target.value)}
               placeholder="Resim açıklaması"
             />
           </div>
@@ -212,14 +229,17 @@ function renderPropertiesForm(
             <Label htmlFor="href">Link (İsteğe Bağlı)</Label>
             <Input
               id="href"
-              value={properties.href || ''}
-              onChange={(e) => onChange('href', e.target.value)}
+              value={properties.href || ""}
+              onChange={(e) => onChange("href", e.target.value)}
               placeholder="https://..."
             />
           </div>
           <div>
             <Label htmlFor="align">Hizalama</Label>
-            <Select value={properties.align || 'center'} onValueChange={(v) => onChange('align', v)}>
+            <Select
+              value={properties.align || "center"}
+              onValueChange={(v) => onChange("align", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -233,14 +253,14 @@ function renderPropertiesForm(
         </>
       );
 
-    case 'spacer':
+    case "spacer":
       return (
         <div>
           <Label htmlFor="height">Yükseklik</Label>
           <Input
             id="height"
-            value={properties.height || '20px'}
-            onChange={(e) => onChange('height', e.target.value)}
+            value={properties.height || "20px"}
+            onChange={(e) => onChange("height", e.target.value)}
             placeholder="20px"
           />
         </div>
@@ -258,7 +278,7 @@ function renderPropertiesForm(
 function renderStylesForm(
   blockType: string,
   styles: Record<string, any>,
-  onChange: (key: string, value: any) => void
+  onChange: (key: string, value: any) => void,
 ) {
   const commonStyles = (
     <>
@@ -266,8 +286,8 @@ function renderStylesForm(
         <Label htmlFor="fontSize">Yazı Boyutu</Label>
         <Input
           id="fontSize"
-          value={styles.fontSize || '14px'}
-          onChange={(e) => onChange('fontSize', e.target.value)}
+          value={styles.fontSize || "14px"}
+          onChange={(e) => onChange("fontSize", e.target.value)}
           placeholder="14px"
         />
       </div>
@@ -277,13 +297,13 @@ function renderStylesForm(
           <Input
             id="color"
             type="color"
-            value={styles.color || '#333333'}
-            onChange={(e) => onChange('color', e.target.value)}
+            value={styles.color || "#333333"}
+            onChange={(e) => onChange("color", e.target.value)}
             className="w-16 h-10"
           />
           <Input
-            value={styles.color || '#333333'}
-            onChange={(e) => onChange('color', e.target.value)}
+            value={styles.color || "#333333"}
+            onChange={(e) => onChange("color", e.target.value)}
             placeholder="#333333"
             className="flex-1"
           />
@@ -293,14 +313,17 @@ function renderStylesForm(
   );
 
   switch (blockType) {
-    case 'heading':
-    case 'text':
+    case "heading":
+    case "text":
       return (
         <>
           {commonStyles}
           <div>
             <Label htmlFor="fontWeight">Kalınlık</Label>
-            <Select value={styles.fontWeight || 'normal'} onValueChange={(v) => onChange('fontWeight', v)}>
+            <Select
+              value={styles.fontWeight || "normal"}
+              onValueChange={(v) => onChange("fontWeight", v)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -311,13 +334,13 @@ function renderStylesForm(
               </SelectContent>
             </Select>
           </div>
-          {blockType === 'text' && (
+          {blockType === "text" && (
             <div>
               <Label htmlFor="lineHeight">Satır Yüksekliği</Label>
               <Input
                 id="lineHeight"
-                value={styles.lineHeight || '1.6'}
-                onChange={(e) => onChange('lineHeight', e.target.value)}
+                value={styles.lineHeight || "1.6"}
+                onChange={(e) => onChange("lineHeight", e.target.value)}
                 placeholder="1.6"
               />
             </div>
@@ -325,7 +348,7 @@ function renderStylesForm(
         </>
       );
 
-    case 'button':
+    case "button":
       return (
         <>
           <div>
@@ -334,13 +357,13 @@ function renderStylesForm(
               <Input
                 id="backgroundColor"
                 type="color"
-                value={styles.backgroundColor || '#0066cc'}
-                onChange={(e) => onChange('backgroundColor', e.target.value)}
+                value={styles.backgroundColor || "#0066cc"}
+                onChange={(e) => onChange("backgroundColor", e.target.value)}
                 className="w-16 h-10"
               />
               <Input
-                value={styles.backgroundColor || '#0066cc'}
-                onChange={(e) => onChange('backgroundColor', e.target.value)}
+                value={styles.backgroundColor || "#0066cc"}
+                onChange={(e) => onChange("backgroundColor", e.target.value)}
                 placeholder="#0066cc"
                 className="flex-1"
               />
@@ -352,13 +375,13 @@ function renderStylesForm(
               <Input
                 id="color"
                 type="color"
-                value={styles.color || '#ffffff'}
-                onChange={(e) => onChange('color', e.target.value)}
+                value={styles.color || "#ffffff"}
+                onChange={(e) => onChange("color", e.target.value)}
                 className="w-16 h-10"
               />
               <Input
-                value={styles.color || '#ffffff'}
-                onChange={(e) => onChange('color', e.target.value)}
+                value={styles.color || "#ffffff"}
+                onChange={(e) => onChange("color", e.target.value)}
                 placeholder="#ffffff"
                 className="flex-1"
               />
@@ -368,8 +391,8 @@ function renderStylesForm(
             <Label htmlFor="borderRadius">Köşe Yuvarlama</Label>
             <Input
               id="borderRadius"
-              value={styles.borderRadius || '4px'}
-              onChange={(e) => onChange('borderRadius', e.target.value)}
+              value={styles.borderRadius || "4px"}
+              onChange={(e) => onChange("borderRadius", e.target.value)}
               placeholder="4px"
             />
           </div>
@@ -377,28 +400,28 @@ function renderStylesForm(
             <Label htmlFor="padding">İç Boşluk</Label>
             <Input
               id="padding"
-              value={styles.padding || '12px 24px'}
-              onChange={(e) => onChange('padding', e.target.value)}
+              value={styles.padding || "12px 24px"}
+              onChange={(e) => onChange("padding", e.target.value)}
               placeholder="12px 24px"
             />
           </div>
         </>
       );
 
-    case 'image':
+    case "image":
       return (
         <div>
           <Label htmlFor="width">Genişlik</Label>
           <Input
             id="width"
-            value={styles.width || '100%'}
-            onChange={(e) => onChange('width', e.target.value)}
+            value={styles.width || "100%"}
+            onChange={(e) => onChange("width", e.target.value)}
             placeholder="100% veya 600px"
           />
         </div>
       );
 
-    case 'divider':
+    case "divider":
       return (
         <>
           <div>
@@ -407,13 +430,13 @@ function renderStylesForm(
               <Input
                 id="borderColor"
                 type="color"
-                value={styles.borderColor || '#dddddd'}
-                onChange={(e) => onChange('borderColor', e.target.value)}
+                value={styles.borderColor || "#dddddd"}
+                onChange={(e) => onChange("borderColor", e.target.value)}
                 className="w-16 h-10"
               />
               <Input
-                value={styles.borderColor || '#dddddd'}
-                onChange={(e) => onChange('borderColor', e.target.value)}
+                value={styles.borderColor || "#dddddd"}
+                onChange={(e) => onChange("borderColor", e.target.value)}
                 placeholder="#dddddd"
                 className="flex-1"
               />
@@ -423,8 +446,8 @@ function renderStylesForm(
             <Label htmlFor="borderWidth">Çizgi Kalınlığı</Label>
             <Input
               id="borderWidth"
-              value={styles.borderWidth || '1px'}
-              onChange={(e) => onChange('borderWidth', e.target.value)}
+              value={styles.borderWidth || "1px"}
+              onChange={(e) => onChange("borderWidth", e.target.value)}
               placeholder="1px"
             />
           </div>

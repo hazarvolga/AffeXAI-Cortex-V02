@@ -1,11 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, ILike, In, DataSource } from 'typeorm';
-import { ReusableSection } from '../entities/reusable-section.entity';
-import { SectionComponent } from '../entities/section-component.entity';
-import { ComponentUsageHistory } from '../entities/component-usage-history.entity';
-import { ComponentFavorite } from '../entities/component-favorite.entity';
-import { ReusableComponentsService } from './reusable-components.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import {
+  Repository,
+  FindOptionsWhere,
+  ILike,
+  In,
+  DataSource,
+  Not,
+} from "typeorm";
+import { ReusableSection } from "../entities/reusable-section.entity";
+import { SectionComponent } from "../entities/section-component.entity";
+import { ComponentUsageHistory } from "../entities/component-usage-history.entity";
+import { ComponentFavorite } from "../entities/component-favorite.entity";
+import { ReusableComponentsService } from "./reusable-components.service";
 import {
   CreateReusableSectionDto,
   UpdateReusableSectionDto,
@@ -15,9 +26,10 @@ import {
   UpdateSectionComponentDto,
   ReorderSectionComponentsDto,
   UpdateSectionComponentsDto,
-  PaginatedReusableSectionsDto
-} from '../dto/reusable-section.dto';
-import { TenantService } from '../../../core/tenant/tenant.service';
+  PaginatedReusableSectionsDto,
+} from "../dto/reusable-section.dto";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { uniqueSlug } from "./unique-slug";
 
 @Injectable()
 export class ReusableSectionsService {
@@ -33,7 +45,7 @@ export class ReusableSectionsService {
     private readonly reusableComponentsService: ReusableComponentsService,
     private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private get tenantId(): string {
     return this.tenantService.getTenantId();
@@ -85,60 +97,66 @@ export class ReusableSectionsService {
         isPublic,
         isFeatured,
         mySections,
-        sortBy = 'createdAt',
-        sortOrder = 'DESC',
+        sortBy = "createdAt",
+        sortOrder = "DESC",
         limit = 20,
         page = 1,
       } = filters;
 
       const queryBuilder = this.sectionRepository
-        .createQueryBuilder('section')
-        .leftJoinAndSelect('section.author', 'author')
-        .leftJoinAndSelect('section.category', 'category')
-        .where('section.tenantId = :tenantId', { tenantId: this.tenantId });
+        .createQueryBuilder("section")
+        .leftJoinAndSelect("section.author", "author")
+        .leftJoinAndSelect("section.category", "category")
+        .where("section.tenantId = :tenantId", { tenantId: this.tenantId });
 
       // Apply filters
       if (search) {
         queryBuilder.andWhere(
-          '(section.name ILIKE :search OR section.description ILIKE :search OR :search = ANY(section.tags))',
+          "(section.name ILIKE :search OR section.description ILIKE :search OR :search = ANY(section.tags))",
           { search: `%${search}%` },
         );
       }
 
       if (sectionType) {
-        queryBuilder.andWhere('section.sectionType = :sectionType', { sectionType });
+        queryBuilder.andWhere("section.sectionType = :sectionType", {
+          sectionType,
+        });
       }
 
       if (categoryId) {
-        queryBuilder.andWhere('section.categoryId = :categoryId', { categoryId });
+        queryBuilder.andWhere("section.categoryId = :categoryId", {
+          categoryId,
+        });
       }
 
       if (tags && tags.length > 0) {
-        queryBuilder.andWhere('section.tags && :tags', { tags });
+        queryBuilder.andWhere("section.tags && :tags", { tags });
       }
 
       if (authorId) {
-        queryBuilder.andWhere('section.authorId = :authorId', { authorId });
+        queryBuilder.andWhere("section.authorId = :authorId", { authorId });
       }
 
-      if (typeof isPublic === 'boolean') {
-        queryBuilder.andWhere('section.isPublic = :isPublic', { isPublic });
+      if (typeof isPublic === "boolean") {
+        queryBuilder.andWhere("section.isPublic = :isPublic", { isPublic });
       }
 
-      if (typeof isFeatured === 'boolean') {
-        queryBuilder.andWhere('section.isFeatured = :isFeatured', { isFeatured });
+      if (typeof isFeatured === "boolean") {
+        queryBuilder.andWhere("section.isFeatured = :isFeatured", {
+          isFeatured,
+        });
       }
 
       if (mySections && userId) {
-        queryBuilder.andWhere('section.authorId = :userId', { userId });
+        queryBuilder.andWhere("section.authorId = :userId", { userId });
       }
 
       // Apply sorting
-      if (sortBy === 'featured') {
-        queryBuilder.orderBy('section.isFeatured', sortOrder);
-        queryBuilder.addOrderBy('section.usageCount', 'DESC');
-      } else if (sortBy === 'usageCount') {
-        queryBuilder.orderBy('section.usageCount', sortOrder);
+      if (sortBy === "featured") {
+        queryBuilder.orderBy("section.isFeatured", sortOrder);
+        queryBuilder.addOrderBy("section.usageCount", "DESC");
+      } else if (sortBy === "usageCount") {
+        queryBuilder.orderBy("section.usageCount", sortOrder);
       } else {
         queryBuilder.orderBy(`section.${sortBy}`, sortOrder);
       }
@@ -157,7 +175,7 @@ export class ReusableSectionsService {
         totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
-      console.error('ReusableSectionsService.findAll error:', error.message);
+      console.error("ReusableSectionsService.findAll error:", error.message);
       return {
         data: [],
         total: 0,
@@ -175,16 +193,16 @@ export class ReusableSectionsService {
     const section = await this.sectionRepository.findOne({
       where: { id, tenantId: this.tenantId },
       relations: [
-        'author',
-        'category',
-        'parentVersion',
-        'components',
-        'components.reusableComponent',
-        'components.children',
+        "author",
+        "category",
+        "parentVersion",
+        "components",
+        "components.reusableComponent",
+        "components.children",
       ],
       order: {
         components: {
-          orderIndex: 'ASC',
+          orderIndex: "ASC",
         },
       },
     });
@@ -207,7 +225,7 @@ export class ReusableSectionsService {
 
     // If name changed, regenerate slug
     if (dto.name && dto.name !== section.name) {
-      dto['slug'] = await this.generateUniqueSlug(dto.name, id);
+      dto["slug"] = await this.generateUniqueSlug(dto.name, id);
     }
 
     const { components, ...sectionData } = dto;
@@ -220,7 +238,10 @@ export class ReusableSectionsService {
     // Update components if provided
     if (components !== undefined) {
       // Remove existing components
-      await this.sectionComponentRepository.delete({ sectionId: id, tenantId: this.tenantId });
+      await this.sectionComponentRepository.delete({
+        sectionId: id,
+        tenantId: this.tenantId,
+      });
 
       // Add new components
       if (components.length > 0) {
@@ -320,7 +341,7 @@ export class ReusableSectionsService {
     // Get current max order index
     const lastComponent = await this.sectionComponentRepository.findOne({
       where: { sectionId, tenantId: this.tenantId },
-      order: { orderIndex: 'DESC' },
+      order: { orderIndex: "DESC" },
     });
 
     let startOrder = lastComponent ? lastComponent.orderIndex + 1 : 0;
@@ -332,7 +353,7 @@ export class ReusableSectionsService {
         await this.reusableComponentsService.findOne(dto.reusableComponentId);
         await this.reusableComponentsService.trackUsage(
           dto.reusableComponentId,
-          'reusable_section',
+          "reusable_section",
           sectionId,
         );
       }
@@ -345,7 +366,8 @@ export class ReusableSectionsService {
         props: dto.props,
         layoutProps: dto.layoutProps,
         parentId: dto.parentId,
-        orderIndex: dto.orderIndex !== undefined ? dto.orderIndex : startOrder++,
+        orderIndex:
+          dto.orderIndex !== undefined ? dto.orderIndex : startOrder++,
         tenantId: this.tenantId,
       });
 
@@ -365,7 +387,10 @@ export class ReusableSectionsService {
     dto: UpdateSectionComponentsDto,
   ): Promise<void> {
     await this.findOne(sectionId);
-    await this.sectionComponentRepository.delete({ sectionId, tenantId: this.tenantId });
+    await this.sectionComponentRepository.delete({
+      sectionId,
+      tenantId: this.tenantId,
+    });
     await this.addComponents(sectionId, dto.components);
   }
 
@@ -384,14 +409,19 @@ export class ReusableSectionsService {
     });
 
     if (!component) {
-      throw new NotFoundException(`Component ${componentId} not found in section ${sectionId}`);
+      throw new NotFoundException(
+        `Component ${componentId} not found in section ${sectionId}`,
+      );
     }
 
-    if (dto.reusableComponentId && dto.reusableComponentId !== component.reusableComponentId) {
+    if (
+      dto.reusableComponentId &&
+      dto.reusableComponentId !== component.reusableComponentId
+    ) {
       await this.reusableComponentsService.findOne(dto.reusableComponentId);
       await this.reusableComponentsService.trackUsage(
         dto.reusableComponentId,
-        'reusable_section',
+        "reusable_section",
         sectionId,
       );
     }
@@ -405,7 +435,10 @@ export class ReusableSectionsService {
   /**
    * Remove a component from a section
    */
-  async removeComponent(sectionId: string, componentId: string): Promise<ReusableSection> {
+  async removeComponent(
+    sectionId: string,
+    componentId: string,
+  ): Promise<ReusableSection> {
     const section = await this.findOne(sectionId);
 
     const component = await this.sectionComponentRepository.findOne({
@@ -413,7 +446,9 @@ export class ReusableSectionsService {
     });
 
     if (!component) {
-      throw new NotFoundException(`Component ${componentId} not found in section ${sectionId}`);
+      throw new NotFoundException(
+        `Component ${componentId} not found in section ${sectionId}`,
+      );
     }
 
     await this.sectionComponentRepository.remove(component);
@@ -433,7 +468,7 @@ export class ReusableSectionsService {
     for (const item of dto.orderedIds) {
       await this.sectionComponentRepository.update(
         { id: item.id, sectionId, tenantId: this.tenantId },
-        { orderIndex: item.orderIndex }
+        { orderIndex: item.orderIndex },
       );
     }
 
@@ -446,8 +481,8 @@ export class ReusableSectionsService {
   async getComponents(sectionId: string): Promise<SectionComponent[]> {
     return await this.sectionComponentRepository.find({
       where: { sectionId, tenantId: this.tenantId },
-      relations: ['reusableComponent', 'children'],
-      order: { orderIndex: 'ASC' },
+      relations: ["reusableComponent", "children"],
+      order: { orderIndex: "ASC" },
     });
   }
 
@@ -473,7 +508,7 @@ export class ReusableSectionsService {
     await this.incrementUsage(sectionId);
 
     const history = this.usageHistoryRepository.create({
-      usableType: 'reusable_section',
+      usableType: "reusable_section",
       usableId: sectionId,
       usedInType,
       usedInId,
@@ -502,12 +537,12 @@ export class ReusableSectionsService {
   async getUsageHistory(sectionId: string): Promise<ComponentUsageHistory[]> {
     return await this.usageHistoryRepository.find({
       where: {
-        usableType: 'reusable_section',
+        usableType: "reusable_section",
         usableId: sectionId,
         tenantId: this.tenantId,
       },
-      relations: ['user'],
-      order: { createdAt: 'DESC' },
+      relations: ["user"],
+      order: { createdAt: "DESC" },
       take: 100,
     });
   }
@@ -521,19 +556,19 @@ export class ReusableSectionsService {
     const existing = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_section',
+        favoritableType: "reusable_section",
         favoritableId: sectionId,
         tenantId: this.tenantId,
       },
     });
 
     if (existing) {
-      throw new BadRequestException('Section already in favorites');
+      throw new BadRequestException("Section already in favorites");
     }
 
     const favorite = this.favoriteRepository.create({
       userId,
-      favoritableType: 'reusable_section',
+      favoritableType: "reusable_section",
       favoritableId: sectionId,
       tenantId: this.tenantId,
     });
@@ -548,14 +583,14 @@ export class ReusableSectionsService {
     const favorite = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_section',
+        favoritableType: "reusable_section",
         favoritableId: sectionId,
         tenantId: this.tenantId,
       },
     });
 
     if (!favorite) {
-      throw new NotFoundException('Favorite not found');
+      throw new NotFoundException("Favorite not found");
     }
 
     await this.favoriteRepository.remove(favorite);
@@ -568,7 +603,7 @@ export class ReusableSectionsService {
     const favorites = await this.favoriteRepository.find({
       where: {
         userId,
-        favoritableType: 'reusable_section',
+        favoritableType: "reusable_section",
         tenantId: this.tenantId,
       },
     });
@@ -581,7 +616,7 @@ export class ReusableSectionsService {
 
     return await this.sectionRepository.find({
       where: { id: In(sectionIds), tenantId: this.tenantId },
-      relations: ['author', 'category', 'components'],
+      relations: ["author", "category", "components"],
     });
   }
 
@@ -592,7 +627,7 @@ export class ReusableSectionsService {
     const favorite = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_section',
+        favoritableType: "reusable_section",
         favoritableId: sectionId,
         tenantId: this.tenantId,
       },
@@ -604,34 +639,21 @@ export class ReusableSectionsService {
   /**
    * Generate unique slug
    */
-  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
-    let slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    let counter = 1;
-    let finalSlug = slug;
-
-    while (true) {
-      const where: FindOptionsWhere<ReusableSection> = {
-        slug: finalSlug,
-        tenantId: this.tenantId
-      };
-      if (excludeId) {
-        where.id = excludeId as any;
-      }
-
-      const existing = await this.sectionRepository.findOne({ where });
-
-      if (!existing || (excludeId && existing.id === excludeId)) {
-        break;
-      }
-
-      finalSlug = `${slug}-${counter}`;
-      counter++;
-    }
-
-    return finalSlug;
+  private generateUniqueSlug(
+    name: string,
+    excludeId?: string,
+  ): Promise<string> {
+    // A rename may keep its own slug; any other row in the tenant counts as taken.
+    return uniqueSlug(name, async (slug) =>
+      Boolean(
+        await this.sectionRepository.findOne({
+          where: {
+            slug,
+            tenantId: this.tenantId,
+            ...(excludeId ? { id: Not(excludeId) } : {}),
+          },
+        }),
+      ),
+    );
   }
 }

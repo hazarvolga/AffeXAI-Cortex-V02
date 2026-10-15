@@ -1,13 +1,29 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
-import { ReusableComponentsService, type ReusableComponent, type ComponentFilters } from '@/services/reusable-content.service';
+import React, { useEffect, useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import {
+  ReusableComponentsService,
+  type ReusableComponent,
+  type ComponentFilters,
+} from "@/services/reusable-content.service";
 import {
   Plus,
   Search,
@@ -18,26 +34,33 @@ import {
   Eye,
   BarChart,
   Filter,
-  RefreshCw
-} from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  RefreshCw,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const ReusableComponentsPage = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [componentType, setComponentType] = useState<string>('all');
-  const [blockType, setBlockType] = useState<string>('all');
-  const [filterPublic, setFilterPublic] = useState<string>('all');
-  const [filterFeatured, setFilterFeatured] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [componentType, setComponentType] = useState<string>("all");
+  const [blockType, setBlockType] = useState<string>("all");
+  const [filterPublic, setFilterPublic] = useState<string>("all");
+  const [filterFeatured, setFilterFeatured] = useState<string>("all");
   const [filterMyComponents, setFilterMyComponents] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'usageCount' | 'featured'>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [sortBy, setSortBy] = useState<
+    "name" | "createdAt" | "updatedAt" | "usageCount" | "featured"
+  >("createdAt");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [componentToDelete, setComponentToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [componentToDelete, setComponentToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,20 +74,30 @@ const ReusableComponentsPage = () => {
     };
 
     if (searchQuery) f.search = searchQuery;
-    if (componentType !== 'all') f.componentType = componentType;
-    if (blockType !== 'all') f.blockType = blockType;
-    if (filterPublic === 'public') f.isPublic = true;
-    if (filterPublic === 'private') f.isPublic = false;
-    if (filterFeatured === 'featured') f.isFeatured = true;
-    if (filterFeatured === 'not-featured') f.isFeatured = false;
+    if (componentType !== "all") f.componentType = componentType;
+    if (blockType !== "all") f.blockType = blockType;
+    if (filterPublic === "public") f.isPublic = true;
+    if (filterPublic === "private") f.isPublic = false;
+    if (filterFeatured === "featured") f.isFeatured = true;
+    if (filterFeatured === "not-featured") f.isFeatured = false;
     if (filterMyComponents) f.myComponents = true;
 
     return f;
-  }, [searchQuery, componentType, blockType, filterPublic, filterFeatured, filterMyComponents, sortBy, sortOrder, currentPage]);
+  }, [
+    searchQuery,
+    componentType,
+    blockType,
+    filterPublic,
+    filterFeatured,
+    filterMyComponents,
+    sortBy,
+    sortOrder,
+    currentPage,
+  ]);
 
   // Fetch components with React Query
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['reusable-components', filters],
+    queryKey: ["reusable-components", filters],
     queryFn: () => ReusableComponentsService.getAll(filters),
     refetchInterval: 30000, // Refetch every 30s
     staleTime: 10000,
@@ -74,18 +107,18 @@ const ReusableComponentsPage = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => ReusableComponentsService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
       toast({
-        title: 'Bileşen silindi',
+        title: "Bileşen silindi",
         description: `"${componentToDelete?.name}" başarıyla silindi.`,
       });
     },
     onError: (error) => {
-      console.error('Failed to delete component:', error);
+      console.error("Failed to delete component:", error);
       toast({
-        title: 'Hata',
-        description: 'Bileşen silinirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Bileşen silinirken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -95,25 +128,31 @@ const ReusableComponentsPage = () => {
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       ReusableComponentsService.duplicate(id, name, false),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
       toast({
-        title: 'Bileşen kopyalandı',
-        description: 'Bileşen başarıyla kopyalandı.',
+        title: "Bileşen kopyalandı",
+        description: "Bileşen başarıyla kopyalandı.",
       });
     },
     onError: (error) => {
-      console.error('Failed to duplicate component:', error);
+      console.error("Failed to duplicate component:", error);
       toast({
-        title: 'Hata',
-        description: 'Bileşen kopyalanırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Bileşen kopyalanırken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
 
   // Toggle favorite mutation
   const toggleFavoriteMutation = useMutation({
-    mutationFn: async ({ id, isFavorite }: { id: string; isFavorite: boolean }) => {
+    mutationFn: async ({
+      id,
+      isFavorite,
+    }: {
+      id: string;
+      isFavorite: boolean;
+    }) => {
       if (isFavorite) {
         await ReusableComponentsService.removeFromFavorites(id);
       } else {
@@ -121,7 +160,7 @@ const ReusableComponentsPage = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
     },
   });
 
@@ -154,23 +193,23 @@ const ReusableComponentsPage = () => {
 
   const handleEdit = (componentId: string) => {
     // TODO: Navigate to edit page when created
-    router.push(`/admin/cms/reusable-components/${componentId}`);
+    router.push(tenantHref(`/cms/reusable-components/${componentId}`));
   };
 
   const handleCreate = () => {
     // TODO: Navigate to create page when created
-    router.push('/admin/cms/reusable-components/new');
+    router.push(tenantHref("/cms/reusable-components/new"));
   };
 
   const resetFilters = () => {
-    setSearchQuery('');
-    setComponentType('all');
-    setBlockType('all');
-    setFilterPublic('all');
-    setFilterFeatured('all');
+    setSearchQuery("");
+    setComponentType("all");
+    setBlockType("all");
+    setFilterPublic("all");
+    setFilterFeatured("all");
     setFilterMyComponents(false);
-    setSortBy('createdAt');
-    setSortOrder('DESC');
+    setSortBy("createdAt");
+    setSortOrder("DESC");
     setCurrentPage(1);
   };
 
@@ -178,14 +217,16 @@ const ReusableComponentsPage = () => {
     <div className="container mx-auto py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Yeniden Kullanılabilir Bileşenler</h1>
+            <h1 className="text-3xl font-bold">
+              Yeniden Kullanılabilir Bileşenler
+            </h1>
             <p className="text-muted-foreground">
               Tekrar kullanılabilir UI bileşenlerini yönetin
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Yenile
@@ -221,7 +262,7 @@ const ReusableComponentsPage = () => {
 
             {/* Component Type */}
             <Select value={componentType} onValueChange={setComponentType}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Bileşen Tipi">
                 <SelectValue placeholder="Bileşen Tipi" />
               </SelectTrigger>
               <SelectContent>
@@ -241,7 +282,7 @@ const ReusableComponentsPage = () => {
 
             {/* Block Type */}
             <Select value={blockType} onValueChange={setBlockType}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Blok Tipi">
                 <SelectValue placeholder="Blok Tipi" />
               </SelectTrigger>
               <SelectContent>
@@ -259,7 +300,7 @@ const ReusableComponentsPage = () => {
 
             {/* Public Filter */}
             <Select value={filterPublic} onValueChange={setFilterPublic}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Görünürlük">
                 <SelectValue placeholder="Görünürlük" />
               </SelectTrigger>
               <SelectContent>
@@ -271,7 +312,7 @@ const ReusableComponentsPage = () => {
 
             {/* Featured Filter */}
             <Select value={filterFeatured} onValueChange={setFilterFeatured}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Öne Çıkan">
                 <SelectValue placeholder="Öne Çıkan" />
               </SelectTrigger>
               <SelectContent>
@@ -283,7 +324,7 @@ const ReusableComponentsPage = () => {
 
             {/* Sort By */}
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Sıralama">
                 <SelectValue placeholder="Sıralama" />
               </SelectTrigger>
               <SelectContent>
@@ -296,8 +337,11 @@ const ReusableComponentsPage = () => {
             </Select>
 
             {/* Sort Order */}
-            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as any)}>
-              <SelectTrigger>
+            <Select
+              value={sortOrder}
+              onValueChange={(v) => setSortOrder(v as any)}
+            >
+              <SelectTrigger aria-label="Sıra">
                 <SelectValue placeholder="Sıra" />
               </SelectTrigger>
               <SelectContent>
@@ -333,7 +377,7 @@ const ReusableComponentsPage = () => {
             <div>
               <CardTitle>Bileşenler</CardTitle>
               <CardDescription>
-                {data ? `${data.total} bileşen bulundu` : 'Yükleniyor...'}
+                {data ? `${data.total} bileşen bulundu` : "Yükleniyor..."}
               </CardDescription>
             </div>
           </div>
@@ -364,7 +408,9 @@ const ReusableComponentsPage = () => {
                       <div className="flex items-start gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-lg">{component.name}</h3>
+                            <h3 className="font-medium text-lg">
+                              {component.name}
+                            </h3>
                             {component.isFeatured && (
                               <Badge variant="secondary">
                                 <Star className="h-3 w-3 mr-1" />
@@ -378,30 +424,48 @@ const ReusableComponentsPage = () => {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">
-                            {component.description || 'Açıklama yok'}
+                            {component.description || "Açıklama yok"}
                           </p>
                           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                            <span>Tip: <span className="font-medium">{component.componentType}</span></span>
+                            <span>
+                              Tip:{" "}
+                              <span className="font-medium">
+                                {component.componentType}
+                              </span>
+                            </span>
                             {component.blockType && (
-                              <span>Blok: <span className="font-medium">{component.blockType}</span></span>
+                              <span>
+                                Blok:{" "}
+                                <span className="font-medium">
+                                  {component.blockType}
+                                </span>
+                              </span>
                             )}
                             <span className="flex items-center gap-1">
                               <BarChart className="h-3 w-3" />
                               {component.usageCount} kullanım
                             </span>
                             <span>
-                              Güncellenme: {new Date(component.updatedAt).toLocaleDateString('tr-TR')}
+                              Güncellenme:{" "}
+                              {new Date(component.updatedAt).toLocaleDateString(
+                                "tr-TR",
+                              )}
                             </span>
                             {component.author && (
                               <span>
-                                Yazar: {component.author.firstName} {component.author.lastName}
+                                Yazar: {component.author.firstName}{" "}
+                                {component.author.lastName}
                               </span>
                             )}
                           </div>
                           {component.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                               {component.tags.map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
                                   {tag}
                                 </Badge>
                               ))}
@@ -463,7 +527,9 @@ const ReusableComponentsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
                       disabled={currentPage === 1}
                     >
                       Önceki
@@ -471,7 +537,11 @@ const ReusableComponentsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(data.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(data.totalPages, prev + 1),
+                        )
+                      }
                       disabled={currentPage === data.totalPages}
                     >
                       Sonraki

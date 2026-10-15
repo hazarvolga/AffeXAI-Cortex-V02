@@ -4,17 +4,16 @@
  * into <main> and no console errors.
  *
  *   TENANT_ROUTES_ACCEPTANCE_ISOLATED=1 BASE_URL=http://localhost:19003 \
- *   [ROUTE_SET=email|support] [ONLY=email/campaigns] [CHROME_PATH=...] \
+ *   [ROUTE_SET=email|support|cms] [ONLY=email/campaigns] [CHROME_PATH=...] \
  *   node apps/frontend/scripts/acceptance/tenant-routes.cjs
  *
  * Same harness as tenant-crud.cjs. Each route is loaded once and re-checked by
  * resizing, and routes are paced, because the harness backend counts every API
  * call against one IP.
  */
-const { execFileSync } = require("node:child_process");
-const fs = require("node:fs");
-const { createRequire } = require("node:module");
 const path = require("node:path");
+const { createRequire } = require("node:module");
+const { AXE_PATH, repo, tenantFixture } = require("./lib/tenant-fixture.cjs");
 
 if (process.env.TENANT_ROUTES_ACCEPTANCE_ISOLATED !== "1") {
   throw new Error(
@@ -22,44 +21,22 @@ if (process.env.TENANT_ROUTES_ACCEPTANCE_ISOLATED !== "1") {
   );
 }
 
-const repo = path.resolve(__dirname, "../../../..");
 const { chromium } = createRequire(path.join(repo, "package.json"))(
   "playwright",
 );
-const bcrypt = createRequire(path.join(repo, "apps/backend/package.json"))(
-  "bcryptjs",
-);
-const pnpmStore = path.join(repo, "node_modules/.pnpm");
-const AXE_PATH = path.join(
-  pnpmStore,
-  fs.readdirSync(pnpmStore).find((name) => name.startsWith("axe-core@")),
-  "node_modules/axe-core/axe.min.js",
-);
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:19003";
-const DB_CONTAINER = "affexai-g0-isolated-postgres-test-1";
-const PASSWORD = "Fixture-Routes-2026!";
 const TENANT = "routes-accept-a";
-const ROLE_ID = "da000000-0000-4000-8000-000000000001";
-const USER_ID = "db000000-0000-4000-8000-000000000001";
+const fixture = tenantFixture({
+  tenant: TENANT,
+  email: "admin@routes.test",
+  password: "Fixture-Routes-2026!",
+  roleId: "da000000-0000-4000-8000-000000000001",
+  userId: "db000000-0000-4000-8000-000000000001",
+});
 const WIDTHS = [375, 768, 1280];
 const PACE_MS = Number(process.env.PACE_MS || 3_000);
 const MISSING = "00000000-0000-4000-8000-00000000dead";
-// The real tenant administrator permission set (there is no wildcard permission).
-const TENANT_ADMIN_PERMISSIONS = (() => {
-  const migration = fs.readFileSync(
-    path.join(
-      repo,
-      "apps/backend/src/core/database/migrations/1791417600000-TenantAdminPermissions.ts",
-    ),
-    "utf8",
-  );
-  const block = migration.match(
-    /TENANT_PERMISSION_SNAPSHOT = Object\.freeze\(\[([\s\S]*?)\]\)/,
-  );
-  if (!block) throw new Error("Tenant permission snapshot not found");
-  return [...block[1].matchAll(/['"]([a-z0-9_.:-]+)['"]/g)].map((m) => m[1]);
-})();
 const DEFAULT_TITLES = new Set([
   "",
   "AffeXAI Cortex",
@@ -106,50 +83,31 @@ const ROUTE_SETS = {
     "support/new",
     "support/templates",
   ],
+  cms: [
+    "cms",
+    "cms/analytics",
+    "cms/analytics/ab-tests",
+    "cms/analytics/heatmaps",
+    "cms/categories",
+    "cms/components",
+    "cms/editor",
+    "cms/favorites",
+    "cms/media",
+    "cms/menus",
+    "cms/pages",
+    "cms/reusable-components",
+    `cms/reusable-components/${MISSING}`,
+    "cms/reusable-sections",
+    "cms/reusable-sections/new",
+    `cms/reusable-sections/${MISSING}`,
+    "cms/templates",
+    "design",
+    "email/templates/builder",
+  ],
 };
 const ROUTES = (
-  ROUTE_SETS[process.env.ROUTE_SET] ?? [
-    ...ROUTE_SETS.email,
-    ...ROUTE_SETS.support,
-  ]
+  ROUTE_SETS[process.env.ROUTE_SET] ?? Object.values(ROUTE_SETS).flat()
 ).filter((route) => !process.env.ONLY || route.startsWith(process.env.ONLY));
-
-function sql(statement) {
-  return execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      DB_CONTAINER,
-      "psql",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-U",
-      "g0_test",
-      "-d",
-      "affexai_g0_ephemeral",
-      "-At",
-    ],
-    { input: statement, encoding: "utf8" },
-  ).trim();
-}
-
-function cleanup() {
-  sql(`DELETE FROM user_roles WHERE tenant_id='${TENANT}';
-       DELETE FROM users WHERE tenant_id='${TENANT}';
-       DELETE FROM roles WHERE tenant_id='${TENANT}';
-       DELETE FROM organizations WHERE slug='${TENANT}';`);
-}
-
-function seed() {
-  const hash = bcrypt.hashSync(PASSWORD, 10);
-  sql(`INSERT INTO organizations(name,slug) VALUES('Rota Kabul','${TENANT}');
-    INSERT INTO roles(id,tenant_id,name,"displayName",description,permissions,is_active,is_custom)
-      VALUES('${ROLE_ID}','${TENANT}','admin','Yönetici','Route sweep','${JSON.stringify(TENANT_ADMIN_PERMISSIONS)}'::jsonb,true,false);
-    INSERT INTO users(id,tenant_id,email,password,"firstName","lastName","isActive","emailVerified","tokenVersion","isSubscribedToNewsletter","organizationId","roleId")
-      VALUES('${USER_ID}','${TENANT}','admin@routes.test','${hash}','Rota','Yönetici',true,true,1,false,(SELECT id FROM organizations WHERE slug='${TENANT}'),'${ROLE_ID}');
-    INSERT INTO user_roles(tenant_id,"userId","roleId","isPrimary") VALUES('${TENANT}','${USER_ID}','${ROLE_ID}',true);`);
-}
 
 async function inspect(page, width) {
   await page.setViewportSize({ width, height: 900 });
@@ -163,7 +121,10 @@ async function inspect(page, width) {
     });
     return {
       title: document.title,
-      h1: document.querySelectorAll("h1").length,
+      // Headings inside aria-hidden samples (block previews) are not part of the page outline.
+      h1: [...document.querySelectorAll("h1")].filter(
+        (h) => !h.closest('[aria-hidden="true"]'),
+      ).length,
       mains: document.querySelectorAll("main").length,
       overflow:
         document.documentElement.scrollWidth -
@@ -190,8 +151,8 @@ async function inspect(page, width) {
 }
 
 (async () => {
-  cleanup();
-  seed();
+  fixture.cleanup();
+  fixture.seed();
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || undefined,
   });
@@ -206,13 +167,7 @@ async function inspect(page, width) {
       });
       void dialog.dismiss();
     });
-    await page.goto(`${BASE_URL}/${TENANT}/admin/login`);
-    await page.fill("#login-email", "admin@routes.test");
-    await page.fill("input[type=password]", PASSWORD);
-    await page.keyboard.press("Enter");
-    await page.waitForURL((url) => !url.pathname.endsWith("/login"), {
-      timeout: 20_000,
-    });
+    await fixture.login(page, BASE_URL);
 
     for (const route of ROUTES) {
       const consoleErrors = [];
@@ -250,7 +205,12 @@ async function inspect(page, width) {
           continue;
         }
         const problems = [];
-        if (DEFAULT_TITLES.has(r.title)) problems.push(`title="${r.title}"`);
+        // UX-CONTRACT: "[Sayfa] · AffeXAI Cortex".
+        if (
+          DEFAULT_TITLES.has(r.title) ||
+          !r.title.endsWith(" · AffeXAI Cortex")
+        )
+          problems.push(`title="${r.title}"`);
         if (r.h1 !== 1) problems.push(`h1=${r.h1}`);
         if (r.mains !== 1) problems.push(`main=${r.mains}`);
         if (r.overflow > 0) problems.push(`overflow=${r.overflow}`);
@@ -273,7 +233,7 @@ async function inspect(page, width) {
     }
   } finally {
     await browser.close();
-    if (process.env.KEEP_FIXTURES !== "1") cleanup();
+    if (process.env.KEEP_FIXTURES !== "1") fixture.cleanup();
   }
   const total = ROUTES.length * WIDTHS.length;
   console.log(`${total - failures.length}/${total} route×width checks passed`);

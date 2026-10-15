@@ -1,86 +1,194 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ReusableSectionsService } from './reusable-sections.service';
-import { ReusableSection } from '../entities/reusable-section.entity';
-import { SectionComponent } from '../entities/section-component.entity';
-import { ComponentFavorite } from '../entities/component-favorite.entity';
-import { ReusableComponentsService } from './reusable-components.service';
-import { ReusableComponent } from '../entities/reusable-component.entity';
+import { FindOperator } from "typeorm";
+import { ReusableSectionsService } from "./reusable-sections.service";
 
-describe('ReusableSectionsService', () => {
-    let service: ReusableSectionsService;
-    let sectionRepo: Repository<ReusableSection>;
+jest.mock("../../../core/tenant/tenant.service", () => ({
+  TenantService: class {},
+}));
+jest.mock("./reusable-components.service", () => ({
+  ReusableComponentsService: class {},
+}));
 
-    const mockSectionRepo = {
-        create: jest.fn().mockImplementation(d => d),
-        save: jest.fn().mockImplementation(d => Promise.resolve({ id: 's-1', ...d })),
-        findOne: jest.fn(),
-        find: jest.fn(),
-        increment: jest.fn(),
-        createQueryBuilder: jest.fn(() => ({
-            leftJoinAndSelect: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            andWhere: jest.fn().mockReturnThis(),
-            skip: jest.fn().mockReturnThis(),
-            take: jest.fn().mockReturnThis(),
-            orderBy: jest.fn().mockReturnThis(),
-            getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-            getOne: jest.fn(),
-        })),
-    };
+const TENANT = "tenant-1";
 
-    const mockComponentsService = {
-        trackUsage: jest.fn(),
-    };
+type Row = {
+  id: string;
+  slug: string;
+  name: string;
+  tenantId: string;
+  usageCount: number;
+  components: unknown[];
+  version: number;
+};
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                ReusableSectionsService,
-                { provide: getRepositoryToken(ReusableSection), useValue: mockSectionRepo },
-                { provide: getRepositoryToken(SectionComponent), useValue: { create: jest.fn(), save: jest.fn() } },
-                { provide: getRepositoryToken(ComponentFavorite), useValue: { findOne: jest.fn(), save: jest.fn(), delete: jest.fn() } },
-                { provide: getRepositoryToken(ReusableComponent), useValue: {} },
-                { provide: ReusableComponentsService, useValue: mockComponentsService },
-            ],
-        }).compile();
+function matchesId(rowId: string, id: unknown): boolean {
+  if (id === undefined) return true;
+  return id instanceof FindOperator ? rowId !== id.value : rowId === id;
+}
 
-        service = module.get<ReusableSectionsService>(ReusableSectionsService);
-        sectionRepo = module.get(getRepositoryToken(ReusableSection));
-    });
+function setup(rows: Row[]) {
+  const sectionRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: value.id ?? "saved", ...value })),
+    findOne: jest.fn(
+      async ({
+        where,
+      }: {
+        where: { id?: unknown; slug?: string; tenantId: string };
+      }) =>
+        rows.find(
+          (row) =>
+            row.tenantId === where.tenantId &&
+            (where.slug === undefined || row.slug === where.slug) &&
+            matchesId(row.id, where.id),
+        ) ?? null,
+    ),
+  };
+  const sectionComponentRepository = {
+    create: jest.fn((value) => value),
+    find: jest.fn(async () => [
+      { id: "sc-1", reusableComponentId: "rc-1" },
+      { id: "sc-2", reusableComponentId: null },
+    ]),
+  };
+  const usageHistoryRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(),
+  };
+  const queryRunner = {
+    connect: jest.fn(),
+    startTransaction: jest.fn(),
+    commitTransaction: jest.fn(),
+    rollbackTransaction: jest.fn(),
+    release: jest.fn(),
+    manager: {
+      save: jest.fn(async (value) =>
+        Array.isArray(value) ? value : { ...value, id: "copy" },
+      ),
+    },
+  };
+  const components = { trackUsage: jest.fn() };
+  const service = new ReusableSectionsService(
+    sectionRepository as never,
+    sectionComponentRepository as never,
+    usageHistoryRepository as never,
+    {} as never,
+    components as never,
+    { createQueryRunner: () => queryRunner } as never,
+    { getTenantId: () => TENANT } as never,
+  );
+  return {
+    service,
+    sectionRepository,
+    sectionComponentRepository,
+    usageHistoryRepository,
+    queryRunner,
+    components,
+  };
+}
 
-    describe('create', () => {
-        it('should create section with slug', async () => {
-            jest.spyOn(service, 'generateUniqueSlug').mockResolvedValue('test-section');
+const hero = (overrides: Partial<Row> = {}): Row => ({
+  id: "s-1",
+  slug: "giris",
+  name: "Giriş",
+  tenantId: TENANT,
+  usageCount: 2,
+  version: 1,
+  components: [
+    {
+      id: "sc-1",
+      reusableComponentId: "rc-1",
+      componentType: "block",
+      props: { title: "x" },
+      orderIndex: 0,
+    },
+  ],
+  ...overrides,
+});
 
-            const result = await service.create({ name: 'Test' } as any, 'u1');
+describe("ReusableSectionsService", () => {
+  it("creates a section with a Turkish-aware slug under the tenant", async () => {
+    const { service, sectionRepository } = setup([hero({ id: "saved" })]);
+    await service.create(
+      { name: "Ürün Vitrini", sectionType: "hero" } as never,
+      "u-1",
+    );
+    expect(sectionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: "urun-vitrini",
+        tenantId: TENANT,
+        authorId: "u-1",
+      }),
+    );
+  });
 
-            expect(result.slug).toBe('test-section');
-            expect(sectionRepo.save).toHaveBeenCalled();
-        });
-    });
+  it("gives a renamed section a free slug when another section already uses it", async () => {
+    const { service, sectionRepository } = setup([
+      hero(),
+      hero({ id: "s-2", slug: "vitrin", name: "Vitrin" }),
+    ]);
+    await service.update("s-1", { name: "Vitrin" } as never);
+    expect(sectionRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s-1", slug: "vitrin-1" }),
+    );
+  });
 
-    describe('duplicate', () => {
-        it('should duplicate section and components', async () => {
-            mockSectionRepo.findOne.mockResolvedValue({
-                id: '1',
-                name: 'Orig',
-                components: [{ id: 'c1', componentId: 'rc1' }]
-            });
+  it("duplicates the section and its components in one transaction", async () => {
+    const { service, queryRunner, sectionRepository } = setup([
+      hero(),
+      hero({ id: "copy", slug: "kopya" }),
+    ]);
+    await service.duplicate("s-1", { name: "Giriş kopyası" } as never, "u-1");
+    expect(sectionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Giriş kopyası",
+        isPublic: false,
+        tenantId: TENANT,
+      }),
+    );
+    expect(queryRunner.manager.save).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        sectionId: "copy",
+        reusableComponentId: "rc-1",
+        tenantId: TENANT,
+      }),
+    ]);
+    expect(queryRunner.commitTransaction).toHaveBeenCalled();
+    expect(queryRunner.release).toHaveBeenCalled();
+  });
 
-            await service.duplicate('1', {}, 'u1');
+  it("rolls the duplicate back when copying fails", async () => {
+    const { service, queryRunner } = setup([hero()]);
+    queryRunner.manager.save.mockRejectedValueOnce(
+      new Error("disk full") as never,
+    );
+    await expect(
+      service.duplicate("s-1", { name: "Kopya" } as never, "u-1"),
+    ).rejects.toThrow("disk full");
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+    expect(queryRunner.release).toHaveBeenCalled();
+  });
 
-            expect(sectionRepo.create).toHaveBeenCalledWith(
-                expect.objectContaining({ name: expect.stringContaining('(Copy)') })
-            );
-        });
-    });
-
-    describe('trackUsage', () => {
-        it('should increment usage', async () => {
-            await service.trackUsage('1', 'page', 'p1', 'u1');
-            expect(sectionRepo.increment).toHaveBeenCalled();
-        });
-    });
+  it("records usage for the section and the reusable components inside it", async () => {
+    const { service, sectionRepository, usageHistoryRepository, components } =
+      setup([hero()]);
+    await service.trackUsage("s-1", "page", "p-1", "u-1");
+    expect(sectionRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ usageCount: 3 }),
+    );
+    expect(usageHistoryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usableType: "reusable_section",
+        usableId: "s-1",
+        tenantId: TENANT,
+      }),
+    );
+    expect(components.trackUsage).toHaveBeenCalledTimes(1);
+    expect(components.trackUsage).toHaveBeenCalledWith(
+      "rc-1",
+      "page",
+      "p-1",
+      "u-1",
+    );
+  });
 });

@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { BlockRenderer } from './block-renderer';
-import { Lock } from 'lucide-react';
-import { EditableText } from './editable-text';
-import { EditorProvider } from './editor-context';
-import { PreviewProvider } from '@/components/cms/preview-context';
-import { blockRegistry } from '@/components/cms/block-registry';
-import { mergeComponentClasses } from '@/lib/cms/style-utils';
+import React, { useState, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BlockRenderer } from "./block-renderer";
+import { Lock } from "lucide-react";
+import { EditableText } from "./editable-text";
+import { EditorProvider } from "./editor-context";
+import { PreviewProvider } from "@/components/cms/preview-context";
+import { blockRegistry } from "@/components/cms/block-registry";
+import { mergeComponentClasses } from "@/lib/cms/style-utils";
 
 // V2 blocks are loaded from blockRegistry (no legacy imports needed)
 
@@ -37,7 +37,11 @@ interface EditorCanvasProps {
   onMoveDown?: (id: string) => void;
   isPreviewMode?: boolean;
   isFullWidth?: boolean; // NEW: Layout mode control
-  onReorderComponents?: (componentId: string, newParentId: string | null, index: number) => void;
+  onReorderComponents?: (
+    componentId: string,
+    newParentId: string | null,
+    index: number,
+  ) => void;
 }
 
 // Component Registry - Maps component types to their React components
@@ -64,7 +68,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   isFullWidth = false, // NEW: Default to boxed layout
 }) => {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [copiedComponent, setCopiedComponent] = useState<EditorComponent | null>(null);
+  const [copiedComponent, setCopiedComponent] =
+    useState<EditorComponent | null>(null);
   const [isDraggingPrebuild, setIsDraggingPrebuild] = useState(false);
 
   // Sort components by orderIndex for consistent rendering order
@@ -90,7 +95,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
       // Add to components (this would be handled by parent in a real implementation)
       // For now, we'll just log it
-      console.log('Pasting component:', newComponent);
+      console.log("Pasting component:", newComponent);
     }
   }, [copiedComponent]);
 
@@ -98,15 +103,17 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const isSelected = selectedComponentId === component.id;
     const isDragOver = dragOverId === component.id;
     const isLocked = component.locked;
-    const componentIndex = sortedComponents.findIndex(c => c.id === component.id);
+    const componentIndex = sortedComponents.findIndex(
+      (c) => c.id === component.id,
+    );
     const isFirst = componentIndex === 0;
     const isLast = componentIndex === sortedComponents.length - 1;
 
     const baseClasses = `
-      relative ${!isPreviewMode ? 'border-2 border-dashed border-transparent' : ''} rounded
-      ${!isPreviewMode && isSelected ? 'border-primary ring-2 ring-primary/20' : ''}
-      ${!isPreviewMode && isDragOver ? 'border-primary bg-primary/5' : ''}
-      ${isLocked ? 'opacity-75' : ''}
+      relative ${!isPreviewMode ? "border-2 border-dashed border-transparent" : ""} rounded
+      ${!isPreviewMode && isSelected ? "border-primary ring-2 ring-primary/20" : ""}
+      ${!isPreviewMode && isDragOver ? "border-primary bg-primary/5" : ""}
+      ${isLocked ? "opacity-75" : ""}
       transition-all duration-200
     `;
 
@@ -141,7 +148,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       ...component.props,
       id: component.id,
       key: component.id,
-      className: `${component.props.className || ''} ${baseClasses}`,
+      className: `${component.props.className || ""} ${baseClasses}`,
       onClick: handleClick,
     };
 
@@ -194,32 +201,64 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     // Check if this is a reusable component with blockId at root level
     // Fallback to props.blockId for backward compatibility with old data
-    const blockId = component.blockId || component.props?.blockId || component.type;
+    const blockId =
+      component.blockId || component.props?.blockId || component.type;
     const ComponentToRender = componentRegistry[blockId];
 
     if (ComponentToRender) {
       // Extract Advanced tab properties
-      const { marginTop, marginBottom, marginLeft, marginRight, paddingTop, paddingBottom,
-        paddingLeft, paddingRight, display, maxWidth, minHeight, shadow, opacity,
-        width, height, ...otherProps } = component.props;
+      const {
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        paddingTop,
+        paddingBottom,
+        paddingLeft,
+        paddingRight,
+        display,
+        maxWidth,
+        minHeight,
+        shadow,
+        opacity,
+        width,
+        height,
+        ...otherProps
+      } = component.props;
 
       // Build advancedProps object
       const advancedProps = {
-        marginTop, marginBottom, marginLeft, marginRight,
-        paddingTop, paddingBottom, paddingLeft, paddingRight,
-        display, maxWidth, minHeight, shadow, opacity, width, height
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        paddingTop,
+        paddingBottom,
+        paddingLeft,
+        paddingRight,
+        display,
+        maxWidth,
+        minHeight,
+        shadow,
+        opacity,
+        width,
+        height,
       };
 
       // Merge component classes with Advanced properties
       const mergedClassName = mergeComponentClasses(
-        component.props.className || '',
+        component.props.className || "",
         advancedProps,
-        component.props.cssClasses || ''
+        component.props.cssClasses || "",
       );
 
       return (
         <div key={component.id} className={baseClasses} onClick={handleClick}>
-          <ComponentToRender {...otherProps} className={mergedClassName} props={component.props} />
+          <ComponentToRender
+            {...otherProps}
+            className={mergedClassName}
+            props={component.props}
+          />
           {renderActionButtons()}
           {isLocked && (
             <div className="absolute top-2 left-2 bg-primary text-primary-foreground rounded-full p-1">
@@ -233,9 +272,16 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     // Unknown component type
     return (
-      <div key={component.id} className="p-4 text-center text-muted-foreground border border-dashed rounded bg-red-50">
-        <p className="text-sm text-red-600 font-medium">Unknown component type: {blockId}</p>
-        <p className="text-xs text-red-500 mt-1">This component is not registered in the component registry</p>
+      <div
+        key={component.id}
+        className="p-4 text-center text-muted-foreground border border-dashed rounded bg-red-50"
+      >
+        <p className="text-sm text-red-600 font-medium">
+          Unknown component type: {blockId}
+        </p>
+        <p className="text-xs text-red-500 mt-1">
+          This component is not registered in the component registry
+        </p>
       </div>
     );
   };
@@ -245,7 +291,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     // Check if dragging a prebuild component
     const types = e.dataTransfer.types;
-    if (types.includes('application/json')) {
+    if (types.includes("application/json")) {
       setIsDraggingPrebuild(true);
     }
   };
@@ -257,13 +303,13 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     // Try to get prebuild component data first
     try {
-      const jsonData = e.dataTransfer.getData('application/json');
+      const jsonData = e.dataTransfer.getData("application/json");
       if (jsonData) {
         const data = JSON.parse(jsonData);
 
-        if (data.type === 'prebuild-component') {
+        if (data.type === "prebuild-component") {
           // Handle prebuild component drop
-          const event = new CustomEvent('addPrebuildComponentAtPosition', {
+          const event = new CustomEvent("addPrebuildComponentAtPosition", {
             detail: {
               componentId: data.componentId,
               defaultProps: data.defaultProps,
@@ -276,12 +322,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         }
       }
     } catch (err) {
-      console.error('Failed to parse drop data:', err);
+      console.error("Failed to parse drop data:", err);
     }
 
     // Fallback to existing component reordering
     if (onReorderComponents) {
-      const componentId = e.dataTransfer.getData('componentId');
+      const componentId = e.dataTransfer.getData("componentId");
       if (componentId) {
         // Drop at root level (parentId = null, append to end)
         onReorderComponents(componentId, null, components.length);
@@ -305,7 +351,10 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       <EditorProvider onComponentUpdate={onComponentUpdate}>
         <Card className="h-full flex flex-col">
           <CardContent
-            className={`flex-1 p-4 overflow-auto h-full transition-colors ${isDraggingPrebuild ? 'bg-primary/5 border-2 border-dashed border-primary' : ''}`}
+            role="region"
+            aria-label="Sayfa kanvası"
+            tabIndex={0}
+            className={`flex-1 p-4 overflow-auto h-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isDraggingPrebuild ? "bg-primary/5 border-2 border-dashed border-primary" : ""}`}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragLeave={() => {
@@ -317,14 +366,25 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
               <div className="flex items-center justify-center h-full border-2 border-dashed border-muted-foreground/30 rounded-lg">
                 <div className="text-center space-y-2">
                   <p className="text-muted-foreground">No blocks yet</p>
-                  <p className="text-sm text-muted-foreground/70">Drag and drop blocks from the Blocks panel to start building</p>
+                  <p className="text-sm text-muted-foreground">
+                    Başlamak için bileşen panelinden blok sürükleyin ya da araç
+                    çubuğundan bölüm ekleyin.
+                  </p>
                 </div>
               </div>
             ) : (
               // Container wrapper - Full Width vs Boxed
-              <div className={isFullWidth ? 'w-full' : 'container mx-auto max-w-screen-xl px-4'}>
+              <div
+                className={
+                  isFullWidth
+                    ? "w-full"
+                    : "container mx-auto max-w-screen-xl px-4"
+                }
+              >
                 <div className="space-y-4">
-                  {sortedComponents.map((component) => renderComponent(component))}
+                  {sortedComponents.map((component) =>
+                    renderComponent(component),
+                  )}
                 </div>
               </div>
             )}

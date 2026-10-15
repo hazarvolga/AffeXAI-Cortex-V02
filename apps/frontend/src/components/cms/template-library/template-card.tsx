@@ -5,16 +5,24 @@
  * Shows design token color scheme visually
  */
 
-'use client';
+"use client";
 
-import React from 'react';
-import type { PageTemplate } from '@/types/cms-template';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDesignTokens } from '@/providers/DesignTokensProvider';
-import { resolveColorScheme } from '@/lib/cms/token-resolver';
-import { Eye, Download, Star, Users } from 'lucide-react';
+import React from "react";
+import type { PageTemplate } from "@/types/cms-template";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useDesignTokens } from "@/providers/DesignTokensProvider";
+import { resolveColorScheme } from "@/lib/cms/token-resolver";
+import { Eye, Download, Star, Users } from "lucide-react";
+import { toCssColor } from "./css-color";
 
 interface TemplateCardProps {
   template: PageTemplate;
@@ -32,23 +40,24 @@ function ColorSchemePreview({ template }: { template: PageTemplate }) {
   const { tokens } = useDesignTokens();
 
   // Resolve color scheme tokens to actual values
-  const resolvedColors = resolveColorScheme(template.designSystem.colorScheme, tokens);
+  const resolvedColors = resolveColorScheme(
+    template.designSystem.colorScheme,
+    tokens,
+  );
 
   const colorKeys: Array<keyof typeof template.designSystem.colorScheme> = [
-    'primary',
-    'accent',
-    'background',
-    'foreground',
+    "primary",
+    "accent",
+    "background",
+    "foreground",
   ];
 
   return (
     <div className="flex gap-1">
       {colorKeys.map((key) => {
         const color = resolvedColors[key];
-        if (!color) return null;
-
-        // Convert HSL format to CSS
-        const cssColor = color.includes(' ') ? `hsl(${color})` : color;
+        const cssColor = toCssColor(color);
+        if (!cssColor) return null;
 
         return (
           <div
@@ -66,37 +75,39 @@ function ColorSchemePreview({ template }: { template: PageTemplate }) {
 /**
  * Template Category Badge
  */
-function CategoryBadge({ category }: { category: PageTemplate['category'] }) {
-  const variants: Record<string, { variant: 'default' | 'secondary' | 'outline'; label: string }> = {
-    'Landing Page': { variant: 'default', label: 'Landing' },
-    'Education': { variant: 'secondary', label: 'Education' },
-    'Business': { variant: 'default', label: 'Business' },
-    'Portfolio': { variant: 'secondary', label: 'Portfolio' },
-    'Blog': { variant: 'outline', label: 'Blog' },
-    'Product': { variant: 'default', label: 'Product' },
-    'Solutions': { variant: 'secondary', label: 'Solutions' },
-    'Event': { variant: 'outline', label: 'Event' },
-    'Contact': { variant: 'default', label: 'Contact' },
-    'Team': { variant: 'secondary', label: 'Team' },
-    'FAQ': { variant: 'outline', label: 'FAQ' },
-    'Legal': { variant: 'outline', label: 'Legal' },
-    'Pricing': { variant: 'default', label: 'Pricing' },
-    'News': { variant: 'secondary', label: 'News' },
-    'Case Study': { variant: 'default', label: 'Case Study' },
-    'Feature': { variant: 'outline', label: 'Feature' },
-    'Error': { variant: 'secondary', label: 'Error' },
-    'Verification': { variant: 'default', label: 'Verification' },
-    'Campaign': { variant: 'outline', label: 'Campaign' },
-    'E-Commerce': { variant: 'default', label: 'E-Commerce' },
+function CategoryBadge({ category }: { category: PageTemplate["category"] }) {
+  const variants: Record<
+    string,
+    { variant: "default" | "secondary" | "outline"; label: string }
+  > = {
+    "Landing Page": { variant: "default", label: "Landing" },
+    Education: { variant: "secondary", label: "Education" },
+    Business: { variant: "default", label: "Business" },
+    Portfolio: { variant: "secondary", label: "Portfolio" },
+    Blog: { variant: "outline", label: "Blog" },
+    Product: { variant: "default", label: "Product" },
+    Solutions: { variant: "secondary", label: "Solutions" },
+    Event: { variant: "outline", label: "Event" },
+    Contact: { variant: "default", label: "Contact" },
+    Team: { variant: "secondary", label: "Team" },
+    FAQ: { variant: "outline", label: "FAQ" },
+    Legal: { variant: "outline", label: "Legal" },
+    Pricing: { variant: "default", label: "Pricing" },
+    News: { variant: "secondary", label: "News" },
+    "Case Study": { variant: "default", label: "Case Study" },
+    Feature: { variant: "outline", label: "Feature" },
+    Error: { variant: "secondary", label: "Error" },
+    Verification: { variant: "default", label: "Verification" },
+    Campaign: { variant: "outline", label: "Campaign" },
+    "E-Commerce": { variant: "default", label: "E-Commerce" },
   };
 
-  const config = variants[category] || { variant: 'outline' as const, label: category };
+  const config = variants[category] || {
+    variant: "outline" as const,
+    label: category,
+  };
 
-  return (
-    <Badge variant={config.variant}>
-      {config.label}
-    </Badge>
-  );
+  return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
 /**
@@ -112,7 +123,7 @@ export function TemplateCard({
   return (
     <Card
       className={`group hover:shadow-lg transition-shadow cursor-pointer ${
-        selected ? 'ring-2 ring-primary' : ''
+        selected ? "ring-2 ring-primary" : ""
       }`}
       onClick={() => onSelect?.(template)}
     >
@@ -158,13 +169,17 @@ export function TemplateCard({
       <CardContent className="space-y-3">
         {/* Color Scheme */}
         <div className="space-y-1">
-          <div className="text-xs text-muted-foreground font-medium">Color Scheme</div>
+          <div className="text-xs text-muted-foreground font-medium">
+            Color Scheme
+          </div>
           <ColorSchemePreview template={template} />
         </div>
 
         {/* Supported Contexts */}
         <div className="space-y-1">
-          <div className="text-xs text-muted-foreground font-medium">Contexts</div>
+          <div className="text-xs text-muted-foreground font-medium">
+            Contexts
+          </div>
           <div className="flex gap-1">
             {template.designSystem.supportedContexts.map((context) => (
               <Badge key={context} variant="outline" className="text-xs">
@@ -236,11 +251,11 @@ export function CompactTemplateCard({
   template,
   onSelect,
   selected = false,
-}: Pick<TemplateCardProps, 'template' | 'onSelect' | 'selected'>) {
+}: Pick<TemplateCardProps, "template" | "onSelect" | "selected">) {
   return (
     <div
       className={`p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
-        selected ? 'ring-2 ring-primary' : ''
+        selected ? "ring-2 ring-primary" : ""
       }`}
       onClick={() => onSelect?.(template)}
     >

@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { BlockRenderer } from '@/components/cms/editor/block-renderer';
-import { PreviewProvider } from '@/components/cms/preview-context';
-import { templateService } from '@/lib/api/templateService';
-import type { PageTemplate } from '@/types/cms-template';
+import React, { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { BlockRenderer } from "@/components/cms/editor/block-renderer";
+import { PreviewProvider } from "@/components/cms/preview-context";
+import { templateService } from "@/lib/api/templateService";
+import type { PageTemplate } from "@/types/cms-template";
 import {
   ArrowLeft,
   Download,
@@ -18,13 +19,14 @@ import {
   RefreshCw,
   Eye,
   Layers,
-} from 'lucide-react';
+} from "lucide-react";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
-type ViewportSize = 'desktop' | 'tablet' | 'mobile';
+type ViewportSize = "desktop" | "tablet" | "mobile";
 
 /**
  * Template Preview Page
- * 
+ *
  * Full-page preview of a template with real component rendering
  * Features:
  * - Real block component rendering
@@ -34,18 +36,13 @@ type ViewportSize = 'desktop' | 'tablet' | 'mobile';
  */
 export default function TemplatePreviewPage() {
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const params = useParams();
   const templateId = params?.id as string;
 
   const [template, setTemplate] = useState<PageTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewport, setViewport] = useState<ViewportSize>('desktop');
-
-  useEffect(() => {
-    if (templateId) {
-      loadTemplate();
-    }
-  }, [templateId]);
+  const [viewport, setViewport] = useState<ViewportSize>("desktop");
 
   const loadTemplate = async () => {
     try {
@@ -53,27 +50,27 @@ export default function TemplatePreviewPage() {
       const data = await templateService.getById(templateId);
       setTemplate(data);
     } catch (error) {
-      console.error('Error loading template:', error);
+      console.error("Error loading template:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useAsyncEffect(() => (templateId ? loadTemplate() : undefined), [templateId]);
+
   const handleApplyTemplate = () => {
     if (!template) return;
-    // TODO: Navigate to editor with template
-    console.log('Applying template:', template.name);
-    router.push(`/admin/cms/editor?template=${template.id}`);
+    router.push(tenantHref(`/cms/editor?template=${template.id}`));
   };
 
   const handleBack = () => {
-    router.push('/admin/cms/templates');
+    router.push(tenantHref("/cms/templates"));
   };
 
   const viewportDimensions = {
-    desktop: { width: '100%', maxWidth: '1920px' },
-    tablet: { width: '768px', maxWidth: '768px' },
-    mobile: { width: '375px', maxWidth: '375px' },
+    desktop: { width: "100%", maxWidth: "1920px" },
+    tablet: { width: "768px", maxWidth: "768px" },
+    mobile: { width: "375px", maxWidth: "375px" },
   };
 
   if (isLoading) {
@@ -129,25 +126,25 @@ export default function TemplatePreviewPage() {
               {/* Center: Viewport Controls */}
               <div className="flex items-center gap-2 border rounded-lg p-1 bg-muted/50">
                 <Button
-                  variant={viewport === 'desktop' ? 'default' : 'ghost'}
+                  variant={viewport === "desktop" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewport('desktop')}
+                  onClick={() => setViewport("desktop")}
                 >
                   <Monitor className="h-4 w-4" />
                   <span className="hidden sm:inline ml-2">Desktop</span>
                 </Button>
                 <Button
-                  variant={viewport === 'tablet' ? 'default' : 'ghost'}
+                  variant={viewport === "tablet" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewport('tablet')}
+                  onClick={() => setViewport("tablet")}
                 >
                   <Tablet className="h-4 w-4" />
                   <span className="hidden sm:inline ml-2">Tablet</span>
                 </Button>
                 <Button
-                  variant={viewport === 'mobile' ? 'default' : 'ghost'}
+                  variant={viewport === "mobile" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewport('mobile')}
+                  onClick={() => setViewport("mobile")}
                 >
                   <Smartphone className="h-4 w-4" />
                   <span className="hidden sm:inline ml-2">Mobile</span>
@@ -237,9 +234,9 @@ export default function TemplatePreviewPage() {
                   </div>
                 </div>
                 <div>
-                  {viewport === 'desktop' && '1920px'}
-                  {viewport === 'tablet' && '768px'}
-                  {viewport === 'mobile' && '375px'}
+                  {viewport === "desktop" && "1920px"}
+                  {viewport === "tablet" && "768px"}
+                  {viewport === "mobile" && "375px"}
                 </div>
               </div>
             </div>

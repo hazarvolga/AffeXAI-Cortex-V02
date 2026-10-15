@@ -5,20 +5,30 @@
  * Includes context filtering and search functionality
  */
 
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
-import type { PageTemplate, TemplateCategory, TemplateFilters } from '@/types/cms-template';
-import type { ThemeContext } from '@/types/design-tokens';
-import { TemplateCard } from './template-card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useDesignTokens } from '@/providers/DesignTokensProvider';
-import { validateTemplateContext } from '@/lib/cms/token-validator';
-import { Search, Filter, Star, TrendingUp, Clock, SortAsc } from 'lucide-react';
+import React, { useState, useMemo } from "react";
+import type {
+  PageTemplate,
+  TemplateCategory,
+  TemplateFilters,
+} from "@/types/cms-template";
+import type { ThemeContext } from "@/types/design-tokens";
+import { TemplateCard } from "./template-card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDesignTokens } from "@/providers/DesignTokensProvider";
+import { validateTemplateContext } from "@/lib/cms/token-validator";
+import { Search, Filter, Star, TrendingUp, Clock, SortAsc } from "lucide-react";
 
 interface TemplateLibraryProps {
   templates: PageTemplate[];
@@ -31,36 +41,55 @@ interface TemplateLibraryProps {
  * Category filter chips
  */
 const categoryOptions: { value: TemplateCategory; label: string }[] = [
-  { value: 'Landing Page', label: 'Landing Pages' },
-  { value: 'Education', label: 'Education' },
-  { value: 'Business', label: 'Business' },
-  { value: 'Portfolio', label: 'Portfolio' },
-  { value: 'Blog', label: 'Blog' },
-  { value: 'Product', label: 'Product' },
-  { value: 'Solutions', label: 'Solutions' },
-  { value: 'Event', label: 'Events' },
-  { value: 'Contact', label: 'Contact' },
-  { value: 'Team', label: 'Team' },
-  { value: 'FAQ', label: 'FAQ' },
-  { value: 'Legal', label: 'Legal' },
-  { value: 'Pricing', label: 'Pricing' },
-  { value: 'News', label: 'News' },
-  { value: 'Case Study', label: 'Case Studies' },
-  { value: 'Feature', label: 'Features' },
-  { value: 'Error', label: 'Error Pages' },
-  { value: 'Verification', label: 'Verification' },
-  { value: 'Campaign', label: 'Campaigns' },
-  { value: 'E-Commerce', label: 'E-Commerce' },
+  { value: "Landing Page", label: "Landing Pages" },
+  { value: "Education", label: "Education" },
+  { value: "Business", label: "Business" },
+  { value: "Portfolio", label: "Portfolio" },
+  { value: "Blog", label: "Blog" },
+  { value: "Product", label: "Product" },
+  { value: "Solutions", label: "Solutions" },
+  { value: "Event", label: "Events" },
+  { value: "Contact", label: "Contact" },
+  { value: "Team", label: "Team" },
+  { value: "FAQ", label: "FAQ" },
+  { value: "Legal", label: "Legal" },
+  { value: "Pricing", label: "Pricing" },
+  { value: "News", label: "News" },
+  { value: "Case Study", label: "Case Studies" },
+  { value: "Feature", label: "Features" },
+  { value: "Error", label: "Error Pages" },
+  { value: "Verification", label: "Verification" },
+  { value: "Campaign", label: "Campaigns" },
+  { value: "E-Commerce", label: "E-Commerce" },
 ];
 
 /**
  * Sort options
  */
-const sortOptions: { value: NonNullable<TemplateFilters['sortBy']>; label: string; icon: React.ReactNode }[] = [
-  { value: 'popular', label: 'Most Popular', icon: <TrendingUp className="h-4 w-4" /> },
-  { value: 'recent', label: 'Recently Added', icon: <Clock className="h-4 w-4" /> },
-  { value: 'name', label: 'Name', icon: <SortAsc className="h-4 w-4" /> },
+const sortOptions: {
+  value: NonNullable<TemplateFilters["sortBy"]>;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "popular",
+    label: "Most Popular",
+    icon: <TrendingUp className="h-4 w-4" />,
+  },
+  {
+    value: "recent",
+    label: "Recently Added",
+    icon: <Clock className="h-4 w-4" />,
+  },
+  { value: "name", label: "Name", icon: <SortAsc className="h-4 w-4" /> },
 ];
+
+const CONTEXT_LABELS = {
+  all: "Tümü",
+  public: "Herkese açık",
+  admin: "Yönetim",
+  portal: "Portal",
+} as const;
 
 export function TemplateLibrary({
   templates,
@@ -71,12 +100,14 @@ export function TemplateLibrary({
   const { context: currentContext, tokens } = useDesignTokens();
 
   // Filters state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<TemplateCategory[]>([]);
-  const [selectedContext, setSelectedContext] = useState<ThemeContext | 'all'>(
-    filterByContext ? currentContext : 'all'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<
+    TemplateCategory[]
+  >([]);
+  const [selectedContext, setSelectedContext] = useState<ThemeContext | "all">(
+    filterByContext ? currentContext : "all",
   );
-  const [sortBy, setSortBy] = useState<TemplateFilters['sortBy']>('popular');
+  const [sortBy, setSortBy] = useState<TemplateFilters["sortBy"]>("popular");
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
 
   // Filter and sort templates
@@ -90,20 +121,28 @@ export function TemplateLibrary({
         (template) =>
           template.name.toLowerCase().includes(query) ||
           template.description.toLowerCase().includes(query) ||
-          template.metadata?.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
-          template.metadata?.keywords?.some((keyword) => keyword.toLowerCase().includes(query))
+          template.metadata?.tags?.some((tag) =>
+            tag.toLowerCase().includes(query),
+          ) ||
+          template.metadata?.keywords?.some((keyword) =>
+            keyword.toLowerCase().includes(query),
+          ),
       );
     }
 
     // Filter by category
     if (selectedCategories.length > 0) {
-      result = result.filter((template) => selectedCategories.includes(template.category));
+      result = result.filter((template) =>
+        selectedCategories.includes(template.category),
+      );
     }
 
     // Filter by context compatibility
-    if (selectedContext !== 'all') {
+    if (selectedContext !== "all") {
       result = result.filter((template) =>
-        template.designSystem.supportedContexts.includes(selectedContext as ThemeContext)
+        template.designSystem.supportedContexts.includes(
+          selectedContext as ThemeContext,
+        ),
       );
     }
 
@@ -114,31 +153,39 @@ export function TemplateLibrary({
 
     // Sort
     switch (sortBy) {
-      case 'popular':
+      case "popular":
         result = [...result].sort((a, b) => b.usageCount - a.usageCount);
         break;
-      case 'recent':
+      case "recent":
         result = [...result].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
         break;
-      case 'name':
+      case "name":
         result = [...result].sort((a, b) => a.name.localeCompare(b.name));
         break;
     }
 
     return result;
-  }, [templates, searchQuery, selectedCategories, selectedContext, sortBy, showFeaturedOnly]);
+  }, [
+    templates,
+    searchQuery,
+    selectedCategories,
+    selectedContext,
+    sortBy,
+    showFeaturedOnly,
+  ]);
 
   // Validate template compatibility with current context
   const getTemplateCompatibility = (template: PageTemplate) => {
-    if (selectedContext === 'all') return { isCompatible: true, warnings: [] };
+    if (selectedContext === "all") return { isCompatible: true, warnings: [] };
 
     const validation = validateTemplateContext(
       template,
       selectedContext as ThemeContext,
-      'light', // Default to light mode for validation
-      tokens
+      "light", // Default to light mode for validation
+      tokens,
     );
 
     return {
@@ -150,7 +197,9 @@ export function TemplateLibrary({
   // Toggle category filter
   const toggleCategory = (category: TemplateCategory) => {
     setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category],
     );
   };
 
@@ -159,9 +208,9 @@ export function TemplateLibrary({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Template Library</h2>
+          <h2 className="text-2xl font-bold">Şablon kütüphanesi</h2>
           <p className="text-muted-foreground">
-            {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''} available
+            {filteredTemplates.length} şablon
           </p>
         </div>
       </div>
@@ -169,12 +218,16 @@ export function TemplateLibrary({
       {/* Filters */}
       <div className="space-y-4">
         {/* Search and Sort */}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative min-w-[12rem] flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
-              placeholder="Search templates..."
+              aria-label="Şablon ara"
+              placeholder="Şablon ara..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -182,8 +235,11 @@ export function TemplateLibrary({
           </div>
 
           {/* Sort */}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as TemplateFilters['sortBy'])}>
-            <SelectTrigger className="w-[180px]">
+          <Select
+            value={sortBy}
+            onValueChange={(v) => setSortBy(v as TemplateFilters["sortBy"])}
+          >
+            <SelectTrigger className="w-[180px]" aria-label="Sıralama">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -200,28 +256,45 @@ export function TemplateLibrary({
 
           {/* Featured Toggle */}
           <Button
-            variant={showFeaturedOnly ? 'default' : 'outline'}
+            variant={showFeaturedOnly ? "default" : "outline"}
+            aria-pressed={showFeaturedOnly}
             onClick={() => setShowFeaturedOnly(!showFeaturedOnly)}
           >
-            <Star className={`h-4 w-4 mr-2 ${showFeaturedOnly ? 'fill-current' : ''}`} />
-            Featured
+            <Star
+              className={`h-4 w-4 mr-2 ${showFeaturedOnly ? "fill-current" : ""}`}
+              aria-hidden="true"
+            />
+            Öne çıkanlar
           </Button>
         </div>
 
         {/* Context Filter */}
         {filterByContext && (
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Context:</span>
-            <div className="flex gap-2">
-              {(['all', 'public', 'admin', 'portal'] as const).map((ctx) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter
+              className="h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span
+              id="template-context-label"
+              className="text-sm text-muted-foreground"
+            >
+              Bağlam:
+            </span>
+            <div
+              role="group"
+              aria-labelledby="template-context-label"
+              className="flex flex-wrap gap-2"
+            >
+              {(["all", "public", "admin", "portal"] as const).map((ctx) => (
                 <Button
                   key={ctx}
-                  variant={selectedContext === ctx ? 'default' : 'outline'}
+                  variant={selectedContext === ctx ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={selectedContext === ctx}
                   onClick={() => setSelectedContext(ctx)}
                 >
-                  {ctx === 'all' ? 'All' : ctx.charAt(0).toUpperCase() + ctx.slice(1)}
+                  {CONTEXT_LABELS[ctx]}
                 </Button>
               ))}
             </div>
@@ -229,16 +302,27 @@ export function TemplateLibrary({
         )}
 
         {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label="Kategori"
+          className="flex flex-wrap gap-2"
+        >
           {categoryOptions.map((option) => (
-            <Badge
+            <Button
               key={option.value}
-              variant={selectedCategories.includes(option.value) ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/90"
+              type="button"
+              size="sm"
+              variant={
+                selectedCategories.includes(option.value)
+                  ? "default"
+                  : "outline"
+              }
+              aria-pressed={selectedCategories.includes(option.value)}
+              className="h-7 rounded-full px-3 text-xs"
               onClick={() => toggleCategory(option.value)}
             >
               {option.label}
-            </Badge>
+            </Button>
           ))}
         </div>
       </div>
@@ -247,7 +331,7 @@ export function TemplateLibrary({
       {filteredTemplates.length === 0 ? (
         <div className="text-center py-16">
           <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No templates found</h3>
+          <h3 className="text-lg font-medium mb-2">Şablon bulunamadı</h3>
           <p className="text-muted-foreground">
             Try adjusting your filters or search query
           </p>
@@ -266,7 +350,7 @@ export function TemplateLibrary({
                 />
 
                 {/* Compatibility Warning */}
-                {!compatibility.isCompatible && selectedContext !== 'all' && (
+                {!compatibility.isCompatible && selectedContext !== "all" && (
                   <Badge
                     variant="destructive"
                     className="absolute top-2 left-2 z-10"
@@ -303,8 +387,11 @@ export function TemplateLibraryModal({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 ${open ? 'block' : 'hidden'}`}>
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} />
+    <div className={`fixed inset-0 z-50 ${open ? "block" : "hidden"}`}>
+      <div
+        className="fixed inset-0 bg-black/50"
+        onClick={() => onOpenChange(false)}
+      />
       <div className="fixed inset-4 bg-background rounded-lg shadow-lg overflow-hidden">
         <div className="h-full overflow-y-auto p-6">
           <div className="flex items-center justify-between mb-6">

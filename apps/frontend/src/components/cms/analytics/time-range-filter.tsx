@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { tr } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import type { AnalyticsTimeRange } from '@/lib/api/cmsAnalyticsService';
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import type { AnalyticsTimeRange } from "@/lib/api/cmsAnalyticsService";
 
 interface TimeRangeFilterProps {
   timeRange: AnalyticsTimeRange;
@@ -29,12 +29,12 @@ interface TimeRangeFilterProps {
 }
 
 const TIME_RANGE_OPTIONS = [
-  { value: 'today', label: 'Bugün' },
-  { value: 'yesterday', label: 'Dün' },
-  { value: 'last7days', label: 'Son 7 Gün' },
-  { value: 'last30days', label: 'Son 30 Gün' },
-  { value: 'last90days', label: 'Son 90 Gün' },
-  { value: 'custom', label: 'Özel Tarih Aralığı' },
+  { value: "today", label: "Bugün" },
+  { value: "yesterday", label: "Dün" },
+  { value: "last7days", label: "Son 7 Gün" },
+  { value: "last30days", label: "Son 30 Gün" },
+  { value: "last90days", label: "Son 90 Gün" },
+  { value: "custom", label: "Özel Tarih Aralığı" },
 ] as const;
 
 export function TimeRangeFilter({
@@ -44,12 +44,20 @@ export function TimeRangeFilter({
   customEndDate,
   onCustomDateChange,
 }: TimeRangeFilterProps) {
-  const isCustomRange = timeRange === 'custom';
+  const isCustomRange = timeRange === "custom";
 
   return (
     <div className="flex flex-col sm:flex-row gap-3">
-      <Select value={timeRange} onValueChange={(value) => onTimeRangeChange(value as AnalyticsTimeRange)}>
-        <SelectTrigger className="w-full sm:w-[200px]">
+      <Select
+        value={timeRange}
+        onValueChange={(value) =>
+          onTimeRangeChange(value as AnalyticsTimeRange)
+        }
+      >
+        <SelectTrigger
+          className="w-full sm:w-[200px]"
+          aria-label="Zaman aralığı"
+        >
           <SelectValue placeholder="Zaman aralığı seç" />
         </SelectTrigger>
         <SelectContent>
@@ -68,13 +76,13 @@ export function TimeRangeFilter({
               <Button
                 variant="outline"
                 className={cn(
-                  'w-[180px] justify-start text-left font-normal',
-                  !customStartDate && 'text-muted-foreground'
+                  "w-[180px] justify-start text-left font-normal",
+                  !customStartDate && "text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {customStartDate ? (
-                  format(customStartDate, 'PPP', { locale: tr })
+                  format(customStartDate, "PPP", { locale: tr })
                 ) : (
                   <span>Başlangıç tarihi</span>
                 )}
@@ -87,7 +95,8 @@ export function TimeRangeFilter({
                 onSelect={(date) => onCustomDateChange(date, customEndDate)}
                 initialFocus
                 disabled={(date) =>
-                  date > new Date() || (customEndDate ? date > customEndDate : false)
+                  date > new Date() ||
+                  (customEndDate ? date > customEndDate : false)
                 }
               />
             </PopoverContent>
@@ -98,13 +107,13 @@ export function TimeRangeFilter({
               <Button
                 variant="outline"
                 className={cn(
-                  'w-[180px] justify-start text-left font-normal',
-                  !customEndDate && 'text-muted-foreground'
+                  "w-[180px] justify-start text-left font-normal",
+                  !customEndDate && "text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {customEndDate ? (
-                  format(customEndDate, 'PPP', { locale: tr })
+                  format(customEndDate, "PPP", { locale: tr })
                 ) : (
                   <span>Bitiş tarihi</span>
                 )}
@@ -117,7 +126,8 @@ export function TimeRangeFilter({
                 onSelect={(date) => onCustomDateChange(customStartDate, date)}
                 initialFocus
                 disabled={(date) =>
-                  date > new Date() || (customStartDate ? date < customStartDate : false)
+                  date > new Date() ||
+                  (customStartDate ? date < customStartDate : false)
                 }
               />
             </PopoverContent>

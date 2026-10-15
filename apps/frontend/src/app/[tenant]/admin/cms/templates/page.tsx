@@ -29,6 +29,7 @@ import { templateService } from "@/lib/api/templateService";
 import { getSeedTemplatesWithIds } from "@/lib/cms/seed-templates";
 import type { PageTemplate, TemplatePart } from "@/types/cms-template";
 import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 /**
  * CMS Templates Management Page
@@ -42,6 +43,7 @@ import { useAsyncEffect } from "@/hooks/use-async-effect";
  */
 export default function TemplatesPage() {
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const [templates, setTemplates] = useState<PageTemplate[]>([]);
   const [templateParts, setTemplateParts] = useState<TemplatePart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,12 +95,12 @@ export default function TemplatesPage() {
     // TODO: Implement template application logic
     console.log("Applying template:", template.name);
     // Navigate to CMS editor with template
-    router.push(`/admin/cms/editor?template=${template.id}`);
+    router.push(tenantHref(`/cms/editor?template=${template.id}`));
   };
 
   const handlePreviewTemplate = async (template: PageTemplate) => {
     // Navigate to dedicated preview page
-    router.push(`/admin/cms/templates/preview/${template.id}`);
+    router.push(tenantHref(`/cms/templates/preview/${template.id}`));
   };
 
   const handleImportTemplate = async (template: PageTemplate) => {
@@ -135,7 +137,7 @@ export default function TemplatesPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Sayfa Şablonları
@@ -145,7 +147,7 @@ export default function TemplatesPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Badge variant="outline" className="h-8">
             <FileStack className="h-3 w-3 mr-1" />
             {templates.length} Şablon

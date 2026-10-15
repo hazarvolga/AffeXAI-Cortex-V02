@@ -1,17 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, ILike, In } from 'typeorm';
-import { ReusableComponent } from '../entities/reusable-component.entity';
-import { ComponentUsageHistory } from '../entities/component-usage-history.entity';
-import { ComponentFavorite } from '../entities/component-favorite.entity';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, FindOptionsWhere, ILike, In, Not } from "typeorm";
+import { ReusableComponent } from "../entities/reusable-component.entity";
+import { ComponentUsageHistory } from "../entities/component-usage-history.entity";
+import { ComponentFavorite } from "../entities/component-favorite.entity";
 import {
   CreateReusableComponentDto,
   UpdateReusableComponentDto,
   ReusableComponentFilterDto,
   DuplicateReusableComponentDto,
   PaginatedReusableComponentsDto,
-} from '../dto/reusable-component.dto';
-import { TenantService } from '../../../core/tenant/tenant.service';
+} from "../dto/reusable-component.dto";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { uniqueSlug } from "./unique-slug";
+import { slugify } from "../../../common/utils/slugify.util";
 
 @Injectable()
 export class ReusableComponentsService {
@@ -23,7 +29,7 @@ export class ReusableComponentsService {
     @InjectRepository(ComponentFavorite)
     private readonly favoriteRepository: Repository<ComponentFavorite>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private get tenantId(): string {
     return this.tenantService.getTenantId();
@@ -66,64 +72,72 @@ export class ReusableComponentsService {
       isPublic,
       isFeatured,
       myComponents,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
+      sortBy = "createdAt",
+      sortOrder = "DESC",
       limit = 20,
       page = 1,
     } = filters;
 
     const queryBuilder = this.componentRepository
-      .createQueryBuilder('component')
-      .leftJoinAndSelect('component.author', 'author')
-      .leftJoinAndSelect('component.category', 'category')
-      .where('component.tenantId = :tenantId', { tenantId: this.tenantId });
+      .createQueryBuilder("component")
+      .leftJoinAndSelect("component.author", "author")
+      .leftJoinAndSelect("component.category", "category")
+      .where("component.tenantId = :tenantId", { tenantId: this.tenantId });
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        '(component.name ILIKE :search OR component.description ILIKE :search OR :search = ANY(component.tags))',
+        "(component.name ILIKE :search OR component.description ILIKE :search OR :search = ANY(component.tags))",
         { search: `%${search}%` },
       );
     }
 
     if (componentType) {
-      queryBuilder.andWhere('component.componentType = :componentType', { componentType });
+      queryBuilder.andWhere("component.componentType = :componentType", {
+        componentType,
+      });
     }
 
     if (blockCategory) {
-      queryBuilder.andWhere('component.blockCategory = :blockCategory', { blockCategory });
+      queryBuilder.andWhere("component.blockCategory = :blockCategory", {
+        blockCategory,
+      });
     }
 
     if (categoryId) {
-      queryBuilder.andWhere('component.categoryId = :categoryId', { categoryId });
+      queryBuilder.andWhere("component.categoryId = :categoryId", {
+        categoryId,
+      });
     }
 
     if (tags && tags.length > 0) {
-      queryBuilder.andWhere('component.tags && :tags', { tags });
+      queryBuilder.andWhere("component.tags && :tags", { tags });
     }
 
     if (authorId) {
-      queryBuilder.andWhere('component.authorId = :authorId', { authorId });
+      queryBuilder.andWhere("component.authorId = :authorId", { authorId });
     }
 
-    if (typeof isPublic === 'boolean') {
-      queryBuilder.andWhere('component.isPublic = :isPublic', { isPublic });
+    if (typeof isPublic === "boolean") {
+      queryBuilder.andWhere("component.isPublic = :isPublic", { isPublic });
     }
 
-    if (typeof isFeatured === 'boolean') {
-      queryBuilder.andWhere('component.isFeatured = :isFeatured', { isFeatured });
+    if (typeof isFeatured === "boolean") {
+      queryBuilder.andWhere("component.isFeatured = :isFeatured", {
+        isFeatured,
+      });
     }
 
     if (myComponents && userId) {
-      queryBuilder.andWhere('component.authorId = :userId', { userId });
+      queryBuilder.andWhere("component.authorId = :userId", { userId });
     }
 
     // Apply sorting
-    if (sortBy === 'featured') {
-      queryBuilder.orderBy('component.isFeatured', sortOrder);
-      queryBuilder.addOrderBy('component.usageCount', 'DESC');
-    } else if (sortBy === 'usageCount') {
-      queryBuilder.orderBy('component.usageCount', sortOrder);
+    if (sortBy === "featured") {
+      queryBuilder.orderBy("component.isFeatured", sortOrder);
+      queryBuilder.addOrderBy("component.usageCount", "DESC");
+    } else if (sortBy === "usageCount") {
+      queryBuilder.orderBy("component.usageCount", sortOrder);
     } else {
       queryBuilder.orderBy(`component.${sortBy}`, sortOrder);
     }
@@ -149,7 +163,7 @@ export class ReusableComponentsService {
   async findOne(id: string): Promise<ReusableComponent> {
     const component = await this.componentRepository.findOne({
       where: { id, tenantId: this.tenantId },
-      relations: ['author', 'category', 'parentVersion'],
+      relations: ["author", "category", "parentVersion"],
     });
 
     if (!component) {
@@ -170,7 +184,7 @@ export class ReusableComponentsService {
 
     // If name changed, regenerate slug
     if (dto.name && dto.name !== component.name) {
-      dto['slug'] = await this.generateUniqueSlug(dto.name, id);
+      dto["slug"] = await this.generateUniqueSlug(dto.name, id);
     }
 
     Object.assign(component, dto);
@@ -246,7 +260,7 @@ export class ReusableComponentsService {
 
     // Record usage history
     const history = this.usageHistoryRepository.create({
-      usableType: 'reusable_component',
+      usableType: "reusable_component",
       usableId: componentId,
       usedInType,
       usedInId,
@@ -263,12 +277,12 @@ export class ReusableComponentsService {
   async getUsageHistory(componentId: string): Promise<ComponentUsageHistory[]> {
     return await this.usageHistoryRepository.find({
       where: {
-        usableType: 'reusable_component',
+        usableType: "reusable_component",
         usableId: componentId,
         tenantId: this.tenantId, // Ensure history is also tenant scoped if needed, or componentId check is enough
       },
-      relations: ['user'],
-      order: { createdAt: 'DESC' },
+      relations: ["user"],
+      order: { createdAt: "DESC" },
       take: 100, // Limit to last 100 uses
     });
   }
@@ -284,19 +298,19 @@ export class ReusableComponentsService {
     const existing = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_component',
+        favoritableType: "reusable_component",
         favoritableId: componentId,
         tenantId: this.tenantId,
       },
     });
 
     if (existing) {
-      throw new BadRequestException('Component already in favorites');
+      throw new BadRequestException("Component already in favorites");
     }
 
     const favorite = this.favoriteRepository.create({
       userId,
-      favoritableType: 'reusable_component',
+      favoritableType: "reusable_component",
       favoritableId: componentId,
       tenantId: this.tenantId,
     });
@@ -307,18 +321,21 @@ export class ReusableComponentsService {
   /**
    * Remove component from favorites
    */
-  async removeFromFavorites(componentId: string, userId: string): Promise<void> {
+  async removeFromFavorites(
+    componentId: string,
+    userId: string,
+  ): Promise<void> {
     const favorite = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_component',
+        favoritableType: "reusable_component",
         favoritableId: componentId,
         tenantId: this.tenantId,
       },
     });
 
     if (!favorite) {
-      throw new NotFoundException('Favorite not found');
+      throw new NotFoundException("Favorite not found");
     }
 
     await this.favoriteRepository.remove(favorite);
@@ -331,7 +348,7 @@ export class ReusableComponentsService {
     const favorites = await this.favoriteRepository.find({
       where: {
         userId,
-        favoritableType: 'reusable_component',
+        favoritableType: "reusable_component",
         tenantId: this.tenantId,
       },
     });
@@ -344,7 +361,7 @@ export class ReusableComponentsService {
 
     return await this.componentRepository.find({
       where: { id: In(componentIds), tenantId: this.tenantId },
-      relations: ['author', 'category'],
+      relations: ["author", "category"],
     });
   }
 
@@ -355,7 +372,7 @@ export class ReusableComponentsService {
     const favorite = await this.favoriteRepository.findOne({
       where: {
         userId,
-        favoritableType: 'reusable_component',
+        favoritableType: "reusable_component",
         favoritableId: componentId,
         tenantId: this.tenantId,
       },
@@ -395,11 +412,9 @@ export class ReusableComponentsService {
 
     for (const dto of components) {
       try {
-        const slug = await this.generateUniqueSlug(dto.name);
-
-        // Check if exists in current tenant
+        // A component with the same name already has this base slug in the tenant.
         const existing = await this.componentRepository.findOne({
-          where: { slug, tenantId: this.tenantId }
+          where: { slug: slugify(dto.name), tenantId: this.tenantId },
         });
 
         if (existing && !overwrite) {
@@ -430,34 +445,21 @@ export class ReusableComponentsService {
   /**
    * Generate unique slug from name
    */
-  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
-    let slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    let counter = 1;
-    let finalSlug = slug;
-
-    while (true) {
-      const where: FindOptionsWhere<ReusableComponent> = {
-        slug: finalSlug,
-        tenantId: this.tenantId
-      };
-      if (excludeId) {
-        where.id = excludeId as any; // Exclude current component when updating
-      }
-
-      const existing = await this.componentRepository.findOne({ where });
-
-      if (!existing || (excludeId && existing.id === excludeId)) {
-        break;
-      }
-
-      finalSlug = `${slug}-${counter}`;
-      counter++;
-    }
-
-    return finalSlug;
+  private generateUniqueSlug(
+    name: string,
+    excludeId?: string,
+  ): Promise<string> {
+    // A rename may keep its own slug; any other row in the tenant counts as taken.
+    return uniqueSlug(name, async (slug) =>
+      Boolean(
+        await this.componentRepository.findOne({
+          where: {
+            slug,
+            tenantId: this.tenantId,
+            ...(excludeId ? { id: Not(excludeId) } : {}),
+          },
+        }),
+      ),
+    );
   }
 }

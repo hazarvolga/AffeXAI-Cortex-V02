@@ -262,7 +262,7 @@ export function Header() {
           <nav className="hidden lg:flex items-center space-x-8">
             {/* Show warning if menu is unavailable */}
             {isMenuUnavailable && (
-              <div className="flex items-center space-x-2 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md text-sm">
+              <div className="flex items-center space-x-2 text-amber-800 bg-amber-50 px-3 py-1.5 rounded-md text-sm">
                 <AlertTriangle className="h-4 w-4" />
                 <span>Menü yüklenemedi</span>
               </div>
@@ -291,7 +291,7 @@ export function Header() {
                         className={cn(
                           "flex items-center space-x-1 text-gray-700 hover:text-primary transition-colors py-2",
                           pathname.startsWith(item.href) &&
-                            "text-primary font-medium",
+                            "text-gray-900 font-semibold underline decoration-primary decoration-2 underline-offset-4",
                         )}
                       >
                         <span>{item.label}</span>
@@ -383,7 +383,8 @@ export function Header() {
                       href={item.href}
                       className={cn(
                         "text-gray-700 hover:text-primary transition-colors",
-                        pathname === item.href && "text-primary font-medium",
+                        pathname === item.href &&
+                          "text-gray-900 font-semibold underline decoration-primary decoration-2 underline-offset-4",
                       )}
                     >
                       {item.label}
@@ -407,7 +408,7 @@ export function Header() {
             {ctaButtons.demo?.show && (
               <Link
                 href={ctaButtons.demo.href}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 {ctaButtons.demo.text}
               </Link>
@@ -423,7 +424,7 @@ export function Header() {
             {authLinks.showSignup && (
               <Link
                 href={authLinks.signupUrl || "/signup"}
-                className="px-6 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+                className="px-6 py-2 border border-primary text-gray-900 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
               >
                 {authLinks.signupText}
               </Link>
@@ -453,7 +454,7 @@ export function Header() {
           <div className="container mx-auto px-4 py-4 space-y-2">
             {/* Show warning if menu is unavailable */}
             {isMenuUnavailable && (
-              <div className="flex items-center justify-center space-x-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-lg text-sm mb-4">
+              <div className="flex items-center justify-center space-x-2 text-amber-800 bg-amber-50 px-4 py-3 rounded-lg text-sm mb-4">
                 <AlertTriangle className="h-5 w-5" />
                 <span>Menü yüklenemedi. Lütfen daha sonra tekrar deneyin.</span>
               </div>
@@ -547,7 +548,7 @@ export function Header() {
               {ctaButtons.demo?.show && (
                 <Link
                   href={ctaButtons.demo.href}
-                  className="block w-full px-4 py-2 text-center bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  className="block w-full px-4 py-2 text-center bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {ctaButtons.demo.text}
@@ -565,7 +566,7 @@ export function Header() {
               {authLinks.showSignup && (
                 <Link
                   href={authLinks.signupUrl || "/signup"}
-                  className="block w-full px-4 py-2 text-center border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+                  className="block w-full px-4 py-2 text-center border border-primary text-gray-900 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {authLinks.signupText}

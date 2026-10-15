@@ -1,110 +1,183 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { MenuService } from './menu.service';
-import { Menu } from '../entities/menu.entity';
-import { MenuItem } from '../entities/menu-item.entity';
-import { ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
+import { MenuLocation } from "@affexai/shared-types";
+import { MenuService } from "./menu.service";
 
-describe('MenuService', () => {
-    let service: MenuService;
-    let menuRepo: Repository<Menu>;
-    let menuItemRepo: Repository<MenuItem>;
+jest.mock("../../../core/tenant/tenant.service", () => ({
+  TenantService: class {},
+}));
 
-    const mockMenuRepo = {
-        create: jest.fn().mockImplementation(d => d),
-        save: jest.fn().mockImplementation(d => Promise.resolve({ id: 'm-1', ...d })),
-        findOne: jest.fn(),
-        find: jest.fn(),
-        delete: jest.fn(),
-    };
+const TENANT = "tenant-1";
 
-    const mockMenuItemRepo = {
-        create: jest.fn().mockImplementation(d => d),
-        save: jest.fn().mockImplementation(d => Promise.resolve({ id: 'mi-1', ...d })),
-        findOne: jest.fn(),
-        find: jest.fn(),
-        delete: jest.fn(),
-    };
+type Item = {
+  id: string;
+  menuId: string;
+  parentId: string | null;
+  orderIndex: number;
+  label: string;
+};
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                MenuService,
-                { provide: getRepositoryToken(Menu), useValue: mockMenuRepo },
-                { provide: getRepositoryToken(MenuItem), useValue: mockMenuItemRepo },
-            ],
-        }).compile();
+function setup(items: Item[] = []) {
+  const menu = {
+    id: "m-1",
+    name: "Ana menü",
+    slug: "ana-menu",
+    tenantId: TENANT,
+  };
+  const transactionManager = { update: jest.fn() };
+  const menuRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: "new", ...value })),
+    findOne: jest.fn(
+      async ({
+        where,
+      }: {
+        where: { id?: string; slug?: string; tenantId: string };
+      }) =>
+        where.tenantId === TENANT &&
+        (where.id === menu.id || where.slug === menu.slug)
+          ? { ...menu }
+          : null,
+    ),
+    find: jest.fn(async () => [menu]),
+  };
+  const menuItemRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: "new-item", ...value })),
+    find: jest.fn(async () => items),
+    findOne: jest.fn(async ({ where }: { where: { id: string } }) => {
+      const item = items.find((candidate) => candidate.id === where.id);
+      return item ? { ...item, menu } : null;
+    }),
+    update: jest.fn(),
+    manager: {
+      transaction: jest.fn(
+        async (work: (m: typeof transactionManager) => Promise<void>) =>
+          work(transactionManager),
+      ),
+    },
+  };
+  const service = new MenuService(
+    menuRepository as never,
+    menuItemRepository as never,
+    { getTenantId: () => TENANT } as never,
+  );
+  return { service, menuRepository, menuItemRepository, transactionManager };
+}
 
-        service = module.get<MenuService>(MenuService);
-        menuRepo = module.get(getRepositoryToken(Menu));
-        menuItemRepo = module.get(getRepositoryToken(MenuItem));
+const tree: Item[] = [
+  {
+    id: "root",
+    menuId: "m-1",
+    parentId: null,
+    orderIndex: 0,
+    label: "Ana sayfa",
+  },
+  {
+    id: "child",
+    menuId: "m-1",
+    parentId: "root",
+    orderIndex: 0,
+    label: "Ürünler",
+  },
+  {
+    id: "grandchild",
+    menuId: "m-1",
+    parentId: "child",
+    orderIndex: 0,
+    label: "Yazılım",
+  },
+];
 
-        jest.clearAllMocks();
+describe("MenuService", () => {
+  describe("menus", () => {
+    it("creates a menu with a slug under the tenant", async () => {
+      const { service, menuRepository } = setup();
+      await service.createMenu({
+        name: "Alt Bilgi",
+        location: MenuLocation.FOOTER,
+      } as never);
+      expect(menuRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: "alt-bilgi", tenantId: TENANT }),
+      );
     });
 
-    describe('Menu Operations', () => {
-        it('should create menu', async () => {
-            const result = await service.createMenu({ name: 'Main' });
-            expect(result.slug).toBe('main');
-        });
-
-        it('should find nested menus', async () => {
-            // Mock logic assumes find returns raw items that get nested
-            mockMenuRepo.find.mockResolvedValue([]);
-            const result = await service.findAllMenus();
-            expect(result).toEqual([]);
-        });
+    it("refuses a slug the tenant already uses", async () => {
+      const { service } = setup();
+      await expect(
+        service.createMenu({ name: "Ana Menü", slug: "ana-menu" } as never),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    describe('MenuItem Operations', () => {
-        it('should create menu item', async () => {
-            mockMenuRepo.findOne.mockResolvedValue({ id: 'm-1' });
-            const item = await service.createMenuItem({ menuId: 'm-1', title: 'Home' });
-            expect(item).toBeDefined();
-        });
-
-        it('should check circular reference on update', async () => {
-            jest.spyOn(service, 'wouldCreateCircularReference').mockResolvedValue(true);
-            await expect(service.updateMenuItem('mi-1', { parentId: 'mi-2' }))
-                .rejects.toThrow(ConflictException);
-        });
+    it("loads a menu with its items nested, without looping", async () => {
+      const { service, menuItemRepository } = setup(tree);
+      const menu = await service.findOneMenu("m-1");
+      expect(menu.items.map((item) => item.id)).toEqual(["root"]);
+      expect(
+        (
+          menu.items[0] as unknown as {
+            children: Array<{ id: string; children: Array<{ id: string }> }>;
+          }
+        ).children[0].children[0].id,
+      ).toBe("grandchild");
+      expect(menuItemRepository.find).toHaveBeenCalledTimes(1);
     });
 
-    describe('batchUpdateMenuItems', () => {
-        it('should update multiple items', async () => {
-            const updates = [{ id: 'mi-1', parentId: null, orderIndex: 0 }];
-            mockMenuItemRepo.findOne.mockResolvedValue({ id: 'mi-1' });
-
-            await service.batchUpdateMenuItems('m-1', updates);
-
-            expect(mockMenuItemRepo.save).toHaveBeenCalled();
-        });
+    it("answers a foreign menu with 404 for the menu and for its items", async () => {
+      const { service } = setup(tree);
+      await expect(service.findOneMenu("foreign")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.findMenuItems("foreign")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
-    describe('wouldCreateCircularReference', () => {
-        it('should detect circle', async () => {
-            mockMenuItemRepo.findOne.mockImplementation(async ({ where: { id } }) => {
-                if (id === 'child') return { id: 'child', parentId: 'parent' };
-                if (id === 'parent') return { id: 'parent', parentId: 'root' };
-                return null;
-            });
-
-            // If we move root under child -> root -> parent -> child -> root (Circle)
-            // Implementation usually checks if newParent is a child of id
-
-            // Let's rely on logic. We check parent of newParent until we hit id.
-            // Call: check if 'root' can have parent 'child'
-            // Path from 'child' up: child -> parent -> root 
-            // Does path contain 'root'? Yes.
-
-            const isCircular = await service.wouldCreateCircularReference('root', 'child');
-
-            // Since mocks might be tricky without full recursion setup, simple expectation:
-            // If logic implemented correctly, traversing up from 'child' hits 'root'.
-            // With our mocks returning parentIds properly, it should work.
-
-            expect(isCircular).toBe(true);
-        });
+    it("lists the items of an owned menu", async () => {
+      const { service } = setup(tree);
+      await expect(service.findMenuItems("m-1")).resolves.toHaveLength(3);
     });
+  });
+
+  describe("menu items", () => {
+    it("creates an item in an owned menu", async () => {
+      const { service, menuItemRepository } = setup(tree);
+      await service.createMenuItem({
+        menuId: "m-1",
+        label: "İletişim",
+        parentId: "root",
+      } as never);
+      expect(menuItemRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ label: "İletişim", menuId: "m-1" }),
+      );
+    });
+
+    it("rejects a parent that would create a cycle", async () => {
+      const { service, menuItemRepository } = setup(tree);
+      await expect(
+        service.updateMenuItem("root", { parentId: "grandchild" } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(menuItemRepository.update).not.toHaveBeenCalled();
+    });
+
+    it("moves the batch in one transaction and refuses items from other menus", async () => {
+      const { service, transactionManager } = setup(tree);
+      await service.batchUpdateMenuItems("m-1", [
+        { id: "child", parentId: null, orderIndex: 1 },
+      ]);
+      expect(transactionManager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        "child",
+        { parentId: null, orderIndex: 1 },
+      );
+      await expect(
+        service.batchUpdateMenuItems("m-1", [
+          { id: "elsewhere", parentId: null, orderIndex: 0 },
+        ]),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

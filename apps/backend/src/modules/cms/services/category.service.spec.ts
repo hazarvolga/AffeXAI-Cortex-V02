@@ -1,101 +1,140 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CategoryService } from './category.service';
-import { Category } from '../entities/category.entity';
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from "@nestjs/common";
+import { CategoryService } from "./category.service";
 
-describe('CategoryService', () => {
-    let service: CategoryService;
-    let repository: Repository<Category>;
+jest.mock("../../../core/tenant/tenant.service", () => ({
+  TenantService: class {},
+}));
 
-    const mockCategory = { id: 'cat-1', name: 'Tech', parentId: null };
+const TENANT = "tenant-1";
 
-    const mockRepo = {
-        create: jest.fn().mockImplementation(dto => dto),
-        save: jest.fn().mockImplementation(c => Promise.resolve({ id: '1', ...c })),
-        findOne: jest.fn(),
-        find: jest.fn(),
-        delete: jest.fn(),
-        createQueryBuilder: jest.fn(() => ({
-            where: jest.fn().mockReturnThis(),
-            andWhere: jest.fn().mockReturnThis(),
-            getOne: jest.fn(),
-            getMany: jest.fn(),
-            leftJoin: jest.fn().mockReturnThis(),
-            addSelect: jest.fn().mockReturnThis(),
-        })),
-    };
+type Row = {
+  id: string;
+  parentId: string | null;
+  slug?: string;
+  name?: string;
+  tenantId?: string;
+};
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                CategoryService,
-                { provide: getRepositoryToken(Category), useValue: mockRepo },
-            ],
-        }).compile();
+function setup(rows: Row[] = []) {
+  const byId = (id: string) => rows.find((row) => row.id === id) ?? null;
+  const transactionManager = { update: jest.fn() };
+  const repository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: "new", ...value })),
+    find: jest.fn(async () => rows),
+    findOne: jest.fn(
+      async ({ where }: { where: { id?: string; slug?: string } }) =>
+        where.id
+          ? byId(where.id)
+          : (rows.find((row) => row.slug === where.slug) ?? null),
+    ),
+    update: jest.fn(),
+    manager: {
+      transaction: jest.fn(
+        async (work: (m: typeof transactionManager) => Promise<void>) =>
+          work(transactionManager),
+      ),
+    },
+  };
+  const service = new CategoryService(
+    repository as never,
+    { getTenantId: () => TENANT } as never,
+  );
+  return { service, repository, transactionManager };
+}
 
-        service = module.get<CategoryService>(CategoryService);
-        repository = module.get(getRepositoryToken(Category));
-
-        jest.clearAllMocks();
+describe("CategoryService", () => {
+  describe("create", () => {
+    it("derives a slug from the name and stores the category under the tenant", async () => {
+      const { service, repository } = setup();
+      await service.create({ name: "New Cat" } as never);
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: { slug: "new-cat", tenantId: TENANT },
+      });
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: "new-cat", tenantId: TENANT }),
+      );
     });
 
-    describe('create', () => {
-        it('should create category with slug', async () => {
-            const result = await service.create({ name: 'New Cat' });
-            expect(result.slug).toBe('new-cat');
-        });
+    it("refuses a slug the tenant already uses", async () => {
+      const { service } = setup([{ id: "a", parentId: null, slug: "tech" }]);
+      await expect(
+        service.create({ name: "Tech" } as never),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe("getTree", () => {
+    it("nests children under their parent", async () => {
+      const { service } = setup([
+        { id: "1", parentId: null, name: "Kök" },
+        { id: "2", parentId: "1", name: "Alt" },
+      ]);
+      const tree = await service.getTree();
+      expect(tree).toHaveLength(1);
+      expect(tree[0].children.map((child) => child.id)).toEqual(["2"]);
+      expect(tree[0].children[0].level).toBe(1);
+    });
+  });
+
+  describe("update", () => {
+    const chain: Row[] = [
+      { id: "1", parentId: null, slug: "one", tenantId: TENANT },
+      { id: "2", parentId: "1", slug: "two", tenantId: TENANT },
+      { id: "3", parentId: "2", slug: "three", tenantId: TENANT },
+    ];
+
+    it("rejects a parent that would create a cycle", async () => {
+      const { service, repository } = setup(chain);
+      await expect(
+        service.update("1", { parentId: "3" } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.update).not.toHaveBeenCalled();
     });
 
-    describe('getTree', () => {
-        it('should build recursive tree', async () => {
-            mockRepo.find.mockResolvedValue([
-                { id: '1', parentId: null, children: [] },
-                { id: '2', parentId: '1', children: [] }
-            ]);
-
-            const tree = await service.getTree();
-            expect(tree.length).toBe(1);
-            expect(tree[0].children.length).toBe(1);
-        });
+    it("rejects a category as its own parent", async () => {
+      const { service } = setup(chain);
+      await expect(
+        service.update("2", { parentId: "2" } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    describe('wouldCreateCircularReference', () => {
-        it('should detect circular dependency', async () => {
-            // Logic likely traverses parents.
-            // Mock findOne to simulate chain: 3 -> 2 -> 1
-            // If we try to set 1's parent to 3, it should fail.
+    it("moves a category under a valid parent within the tenant", async () => {
+      const { service, repository } = setup(chain);
+      await service.update("3", { parentId: "1" } as never);
+      expect(repository.update).toHaveBeenCalledWith(
+        { id: "3", tenantId: TENANT },
+        { parentId: "1" },
+      );
+    });
+  });
 
-            mockRepo.findOne.mockImplementation(async ({ where: { id } }) => {
-                if (id === '3') return { id: '3', parentId: '2' };
-                if (id === '2') return { id: '2', parentId: '1' };
-                if (id === '1') return { id: '1', parentId: null };
-                return null;
-            });
-
-            const isCircular = await service.wouldCreateCircularReference('1', '3');
-            expect(isCircular).toBe(true);
-        });
+  describe("batchUpdateCategories", () => {
+    it("writes every move in one transaction", async () => {
+      const { service, transactionManager } = setup([
+        { id: "1", parentId: null },
+      ]);
+      await service.batchUpdateCategories([
+        { id: "1", parentId: null, orderIndex: 0 },
+      ]);
+      expect(transactionManager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        "1",
+        { parentId: null, orderIndex: 0 },
+      );
     });
 
-    describe('update', () => {
-        it('should prevent circular reference update', async () => {
-            jest.spyOn(service, 'wouldCreateCircularReference').mockResolvedValue(true);
-
-            await expect(service.update('1', { parentId: '3' }))
-                .rejects.toThrow(ConflictException);
-        });
+    it("refuses the batch when any category is missing or foreign", async () => {
+      const { service, repository, transactionManager } = setup([
+        { id: "1", parentId: null },
+      ]);
+      repository.find.mockResolvedValueOnce([]);
+      await expect(
+        service.batchUpdateCategories([
+          { id: "foreign", parentId: null, orderIndex: 0 },
+        ]),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(transactionManager.update).not.toHaveBeenCalled();
     });
-
-    describe('batchUpdateCategories', () => {
-        it('should process multiple updates', async () => {
-            const updates = [{ id: '1', parentId: null, orderIndex: 0 }];
-            mockRepo.findOne.mockResolvedValue(mockCategory);
-
-            await service.batchUpdateCategories(updates);
-
-            expect(mockRepo.save).toHaveBeenCalled();
-        });
-    });
+  });
 });

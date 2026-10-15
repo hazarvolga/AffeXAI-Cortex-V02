@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import React, { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -14,20 +15,35 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
-import { SortableTreeWrapper } from '@/components/common/sortable-tree';
-import { cmsCategoryService } from '@/lib/cms/category-service';
-import { Edit, Plus, Trash2, Folder, FolderOpen, GripVertical, FolderTree, Save, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import type { CmsCategory, CmsCategoryTree, CreateCmsCategoryDto, UpdateCmsCategoryDto } from '@affexai/shared-types';
+} from "@/components/ui/select";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { SortableTreeWrapper } from "@/components/common/sortable-tree";
+import { cmsCategoryService } from "@/lib/cms/category-service";
+import {
+  Edit,
+  Plus,
+  Trash2,
+  Folder,
+  FolderOpen,
+  GripVertical,
+  FolderTree,
+  Save,
+  X,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import type {
+  CmsCategory,
+  CmsCategoryTree,
+  CreateCmsCategoryDto,
+  UpdateCmsCategoryDto,
+} from "@affexai/shared-types";
 
 interface CategoryFormData {
   name: string;
@@ -48,7 +64,9 @@ const CmsCategoriesPage = () => {
   const [allCategories, setAllCategories] = useState<CmsCategory[]>([]);
 
   // Draft/Published system state
-  const [draftCategories, setDraftCategories] = useState<CategoryTreeNode[]>([]);
+  const [draftCategories, setDraftCategories] = useState<CategoryTreeNode[]>(
+    [],
+  );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -56,33 +74,25 @@ const CmsCategoriesPage = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CmsCategory | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [editingCategory, setEditingCategory] = useState<CmsCategory | null>(
+    null,
+  );
+  const [categoryToDelete, setCategoryToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFormSaving, setIsFormSaving] = useState(false);
 
   const [formData, setFormData] = useState<CategoryFormData>({
-    name: '',
-    slug: '',
-    description: '',
+    name: "",
+    slug: "",
+    description: "",
     parentId: null,
     isActive: true,
   });
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // Initialize draft when categories load
-  useEffect(() => {
-    if (categoryTree.length > 0) {
-      // Backend already returns tree structure with children, just cast to CategoryTreeNode
-      setDraftCategories(categoryTree as CategoryTreeNode[]);
-      setHasUnsavedChanges(false);
-    }
-  }, [categoryTree]);
 
   const fetchCategories = async () => {
     try {
@@ -93,23 +103,36 @@ const CmsCategoriesPage = () => {
       ]);
       setCategoryTree(tree);
       setAllCategories(flat);
+      // The backend returns the tree with children; it becomes the clean draft.
+      setDraftCategories(tree as CategoryTreeNode[]);
+      setHasUnsavedChanges(false);
     } catch (error: any) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
       toast({
-        title: 'Hata',
-        description: error.response?.data?.error?.message || 'Kategoriler yüklenirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description:
+          error.response?.data?.error?.message ||
+          "Kategoriler yüklenirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  useAsyncEffect(() => fetchCategories(), []);
+
   // Note: convertToNestedTree removed - backend already returns tree structure
 
   // Convert tree to flat updates for batch API
-  const convertToFlatUpdates = (tree: CategoryTreeNode[]): Array<{ id: string; parentId: string | null; orderIndex: number }> => {
-    const result: Array<{ id: string; parentId: string | null; orderIndex: number }> = [];
+  const convertToFlatUpdates = (
+    tree: CategoryTreeNode[],
+  ): Array<{ id: string; parentId: string | null; orderIndex: number }> => {
+    const result: Array<{
+      id: string;
+      parentId: string | null;
+      orderIndex: number;
+    }> = [];
 
     const traverse = (nodes: CategoryTreeNode[], parentId: string | null) => {
       nodes.forEach((node, index) => {
@@ -145,18 +168,20 @@ const CmsCategoriesPage = () => {
       await cmsCategoryService.batchUpdateCategories(updates);
 
       toast({
-        title: 'Başarılı',
-        description: 'Kategori sıralaması güncellendi',
+        title: "Başarılı",
+        description: "Kategori sıralaması güncellendi",
       });
 
       await fetchCategories();
       setHasUnsavedChanges(false);
     } catch (error: any) {
-      console.error('Error saving changes:', error);
+      console.error("Error saving changes:", error);
       toast({
-        title: 'Hata',
-        description: error.response?.data?.error?.message || 'Değişiklikler kaydedilirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description:
+          error.response?.data?.error?.message ||
+          "Değişiklikler kaydedilirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -168,17 +193,17 @@ const CmsCategoriesPage = () => {
     setDraftCategories(categoryTree as CategoryTreeNode[]);
     setHasUnsavedChanges(false);
     toast({
-      title: 'İptal Edildi',
-      description: 'Değişiklikler geri alındı',
+      title: "İptal Edildi",
+      description: "Değişiklikler geri alındı",
     });
   };
 
   const handleCreateCategory = () => {
     setEditingCategory(null);
     setFormData({
-      name: '',
-      slug: '',
-      description: '',
+      name: "",
+      slug: "",
+      description: "",
       parentId: null,
       isActive: true,
     });
@@ -190,7 +215,7 @@ const CmsCategoriesPage = () => {
     setFormData({
       name: category.name,
       slug: category.slug,
-      description: category.description ?? '',
+      description: category.description ?? "",
       parentId: category.parentId ?? null,
       isActive: category.isActive,
     });
@@ -209,27 +234,31 @@ const CmsCategoriesPage = () => {
       setIsDeleting(true);
       await cmsCategoryService.deleteCategory(categoryToDelete.id);
       toast({
-        title: 'Başarılı',
-        description: 'Kategori silindi',
+        title: "Başarılı",
+        description: "Kategori silindi",
       });
       await fetchCategories();
       setCategoryToDelete(null);
     } catch (error: any) {
-      console.error('Error deleting category:', error);
+      console.error("Error deleting category:", error);
 
-      const errorMessage = error?.response?.data?.message || error?.message || 'Kategori silinirken bir hata oluştu';
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Kategori silinirken bir hata oluştu";
 
-      if (errorMessage.includes('child categories')) {
+      if (errorMessage.includes("child categories")) {
         toast({
-          title: 'Silinemez',
-          description: 'Bu kategorinin alt kategorileri var. Önce alt kategorileri silin veya başka bir üst kategoriye taşıyın.',
-          variant: 'destructive',
+          title: "Silinemez",
+          description:
+            "Bu kategorinin alt kategorileri var. Önce alt kategorileri silin veya başka bir üst kategoriye taşıyın.",
+          variant: "destructive",
         });
       } else {
         toast({
-          title: 'Hata',
+          title: "Hata",
           description: errorMessage,
-          variant: 'destructive',
+          variant: "destructive",
         });
       }
     } finally {
@@ -252,27 +281,34 @@ const CmsCategoriesPage = () => {
       };
 
       if (editingCategory) {
-        await cmsCategoryService.updateCategory(editingCategory.id, payload as UpdateCmsCategoryDto);
+        await cmsCategoryService.updateCategory(
+          editingCategory.id,
+          payload as UpdateCmsCategoryDto,
+        );
         toast({
-          title: 'Başarılı',
-          description: 'Kategori güncellendi',
+          title: "Başarılı",
+          description: "Kategori güncellendi",
         });
       } else {
-        await cmsCategoryService.createCategory(payload as CreateCmsCategoryDto);
+        await cmsCategoryService.createCategory(
+          payload as CreateCmsCategoryDto,
+        );
         toast({
-          title: 'Başarılı',
-          description: 'Kategori oluşturuldu',
+          title: "Başarılı",
+          description: "Kategori oluşturuldu",
         });
       }
 
       setDialogOpen(false);
       await fetchCategories();
     } catch (error: any) {
-      console.error('Error saving category:', error);
+      console.error("Error saving category:", error);
       toast({
-        title: 'Hata',
-        description: error.response?.data?.error?.message || 'Kategori kaydedilirken bir hata oluştu',
-        variant: 'destructive',
+        title: "Hata",
+        description:
+          error.response?.data?.error?.message ||
+          "Kategori kaydedilirken bir hata oluştu",
+        variant: "destructive",
       });
     } finally {
       setIsFormSaving(false);
@@ -346,23 +382,28 @@ const CmsCategoriesPage = () => {
                   {countCategoriesInTree([node])} öğe
                 </Badge>
               )}
-              <span className="text-xs text-gray-500 truncate">({node.slug})</span>
+              <span className="text-xs text-gray-500 truncate">
+                ({node.slug})
+              </span>
             </div>
             {node.description && (
-              <p className="text-sm text-gray-600 mt-1 truncate">{node.description}</p>
+              <p className="text-sm text-gray-600 mt-1 truncate">
+                {node.description}
+              </p>
             )}
           </div>
         </div>
 
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0 ml-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               if (category) handleEditCategory(category);
             }}
+            aria-label={`${node.name} kategorisini düzenle`}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
@@ -370,8 +411,9 @@ const CmsCategoriesPage = () => {
             onClick={() => {
               if (category) handleDeleteClick(category);
             }}
+            aria-label={`${node.name} kategorisini sil`}
           >
-            <Trash2 className="h-4 w-4 text-red-600" />
+            <Trash2 className="h-4 w-4 text-red-600" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -395,10 +437,10 @@ const CmsCategoriesPage = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <FolderTree className="h-5 w-5" />
-                Kategori Yönetimi
-              </CardTitle>
+              <h1 className="flex items-center gap-2 text-2xl font-semibold leading-none tracking-tight">
+                <FolderTree className="h-5 w-5" aria-hidden="true" />
+                İçerik kategorileri
+              </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Toplam {totalCategories} kategori
               </p>
@@ -406,16 +448,28 @@ const CmsCategoriesPage = () => {
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
                 <>
-                  <Badge variant="outline" className="text-amber-600 border-amber-600">
+                  <Badge
+                    variant="outline"
+                    className="text-amber-600 border-amber-600"
+                  >
                     Kaydedilmemiş Değişiklikler
                   </Badge>
-                  <Button variant="outline" size="sm" onClick={handleCancelChanges} disabled={isSaving}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelChanges}
+                    disabled={isSaving}
+                  >
                     <X className="h-4 w-4 mr-1" />
                     İptal
                   </Button>
-                  <Button size="sm" onClick={handleSaveChanges} disabled={isSaving}>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveChanges}
+                    disabled={isSaving}
+                  >
                     <Save className="h-4 w-4 mr-1" />
-                    {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
+                    {isSaving ? "Kaydediliyor..." : "Kaydet"}
                   </Button>
                 </>
               )}
@@ -439,7 +493,8 @@ const CmsCategoriesPage = () => {
         <CardContent>
           {draftCategories.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              Henüz kategori oluşturulmamış. Başlamak için üstteki "Yeni Kategori" butonuna tıklayın.
+              Henüz kategori oluşturulmamış. Başlamak için üstteki &quot;Yeni
+              Kategori&quot; butonuna tıklayın.
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
@@ -461,12 +516,12 @@ const CmsCategoriesPage = () => {
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
-                {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
+                {editingCategory ? "Kategori Düzenle" : "Yeni Kategori"}
               </DialogTitle>
               <DialogDescription>
                 {editingCategory
-                  ? 'Kategori bilgilerini güncelleyin'
-                  : 'Yeni bir kategori oluşturun'}
+                  ? "Kategori bilgilerini güncelleyin"
+                  : "Yeni bir kategori oluşturun"}
               </DialogDescription>
             </DialogHeader>
 
@@ -476,7 +531,9 @@ const CmsCategoriesPage = () => {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="Örn: Blog, Haberler"
                   required
                 />
@@ -487,7 +544,9 @@ const CmsCategoriesPage = () => {
                 <Input
                   id="slug"
                   value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
                   placeholder="Otomatik oluşturulur"
                 />
                 <p className="text-xs text-gray-500">
@@ -500,7 +559,9 @@ const CmsCategoriesPage = () => {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   placeholder="Kategori açıklaması"
                   className="min-h-[80px]"
                 />
@@ -509,9 +570,12 @@ const CmsCategoriesPage = () => {
               <div className="grid gap-2">
                 <Label htmlFor="parentId">Üst Kategori</Label>
                 <Select
-                  value={formData.parentId || 'none'}
+                  value={formData.parentId || "none"}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, parentId: value === 'none' ? null : value })
+                    setFormData({
+                      ...formData,
+                      parentId: value === "none" ? null : value,
+                    })
                   }
                 >
                   <SelectTrigger>
@@ -533,7 +597,9 @@ const CmsCategoriesPage = () => {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
                   className="h-4 w-4"
                 />
                 <Label htmlFor="isActive">Aktif</Label>
@@ -550,7 +616,11 @@ const CmsCategoriesPage = () => {
                 İptal
               </Button>
               <Button type="submit" disabled={isFormSaving}>
-                {isFormSaving ? 'Kaydediliyor...' : editingCategory ? 'Güncelle' : 'Oluştur'}
+                {isFormSaving
+                  ? "Kaydediliyor..."
+                  : editingCategory
+                    ? "Güncelle"
+                    : "Oluştur"}
               </Button>
             </DialogFooter>
           </form>
@@ -562,7 +632,7 @@ const CmsCategoriesPage = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        itemName={categoryToDelete?.name || ''}
+        itemName={categoryToDelete?.name || ""}
         isDeleting={isDeleting}
         title="Kategori Sil"
         description="Bu kategoriyi silmek istediğinizden emin misiniz?"

@@ -2,11 +2,17 @@ import type { ReactNode } from "react";
 
 export const ADMIN_MAIN_ID = "tenant-main-content";
 
+interface AdminPageFrameProps {
+  children: ReactNode;
+  /** Optional module navigation, placed between the skip link and <main>. */
+  header?: ReactNode;
+}
+
 /**
  * Landmark frame for tenant admin pages that do not render BccEditorialWrapper:
  * a skip link and the single <main> the keyboard path targets (UX-CONTRACT).
  */
-export function AdminPageFrame({ children }: { children: ReactNode }) {
+export function AdminPageFrame({ children, header }: AdminPageFrameProps) {
   return (
     <>
       <a
@@ -15,6 +21,7 @@ export function AdminPageFrame({ children }: { children: ReactNode }) {
       >
         Ana içeriğe geç
       </a>
+      {header}
       <main
         id={ADMIN_MAIN_ID}
         tabIndex={-1}

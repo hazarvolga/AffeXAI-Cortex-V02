@@ -421,11 +421,11 @@ export default function DesignManagementPage() {
       <div className="space-y-6 pb-24">
         {/* Header */}
         <div className="border-l-2 border-[#ff8c00] pl-6 py-2">
-          <h1 className="text-4xl font-bold tracking-tighter uppercase font-mono italic">
-            Design System
-          </h1>
-          <p className="text-white/40 text-xs uppercase tracking-[0.2em] mt-2">
-            Manage design tokens and theme configuration
+          <h2 className="text-4xl font-bold tracking-tighter uppercase font-mono italic">
+            Tasarım sistemi
+          </h2>
+          <p className="text-white/70 text-xs uppercase tracking-[0.2em] mt-2">
+            Tasarım token&rsquo;ları ve tema yapılandırması
           </p>
         </div>
 
@@ -507,40 +507,45 @@ export default function DesignManagementPage() {
             <RadioGroup
               value={mode}
               onValueChange={(value) => setMode(value as "light" | "dark")}
+              aria-label="Tema modu"
               className="flex items-center gap-2 border border-white/10 bg-white/5 rounded-lg p-1"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem
                   value="light"
                   id="mode-light"
-                  className="sr-only"
+                  aria-label="Açık tema"
+                  className="peer sr-only"
                 />
                 <Label
                   htmlFor="mode-light"
-                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
+                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring ${
                     mode === "light"
                       ? "bg-primary text-primary-foreground"
                       : "hover:bg-muted"
                   }`}
                 >
-                  <Sun className="h-4 w-4" />
+                  <Sun className="h-4 w-4" aria-hidden="true" />
+                  <span className="sr-only">Açık tema</span>
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem
                   value="dark"
                   id="mode-dark"
-                  className="sr-only"
+                  aria-label="Koyu tema"
+                  className="peer sr-only"
                 />
                 <Label
                   htmlFor="mode-dark"
-                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
+                  className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring ${
                     mode === "dark"
                       ? "bg-primary text-primary-foreground"
                       : "hover:bg-muted"
                   }`}
                 >
-                  <Moon className="h-4 w-4" />
+                  <Moon className="h-4 w-4" aria-hidden="true" />
+                  <span className="sr-only">Koyu tema</span>
                 </Label>
               </div>
             </RadioGroup>
@@ -548,8 +553,14 @@ export default function DesignManagementPage() {
 
           {/* Context Selector */}
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Context:</Label>
+            <Label
+              htmlFor="design-context"
+              className="text-xs text-muted-foreground"
+            >
+              Bağlam:
+            </Label>
             <select
+              id="design-context"
               value={context}
               onChange={(e) => setContext(e.target.value as any)}
               className="px-3 py-1.5 bg-muted rounded-md text-sm font-medium border-0 cursor-pointer hover:bg-muted/80"

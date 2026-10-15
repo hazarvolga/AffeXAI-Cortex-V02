@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { adminTitle } from "@/lib/metadata/admin-title";
 
-export const metadata: Metadata = { title: "E-posta analitiği" };
+export const metadata: Metadata = { title: adminTitle("E-posta analitiği") };
 
 export default function Layout({ children }: { children: ReactNode }) {
   return children;

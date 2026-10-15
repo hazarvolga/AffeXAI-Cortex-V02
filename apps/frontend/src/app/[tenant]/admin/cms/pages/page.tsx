@@ -1,11 +1,18 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
+import React, { useState, useMemo } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import {
   Table,
   TableBody,
@@ -13,23 +20,40 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { cmsService } from '@/lib/cms/cms-service';
-import { Edit, Plus, Search, Trash2, Copy, Eye, EyeOff, FileText, Archive, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
-import type { Page, PageStatus } from '@affexai/shared-types';
-import { CreatePageDialog } from '@/components/cms/create-page-dialog';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cmsService } from "@/lib/cms/cms-service";
+import {
+  Edit,
+  Plus,
+  Search,
+  Trash2,
+  Copy,
+  Eye,
+  EyeOff,
+  FileText,
+  Archive,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import type { Page, PageStatus } from "@affexai/shared-types";
+import { CreatePageDialog } from "@/components/cms/create-page-dialog";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const CmsAdminPage = () => {
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStatus, setSelectedStatus] = useState<PageStatus | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<PageStatus | "all">(
+    "all",
+  );
+  const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [pageToDelete, setPageToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [pageToDelete, setPageToDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -37,39 +61,40 @@ const CmsAdminPage = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchPages();
-  }, [selectedStatus]);
 
   const fetchPages = async () => {
     try {
       setLoading(true);
-      const status = selectedStatus === 'all' ? undefined : (selectedStatus as PageStatus);
+      const status =
+        selectedStatus === "all" ? undefined : (selectedStatus as PageStatus);
       const pagesData = await cmsService.getPages(status);
       setPages(pagesData);
     } catch (error) {
-      console.error('Failed to fetch pages:', error);
+      console.error("Failed to fetch pages:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfalar yüklenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfalar yüklenirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  useAsyncEffect(() => fetchPages(), [selectedStatus]);
+
   // Filter pages based on search query
   const filteredPages = useMemo(() => {
     if (!searchQuery) return pages;
 
     const query = searchQuery.toLowerCase();
-    return pages.filter(page =>
-      page.title.toLowerCase().includes(query) ||
-      page.slug.toLowerCase().includes(query) ||
-      (page.description && page.description.toLowerCase().includes(query))
+    return pages.filter(
+      (page) =>
+        page.title.toLowerCase().includes(query) ||
+        page.slug.toLowerCase().includes(query) ||
+        (page.description && page.description.toLowerCase().includes(query)),
     );
   }, [pages, searchQuery]);
 
@@ -79,7 +104,7 @@ const CmsAdminPage = () => {
 
   const handleCreateSuccess = (pageId: string) => {
     fetchPages();
-    router.push(`/admin/cms/editor?pageId=${pageId}`);
+    router.push(tenantHref(`/cms/editor?pageId=${pageId}`));
   };
 
   const handlePublishPage = async (id: string) => {
@@ -88,17 +113,17 @@ const CmsAdminPage = () => {
       await cmsService.publishPage(id);
 
       toast({
-        title: 'Sayfa yayınlandı',
-        description: 'Sayfa başarıyla yayınlandı.',
+        title: "Sayfa yayınlandı",
+        description: "Sayfa başarıyla yayınlandı.",
       });
 
       fetchPages();
     } catch (error) {
-      console.error('Failed to publish page:', error);
+      console.error("Failed to publish page:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfa yayınlanırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfa yayınlanırken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setActionLoading(null);
@@ -111,17 +136,17 @@ const CmsAdminPage = () => {
       await cmsService.unpublishPage(id);
 
       toast({
-        title: 'Yayından kaldırıldı',
-        description: 'Sayfa başarıyla yayından kaldırıldı.',
+        title: "Yayından kaldırıldı",
+        description: "Sayfa başarıyla yayından kaldırıldı.",
       });
 
       fetchPages();
     } catch (error) {
-      console.error('Failed to unpublish page:', error);
+      console.error("Failed to unpublish page:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfa yayından kaldırılırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfa yayından kaldırılırken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setActionLoading(null);
@@ -134,17 +159,17 @@ const CmsAdminPage = () => {
       await cmsService.clonePage(id);
 
       toast({
-        title: 'Sayfa klonlandı',
+        title: "Sayfa klonlandı",
         description: `"${title}" başarıyla klonlandı.`,
       });
 
       fetchPages();
     } catch (error) {
-      console.error('Failed to clone page:', error);
+      console.error("Failed to clone page:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfa klonlanırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfa klonlanırken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setActionLoading(null);
@@ -164,18 +189,18 @@ const CmsAdminPage = () => {
       await cmsService.deletePage(pageToDelete.id);
 
       toast({
-        title: 'Sayfa silindi',
+        title: "Sayfa silindi",
         description: `"${pageToDelete.title}" başarıyla silindi.`,
       });
 
       fetchPages();
     } catch (error) {
-      console.error('Failed to delete page:', error);
+      console.error("Failed to delete page:", error);
 
       toast({
-        title: 'Hata',
-        description: 'Sayfa silinirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfa silinirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
@@ -185,14 +210,14 @@ const CmsAdminPage = () => {
   };
 
   const handleEditPage = (pageId: string) => {
-    router.push(`/admin/cms/editor?pageId=${pageId}`);
+    router.push(tenantHref(`/cms/editor?pageId=${pageId}`));
   };
 
   // ============ BULK SELECTION HANDLERS ============
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filteredPages.map(p => p.id));
+      setSelectedIds(filteredPages.map((p) => p.id));
     } else {
       setSelectedIds([]);
     }
@@ -200,9 +225,9 @@ const CmsAdminPage = () => {
 
   const handleSelectPage = (pageId: string, checked: boolean) => {
     if (checked) {
-      setSelectedIds(prev => [...prev, pageId]);
+      setSelectedIds((prev) => [...prev, pageId]);
     } else {
-      setSelectedIds(prev => prev.filter(id => id !== pageId));
+      setSelectedIds((prev) => prev.filter((id) => id !== pageId));
     }
   };
 
@@ -210,8 +235,10 @@ const CmsAdminPage = () => {
     setSelectedIds([]);
   };
 
-  const isAllSelected = filteredPages.length > 0 && selectedIds.length === filteredPages.length;
-  const isPartiallySelected = selectedIds.length > 0 && selectedIds.length < filteredPages.length;
+  const isAllSelected =
+    filteredPages.length > 0 && selectedIds.length === filteredPages.length;
+  const isPartiallySelected =
+    selectedIds.length > 0 && selectedIds.length < filteredPages.length;
 
   // ============ BULK ACTION HANDLERS ============
 
@@ -223,18 +250,18 @@ const CmsAdminPage = () => {
       const result = await cmsService.bulkPublish(selectedIds);
 
       toast({
-        title: 'Toplu Yayınlama',
-        description: `${result.successCount} sayfa yayınlandı${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ''}.`,
+        title: "Toplu Yayınlama",
+        description: `${result.successCount} sayfa yayınlandı${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ""}.`,
       });
 
       setSelectedIds([]);
       fetchPages();
     } catch (error) {
-      console.error('Bulk publish failed:', error);
+      console.error("Bulk publish failed:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfalar yayınlanırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfalar yayınlanırken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setBulkActionLoading(false);
@@ -249,18 +276,18 @@ const CmsAdminPage = () => {
       const result = await cmsService.bulkUnpublish(selectedIds);
 
       toast({
-        title: 'Toplu Yayından Kaldırma',
-        description: `${result.successCount} sayfa taslağa çekildi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ''}.`,
+        title: "Toplu Yayından Kaldırma",
+        description: `${result.successCount} sayfa taslağa çekildi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ""}.`,
       });
 
       setSelectedIds([]);
       fetchPages();
     } catch (error) {
-      console.error('Bulk unpublish failed:', error);
+      console.error("Bulk unpublish failed:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfalar yayından kaldırılırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfalar yayından kaldırılırken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setBulkActionLoading(false);
@@ -275,18 +302,18 @@ const CmsAdminPage = () => {
       const result = await cmsService.bulkArchive(selectedIds);
 
       toast({
-        title: 'Toplu Arşivleme',
-        description: `${result.successCount} sayfa arşivlendi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ''}.`,
+        title: "Toplu Arşivleme",
+        description: `${result.successCount} sayfa arşivlendi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ""}.`,
       });
 
       setSelectedIds([]);
       fetchPages();
     } catch (error) {
-      console.error('Bulk archive failed:', error);
+      console.error("Bulk archive failed:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfalar arşivlenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfalar arşivlenirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setBulkActionLoading(false);
@@ -304,18 +331,18 @@ const CmsAdminPage = () => {
       const result = await cmsService.bulkDelete(selectedIds);
 
       toast({
-        title: 'Toplu Silme',
-        description: `${result.successCount} sayfa silindi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ''}.`,
+        title: "Toplu Silme",
+        description: `${result.successCount} sayfa silindi${result.failedCount > 0 ? `, ${result.failedCount} başarısız` : ""}.`,
       });
 
       setSelectedIds([]);
       fetchPages();
     } catch (error) {
-      console.error('Bulk delete failed:', error);
+      console.error("Bulk delete failed:", error);
       toast({
-        title: 'Hata',
-        description: 'Sayfalar silinirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Sayfalar silinirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setBulkActionLoading(false);
@@ -324,30 +351,29 @@ const CmsAdminPage = () => {
   };
 
   const getStatusBadge = (status: PageStatus) => {
-    const variants: Record<PageStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      draft: 'secondary',
-      published: 'default',
-      archived: 'outline',
+    const variants: Record<
+      PageStatus,
+      "default" | "secondary" | "destructive" | "outline"
+    > = {
+      draft: "secondary",
+      published: "default",
+      archived: "outline",
     };
 
     const labels: Record<PageStatus, string> = {
-      draft: 'Taslak',
-      published: 'Yayında',
-      archived: 'Arşiv',
+      draft: "Taslak",
+      published: "Yayında",
+      archived: "Arşiv",
     };
 
-    return (
-      <Badge variant={variants[status]}>
-        {labels[status]}
-      </Badge>
-    );
+    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
   };
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    return new Date(date).toLocaleDateString("tr-TR", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -357,7 +383,9 @@ const CmsAdminPage = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Sayfa Yönetimi</h1>
-            <p className="text-muted-foreground">CMS sayfalarını görüntüleyin ve yönetin</p>
+            <p className="text-muted-foreground">
+              CMS sayfalarını görüntüleyin ve yönetin
+            </p>
           </div>
           <Button onClick={handleCreatePage}>
             <Plus className="h-4 w-4 mr-2" />
@@ -380,9 +408,11 @@ const CmsAdminPage = () => {
         <div className="w-full sm:w-48">
           <Select
             value={selectedStatus}
-            onValueChange={(value: PageStatus | 'all') => setSelectedStatus(value)}
+            onValueChange={(value: PageStatus | "all") =>
+              setSelectedStatus(value)
+            }
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Durum filtresi">
               <SelectValue placeholder="Durum filtrele" />
             </SelectTrigger>
             <SelectContent>
@@ -399,7 +429,9 @@ const CmsAdminPage = () => {
       {selectedIds.length > 0 && (
         <div className="mb-4 p-4 bg-muted rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{selectedIds.length} sayfa seçildi</span>
+            <span className="font-medium">
+              {selectedIds.length} sayfa seçildi
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -453,9 +485,7 @@ const CmsAdminPage = () => {
       {/* Pages Table */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Sayfalar ({filteredPages.length})
-          </CardTitle>
+          <CardTitle>Sayfalar ({filteredPages.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -475,9 +505,15 @@ const CmsAdminPage = () => {
                     <TableHead className="w-[50px]">
                       <Checkbox
                         checked={isAllSelected}
-                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleSelectAll(checked as boolean)
+                        }
                         aria-label="Tümünü seç"
-                        className={isPartiallySelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                        className={
+                          isPartiallySelected
+                            ? "data-[state=checked]:bg-primary/50"
+                            : ""
+                        }
                       />
                     </TableHead>
                     <TableHead className="w-[300px]">Başlık</TableHead>
@@ -489,11 +525,18 @@ const CmsAdminPage = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredPages.map((page) => (
-                    <TableRow key={page.id} className={selectedIds.includes(page.id) ? 'bg-muted/50' : ''}>
+                    <TableRow
+                      key={page.id}
+                      className={
+                        selectedIds.includes(page.id) ? "bg-muted/50" : ""
+                      }
+                    >
                       <TableCell>
                         <Checkbox
                           checked={selectedIds.includes(page.id)}
-                          onCheckedChange={(checked) => handleSelectPage(page.id, checked as boolean)}
+                          onCheckedChange={(checked) =>
+                            handleSelectPage(page.id, checked as boolean)
+                          }
                           aria-label={`${page.title} sayfasını seç`}
                         />
                       </TableCell>
@@ -512,9 +555,7 @@ const CmsAdminPage = () => {
                           /{page.slug}
                         </code>
                       </TableCell>
-                      <TableCell>
-                        {getStatusBadge(page.status)}
-                      </TableCell>
+                      <TableCell>{getStatusBadge(page.status)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(page.updatedAt)}
                       </TableCell>
@@ -530,7 +571,7 @@ const CmsAdminPage = () => {
                             <Edit className="h-4 w-4" />
                           </Button>
 
-                          {page.status !== 'published' ? (
+                          {page.status !== "published" ? (
                             <Button
                               variant="ghost"
                               size="sm"

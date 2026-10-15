@@ -1,24 +1,50 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { PlusCircle, Edit, Trash2, Save, Loader2, Menu as MenuIcon, GripVertical } from "lucide-react";
-import type { CmsMenu, CmsMenuItem, MenuLocation } from '@affexai/shared-types';
-import { MenuItemType } from '@affexai/shared-types';
+import {
+  PlusCircle,
+  Edit,
+  Trash2,
+  Save,
+  Loader2,
+  Menu as MenuIcon,
+  GripVertical,
+} from "lucide-react";
+import type { CmsMenu, CmsMenuItem, MenuLocation } from "@affexai/shared-types";
+import { MenuItemType } from "@affexai/shared-types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { cmsMenuService } from '@/lib/cms/menu-service';
-import { cmsCategoryService } from '@/lib/cms/category-service';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery } from '@tanstack/react-query';
-import { CmsPageService } from '@/services/cms-page.service';
-import { SortableTreeWrapper, SortableTreeNode } from '@/components/common/sortable-tree';
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { cmsMenuService } from "@/lib/cms/menu-service";
+import { cmsCategoryService } from "@/lib/cms/category-service";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { CmsPageService } from "@/services/cms-page.service";
+import {
+  SortableTreeWrapper,
+  SortableTreeNode,
+} from "@/components/common/sortable-tree";
 
 // Helper: Convert flat menu items to nested tree structure
 interface MenuTreeNode extends SortableTreeNode {
@@ -28,7 +54,7 @@ interface MenuTreeNode extends SortableTreeNode {
   url?: string;
   parentId?: string | null;
   orderIndex: number;
-  target?: '_blank' | '_self';
+  target?: "_blank" | "_self";
   icon?: string;
   isActive: boolean;
   children?: MenuTreeNode[];
@@ -39,8 +65,8 @@ const convertToNestedTree = (items: CmsMenuItem[]): MenuTreeNode[] => {
 
   // If items already have children property from backend, use them directly
   const rootItems: MenuTreeNode[] = items
-    .filter(item => !item.parentId)
-    .map(item => ({
+    .filter((item) => !item.parentId)
+    .map((item) => ({
       id: item.id,
       label: item.label,
       type: item.type,
@@ -60,7 +86,7 @@ const convertToNestedTree = (items: CmsMenuItem[]): MenuTreeNode[] => {
 // Helper function to recursively convert children
 const convertChildrenToTreeNodes = (children: any[]): MenuTreeNode[] => {
   return children
-    .map(child => ({
+    .map((child) => ({
       id: child.id,
       label: child.label,
       type: child.type,
@@ -70,7 +96,9 @@ const convertChildrenToTreeNodes = (children: any[]): MenuTreeNode[] => {
       target: child.target,
       icon: child.icon,
       isActive: child.isActive,
-      children: child.children ? convertChildrenToTreeNodes(child.children) : [],
+      children: child.children
+        ? convertChildrenToTreeNodes(child.children)
+        : [],
     }))
     .sort((a, b) => a.orderIndex - b.orderIndex);
 };
@@ -78,11 +106,15 @@ const convertChildrenToTreeNodes = (children: any[]): MenuTreeNode[] => {
 const convertToFlatItems = (treeNodes: MenuTreeNode[]): CmsMenuItem[] => {
   const flatItems: CmsMenuItem[] = [];
 
-  const flatten = (nodes: MenuTreeNode[], parentId: string | null = null, startIndex: number = 0) => {
+  const flatten = (
+    nodes: MenuTreeNode[],
+    parentId: string | null = null,
+    startIndex: number = 0,
+  ) => {
     nodes.forEach((node, index) => {
       const flatItem: CmsMenuItem = {
         id: node.id,
-        menuId: '', // Will be set by backend
+        menuId: "", // Will be set by backend
         label: node.label,
         type: node.type,
         url: node.url,
@@ -113,7 +145,7 @@ const DeleteConfirmDialog = ({
   onOpenChange,
   onConfirm,
   title,
-  description
+  description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -129,8 +161,16 @@ const DeleteConfirmDialog = ({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
-          <Button variant="destructive" onClick={() => { onConfirm(); onOpenChange(false); }}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            İptal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+          >
             Sil
           </Button>
         </DialogFooter>
@@ -143,15 +183,22 @@ const DeleteConfirmDialog = ({
 const MenuDialog = ({
   menu,
   onSave,
-  onOpenChange
+  onOpenChange,
 }: {
   menu?: CmsMenu;
-  onSave: (data: { name: string; slug: string; location: MenuLocation; isActive: boolean }) => void;
+  onSave: (data: {
+    name: string;
+    slug: string;
+    location: MenuLocation;
+    isActive: boolean;
+  }) => void;
   onOpenChange: (open: boolean) => void;
 }) => {
-  const [name, setName] = useState(menu?.name || '');
-  const [slug, setSlug] = useState(menu?.slug || '');
-  const [location, setLocation] = useState<MenuLocation>((menu?.location as MenuLocation) || 'header');
+  const [name, setName] = useState(menu?.name || "");
+  const [slug, setSlug] = useState(menu?.slug || "");
+  const [location, setLocation] = useState<MenuLocation>(
+    (menu?.location as MenuLocation) || "header",
+  );
   const [isActive, setIsActive] = useState(menu?.isActive ?? true);
 
   const handleSave = () => {
@@ -162,20 +209,33 @@ const MenuDialog = ({
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>{menu ? 'Menü Düzenle' : 'Yeni Menü Oluştur'}</DialogTitle>
+        <DialogTitle>{menu ? "Menü Düzenle" : "Yeni Menü Oluştur"}</DialogTitle>
       </DialogHeader>
       <div className="space-y-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="menu-name">Menü Adı</Label>
-          <Input id="menu-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ana Menü" />
+          <Input
+            id="menu-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ana Menü"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="menu-slug">Slug</Label>
-          <Input id="menu-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="ana-menu" />
+          <Input
+            id="menu-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="ana-menu"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="menu-location">Konum</Label>
-          <Select value={location} onValueChange={(value) => setLocation(value as MenuLocation)}>
+          <Select
+            value={location}
+            onValueChange={(value) => setLocation(value as MenuLocation)}
+          >
             <SelectTrigger id="menu-location">
               <SelectValue />
             </SelectTrigger>
@@ -189,11 +249,17 @@ const MenuDialog = ({
         </div>
         <div className="flex items-center justify-between">
           <Label htmlFor="menu-active">Aktif</Label>
-          <Switch id="menu-active" checked={isActive} onCheckedChange={setIsActive} />
+          <Switch
+            id="menu-active"
+            checked={isActive}
+            onCheckedChange={setIsActive}
+          />
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          İptal
+        </Button>
         <Button onClick={handleSave} disabled={!name || !slug}>
           <Save className="mr-2 h-4 w-4" /> Kaydet
         </Button>
@@ -208,7 +274,7 @@ const MenuItemDialog = ({
   menuId,
   menuItems,
   onSave,
-  onOpenChange
+  onOpenChange,
 }: {
   item?: CmsMenuItem;
   menuId: string;
@@ -220,64 +286,66 @@ const MenuItemDialog = ({
     pageId?: string;
     categoryId?: string;
     parentId?: string | null;
-    target?: '_blank' | '_self';
+    target?: "_blank" | "_self";
     icon?: string;
     isActive: boolean;
   }) => void;
   onOpenChange: (open: boolean) => void;
 }) => {
   // State initialization with empty defaults
-  const [label, setLabel] = useState('');
+  const [label, setLabel] = useState("");
   const [type, setType] = useState<MenuItemType>(MenuItemType.CUSTOM);
-  const [url, setUrl] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [url, setUrl] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [parentId, setParentId] = useState<string | null>(null);
-  const [target, setTarget] = useState<'_blank' | '_self'>('_self');
-  const [icon, setIcon] = useState('');
+  const [target, setTarget] = useState<"_blank" | "_self">("_self");
+  const [icon, setIcon] = useState("");
   const [isActive, setIsActive] = useState(true);
 
-  // Sync state when item prop changes (edit mode) or resets (create mode)
-  useEffect(() => {
+  // Sync state when item prop changes (edit mode) or resets (create mode), during render.
+  const [syncedItem, setSyncedItem] = useState(item);
+  if (item !== syncedItem) {
+    setSyncedItem(item);
     if (item) {
       // Editing existing item - populate with item data
-      setLabel(item.label || '');
+      setLabel(item.label || "");
       setType(item.type || MenuItemType.CUSTOM);
-      setUrl(item.url || '');
-      setCategoryId(item.categoryId || '');
+      setUrl(item.url || "");
+      setCategoryId(item.categoryId || "");
       setParentId(item.parentId || null);
-      setTarget(item.target || '_self');
-      setIcon(item.icon || '');
+      setTarget(item.target || "_self");
+      setIcon(item.icon || "");
       setIsActive(item.isActive ?? true);
     } else {
       // Creating new item - reset to defaults
-      setLabel('');
+      setLabel("");
       setType(MenuItemType.CUSTOM);
-      setUrl('');
-      setCategoryId('');
+      setUrl("");
+      setCategoryId("");
       setParentId(null);
-      setTarget('_self');
-      setIcon('');
+      setTarget("_self");
+      setIcon("");
       setIsActive(true);
     }
-  }, [item]); // Re-run when item changes
+  }
 
   // Fetch published CMS pages for PAGE type selector
   const { data: cmsPages, isLoading: loadingPages } = useQuery({
-    queryKey: ['cms-pages-published'],
+    queryKey: ["cms-pages-published"],
     queryFn: () => CmsPageService.getPublishedPages(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Fetch CMS categories for CATEGORY type selector
   const { data: cmsCategories, isLoading: loadingCategories } = useQuery({
-    queryKey: ['cms-categories-active'],
+    queryKey: ["cms-categories-active"],
     queryFn: () => cmsCategoryService.getCategories({ isActive: true }),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Handle page selection - auto-fill URL and label
   const handlePageSelect = (pageId: string) => {
-    const selectedPage = cmsPages?.find(p => p.id === pageId);
+    const selectedPage = cmsPages?.find((p) => p.id === pageId);
     if (selectedPage) {
       setUrl(`/${selectedPage.slug}`);
       // Auto-fill label if empty
@@ -289,7 +357,7 @@ const MenuItemDialog = ({
 
   // Handle category selection - auto-fill URL and label
   const handleCategorySelect = (categoryId: string) => {
-    const selectedCategory = cmsCategories?.find(c => c.id === categoryId);
+    const selectedCategory = cmsCategories?.find((c) => c.id === categoryId);
     if (selectedCategory) {
       setCategoryId(categoryId);
       setUrl(`/category/${selectedCategory.slug}`);
@@ -300,13 +368,16 @@ const MenuItemDialog = ({
     }
   };
 
-  const getValidParentOptions = (items: CmsMenuItem[], currentItemId?: string): CmsMenuItem[] => {
+  const getValidParentOptions = (
+    items: CmsMenuItem[],
+    currentItemId?: string,
+  ): CmsMenuItem[] => {
     if (!currentItemId) return items;
 
     let childIds = new Set<string>();
 
     const findChildrenRecursive = (parentId: string) => {
-      const children = items.filter(i => i.parentId === parentId);
+      const children = items.filter((i) => i.parentId === parentId);
       for (const child of children) {
         childIds.add(child.id);
         findChildrenRecursive(child.id);
@@ -314,7 +385,7 @@ const MenuItemDialog = ({
     };
 
     findChildrenRecursive(currentItemId);
-    return items.filter(i => i.id !== currentItemId && !childIds.has(i.id));
+    return items.filter((i) => i.id !== currentItemId && !childIds.has(i.id));
   };
 
   // Flatten nested menu items to flat list (needed for buildHierarchicalParentList)
@@ -322,11 +393,15 @@ const MenuItemDialog = ({
     const result: CmsMenuItem[] = [];
 
     const flatten = (itemList: CmsMenuItem[]) => {
-      itemList.forEach(item => {
+      itemList.forEach((item) => {
         // Add the item itself
         result.push(item);
         // Recursively add children if they exist
-        if (item.children && Array.isArray(item.children) && item.children.length > 0) {
+        if (
+          item.children &&
+          Array.isArray(item.children) &&
+          item.children.length > 0
+        ) {
           flatten(item.children);
         }
       });
@@ -341,24 +416,31 @@ const MenuItemDialog = ({
     items: CmsMenuItem[],
     currentItemId?: string,
     parentId: string | null = null,
-    level: number = 0
+    level: number = 0,
   ): Array<{ id: string; label: string; level: number }> => {
     const result: Array<{ id: string; label: string; level: number }> = [];
 
     items
-      .filter(item => item.parentId === parentId && item.id !== currentItemId)
-      .forEach(item => {
+      .filter((item) => item.parentId === parentId && item.id !== currentItemId)
+      .forEach((item) => {
         // Skip if this item is a descendant of current item (prevent circular)
         const isDescendant = (itemId: string): boolean => {
-          const children = items.filter(i => i.parentId === itemId);
-          if (children.some(c => c.id === currentItemId)) return true;
-          return children.some(c => isDescendant(c.id));
+          const children = items.filter((i) => i.parentId === itemId);
+          if (children.some((c) => c.id === currentItemId)) return true;
+          return children.some((c) => isDescendant(c.id));
         };
 
         if (!isDescendant(item.id)) {
           result.push({ id: item.id, label: item.label, level });
           // Recursively add children
-          result.push(...buildHierarchicalParentList(items, currentItemId, item.id, level + 1));
+          result.push(
+            ...buildHierarchicalParentList(
+              items,
+              currentItemId,
+              item.id,
+              level + 1,
+            ),
+          );
         }
       });
 
@@ -367,19 +449,27 @@ const MenuItemDialog = ({
 
   // Flatten menuItems first (backend sends nested structure)
   const flatMenuItems = flattenMenuItems(menuItems);
-  const hierarchicalParents = buildHierarchicalParentList(flatMenuItems, item?.id);
+  const hierarchicalParents = buildHierarchicalParentList(
+    flatMenuItems,
+    item?.id,
+  );
 
   const handleSave = () => {
     onSave({
       label,
       type,
       url: url || undefined, // Always send URL for all types (PAGE, CATEGORY, CUSTOM)
-      pageId: type === MenuItemType.PAGE ? (cmsPages?.find(p => p.slug === url?.replace('/', ''))?.id || undefined) : undefined,
-      categoryId: type === MenuItemType.CATEGORY ? categoryId || undefined : undefined,
+      pageId:
+        type === MenuItemType.PAGE
+          ? cmsPages?.find((p) => p.slug === url?.replace("/", ""))?.id ||
+            undefined
+          : undefined,
+      categoryId:
+        type === MenuItemType.CATEGORY ? categoryId || undefined : undefined,
       parentId: parentId || null,
       target,
       icon,
-      isActive
+      isActive,
     });
     onOpenChange(false);
   };
@@ -387,7 +477,9 @@ const MenuItemDialog = ({
   return (
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{item ? 'Menü Öğesini Düzenle' : 'Yeni Menü Öğesi Ekle'}</DialogTitle>
+        <DialogTitle>
+          {item ? "Menü Öğesini Düzenle" : "Yeni Menü Öğesi Ekle"}
+        </DialogTitle>
       </DialogHeader>
       <div className="space-y-4 py-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -402,7 +494,10 @@ const MenuItemDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="item-type">Tip</Label>
-            <Select value={type} onValueChange={(value) => setType(value as MenuItemType)}>
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as MenuItemType)}
+            >
               <SelectTrigger id="item-type">
                 <SelectValue />
               </SelectTrigger>
@@ -420,12 +515,14 @@ const MenuItemDialog = ({
           <div className="space-y-2">
             <Label htmlFor="page-select">CMS Sayfası</Label>
             <Select
-              value={cmsPages?.find(p => `/${p.slug}` === url)?.id || ''}
+              value={cmsPages?.find((p) => `/${p.slug}` === url)?.id || ""}
               onValueChange={handlePageSelect}
               disabled={loadingPages}
             >
               <SelectTrigger id="page-select">
-                <SelectValue placeholder={loadingPages ? "Yükleniyor..." : "Sayfa seçin"} />
+                <SelectValue
+                  placeholder={loadingPages ? "Yükleniyor..." : "Sayfa seçin"}
+                />
               </SelectTrigger>
               <SelectContent>
                 {loadingPages && (
@@ -439,22 +536,23 @@ const MenuItemDialog = ({
                     Henüz sayfa yok
                   </SelectItem>
                 )}
-                {!loadingPages && cmsPages && cmsPages.length > 0 && cmsPages.map((page) => (
-                  <SelectItem key={page.id} value={page.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{page.title}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        /{page.slug}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {!loadingPages &&
+                  cmsPages &&
+                  cmsPages.length > 0 &&
+                  cmsPages.map((page) => (
+                    <SelectItem key={page.id} value={page.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{page.title}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          /{page.slug}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {url && (
-              <div className="text-xs text-muted-foreground">
-                URL: {url}
-              </div>
+              <div className="text-xs text-muted-foreground">URL: {url}</div>
             )}
           </div>
         )}
@@ -477,12 +575,16 @@ const MenuItemDialog = ({
           <div className="space-y-2">
             <Label htmlFor="category-select">Kategori</Label>
             <Select
-              value={cmsCategories?.find(c => c.id === categoryId)?.id || ''}
+              value={cmsCategories?.find((c) => c.id === categoryId)?.id || ""}
               onValueChange={handleCategorySelect}
               disabled={loadingCategories}
             >
               <SelectTrigger id="category-select">
-                <SelectValue placeholder={loadingCategories ? "Yükleniyor..." : "Kategori seçin"} />
+                <SelectValue
+                  placeholder={
+                    loadingCategories ? "Yükleniyor..." : "Kategori seçin"
+                  }
+                />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
                 {loadingCategories && (
@@ -491,27 +593,30 @@ const MenuItemDialog = ({
                     Yükleniyor...
                   </SelectItem>
                 )}
-                {!loadingCategories && cmsCategories && cmsCategories.length === 0 && (
-                  <SelectItem value="no-categories" disabled>
-                    Henüz kategori yok
-                  </SelectItem>
-                )}
-                {!loadingCategories && cmsCategories && cmsCategories.length > 0 && cmsCategories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{category.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        /{category.slug}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {!loadingCategories &&
+                  cmsCategories &&
+                  cmsCategories.length === 0 && (
+                    <SelectItem value="no-categories" disabled>
+                      Henüz kategori yok
+                    </SelectItem>
+                  )}
+                {!loadingCategories &&
+                  cmsCategories &&
+                  cmsCategories.length > 0 &&
+                  cmsCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{category.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          /{category.slug}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {url && (
-              <div className="text-xs text-muted-foreground">
-                URL: {url}
-              </div>
+              <div className="text-xs text-muted-foreground">URL: {url}</div>
             )}
           </div>
         )}
@@ -519,16 +624,19 @@ const MenuItemDialog = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="item-parent">Üst Öğe</Label>
-            <Select value={parentId || 'none'} onValueChange={(val) => setParentId(val === 'none' ? null : val)}>
+            <Select
+              value={parentId || "none"}
+              onValueChange={(val) => setParentId(val === "none" ? null : val)}
+            >
               <SelectTrigger id="item-parent">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
                 <SelectItem value="none">Yok (Ana Öğe)</SelectItem>
-                {hierarchicalParents.map(parent => (
+                {hierarchicalParents.map((parent) => (
                   <SelectItem key={parent.id} value={parent.id}>
                     <span style={{ paddingLeft: `${parent.level * 20}px` }}>
-                      {parent.level > 0 && '└─ '}
+                      {parent.level > 0 && "└─ "}
                       {parent.label}
                     </span>
                   </SelectItem>
@@ -538,7 +646,10 @@ const MenuItemDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="item-target">Hedef</Label>
-            <Select value={target} onValueChange={(value) => setTarget(value as '_blank' | '_self')}>
+            <Select
+              value={target}
+              onValueChange={(value) => setTarget(value as "_blank" | "_self")}
+            >
               <SelectTrigger id="item-target">
                 <SelectValue />
               </SelectTrigger>
@@ -570,7 +681,9 @@ const MenuItemDialog = ({
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          İptal
+        </Button>
         <Button onClick={handleSave} disabled={!label}>
           <Save className="mr-2 h-4 w-4" /> Kaydet
         </Button>
@@ -583,16 +696,37 @@ const MenuItemDialog = ({
 const renderMenuItem = (
   node: MenuTreeNode,
   onEdit: (node: MenuTreeNode) => void,
-  onDelete: (nodeId: string) => void
+  onDelete: (nodeId: string) => void,
 ) => {
   const getTypeBadge = (type: MenuItemType) => {
     switch (type) {
       case MenuItemType.PAGE:
-        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Sayfa</Badge>;
+        return (
+          <Badge
+            variant="default"
+            className="bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            Sayfa
+          </Badge>
+        );
       case MenuItemType.CATEGORY:
-        return <Badge variant="secondary" className="bg-purple-500 hover:bg-purple-600 text-white">Kategori</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="bg-purple-500 hover:bg-purple-600 text-white"
+          >
+            Kategori
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="border-gray-400 text-gray-700 dark:text-gray-300">Link</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="border-gray-400 text-gray-700 dark:text-gray-300"
+          >
+            Link
+          </Badge>
+        );
     }
   };
 
@@ -602,20 +736,27 @@ const renderMenuItem = (
 
       <div className="flex-grow min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <p className="font-semibold text-foreground text-sm truncate">{node.label}</p>
+          <p className="font-semibold text-foreground text-sm truncate">
+            {node.label}
+          </p>
           {node.icon && (
             <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
               {node.icon}
             </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground/80 truncate">{node.url || 'Bağlantı yok'}</p>
+        <p className="text-xs text-muted-foreground/80 truncate">
+          {node.url || "Bağlantı yok"}
+        </p>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {getTypeBadge(node.type)}
         {!node.isActive && (
-          <Badge variant="destructive" className="text-xs bg-red-500 hover:bg-red-600 text-white">
+          <Badge
+            variant="destructive"
+            className="text-xs bg-red-500 hover:bg-red-600 text-white"
+          >
             Pasif
           </Badge>
         )}
@@ -624,16 +765,18 @@ const renderMenuItem = (
           size="icon"
           className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
           onClick={() => onEdit(node)}
+          aria-label={`${node.label} öğesini düzenle`}
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-4 w-4" aria-hidden="true" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={() => onDelete(node.id)}
+          aria-label={`${node.label} öğesini sil`}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
     </div>
@@ -658,19 +801,17 @@ export default function MenuManagementPage() {
 
   const { toast } = useToast();
 
-  const activeMenu = menus.find(m => m.id === activeMenuId);
+  const activeMenu = menus.find((m) => m.id === activeMenuId);
 
-  // Initialize draft items when active menu changes
-  useEffect(() => {
+  // Initialize draft items when the active menu changes (adjusted during render).
+  const [draftSource, setDraftSource] = useState(activeMenu);
+  if (activeMenu !== draftSource) {
+    setDraftSource(activeMenu);
     if (activeMenu && activeMenu.items) {
       setDraftItems(convertToNestedTree(activeMenu.items));
       setHasUnsavedChanges(false);
     }
-  }, [activeMenu]);
-
-  useEffect(() => {
-    loadMenus();
-  }, []);
+  }
 
   const loadMenus = async () => {
     try {
@@ -682,48 +823,60 @@ export default function MenuManagementPage() {
       }
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Menüler yüklenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menüler yüklenirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateMenu = async (data: { name: string; slug: string; location: MenuLocation; isActive: boolean }) => {
+  useAsyncEffect(() => loadMenus(), []);
+
+  const handleCreateMenu = async (data: {
+    name: string;
+    slug: string;
+    location: MenuLocation;
+    isActive: boolean;
+  }) => {
     try {
       const newMenu = await cmsMenuService.createMenu(data);
       setMenus([...menus, newMenu]);
       setActiveMenuId(newMenu.id);
       toast({
-        title: 'Başarılı',
-        description: 'Menü başarıyla oluşturuldu.',
+        title: "Başarılı",
+        description: "Menü başarıyla oluşturuldu.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Menü oluşturulurken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menü oluşturulurken bir hata oluştu.",
+        variant: "destructive",
       });
     }
   };
 
-  const handleUpdateMenu = async (data: { name: string; slug: string; location: MenuLocation; isActive: boolean }) => {
+  const handleUpdateMenu = async (data: {
+    name: string;
+    slug: string;
+    location: MenuLocation;
+    isActive: boolean;
+  }) => {
     if (!editingMenu) return;
 
     try {
       const updatedMenu = await cmsMenuService.updateMenu(editingMenu.id, data);
-      setMenus(menus.map(m => m.id === updatedMenu.id ? updatedMenu : m));
+      setMenus(menus.map((m) => (m.id === updatedMenu.id ? updatedMenu : m)));
       toast({
-        title: 'Başarılı',
-        description: 'Menü başarıyla güncellendi.',
+        title: "Başarılı",
+        description: "Menü başarıyla güncellendi.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Menü güncellenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menü güncellenirken bir hata oluştu.",
+        variant: "destructive",
       });
     }
   };
@@ -735,7 +888,7 @@ export default function MenuManagementPage() {
     pageId?: string;
     categoryId?: string;
     parentId?: string | null;
-    target?: '_blank' | '_self';
+    target?: "_blank" | "_self";
     icon?: string;
     isActive: boolean;
   }) => {
@@ -749,7 +902,7 @@ export default function MenuManagementPage() {
 
       // Reload menu from backend
       const updatedMenu = await cmsMenuService.getMenu(activeMenuId);
-      setMenus(menus.map(m => m.id === activeMenuId ? updatedMenu : m));
+      setMenus(menus.map((m) => (m.id === activeMenuId ? updatedMenu : m)));
 
       // Update draft items to reflect new item (CRITICAL FIX)
       if (updatedMenu.items) {
@@ -759,14 +912,14 @@ export default function MenuManagementPage() {
       // Only drag&drop changes need Save/Cancel buttons
 
       toast({
-        title: 'Başarılı',
-        description: 'Menü öğesi başarıyla oluşturuldu.',
+        title: "Başarılı",
+        description: "Menü öğesi başarıyla oluşturuldu.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Menü öğesi oluşturulurken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menü öğesi oluşturulurken bir hata oluştu.",
+        variant: "destructive",
       });
     }
   };
@@ -778,7 +931,7 @@ export default function MenuManagementPage() {
     pageId?: string;
     categoryId?: string;
     parentId?: string | null;
-    target?: '_blank' | '_self';
+    target?: "_blank" | "_self";
     icon?: string;
     isActive: boolean;
   }) => {
@@ -787,7 +940,7 @@ export default function MenuManagementPage() {
     try {
       await cmsMenuService.updateMenuItem(editingItem.id, data);
       const updatedMenu = await cmsMenuService.getMenu(activeMenuId);
-      setMenus(menus.map(m => m.id === activeMenuId ? updatedMenu : m));
+      setMenus(menus.map((m) => (m.id === activeMenuId ? updatedMenu : m)));
 
       // Update draft items to reflect changes
       if (updatedMenu.items) {
@@ -796,14 +949,14 @@ export default function MenuManagementPage() {
       // Don't reset hasUnsavedChanges - update operations save directly
 
       toast({
-        title: 'Başarılı',
-        description: 'Menü öğesi başarıyla güncellendi.',
+        title: "Başarılı",
+        description: "Menü öğesi başarıyla güncellendi.",
       });
     } catch (error) {
       toast({
-        title: 'Hata',
-        description: 'Menü öğesi güncellenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menü öğesi güncellenirken bir hata oluştu.",
+        variant: "destructive",
       });
     }
   };
@@ -814,7 +967,7 @@ export default function MenuManagementPage() {
     try {
       await cmsMenuService.deleteMenuItem(itemId);
       const updatedMenu = await cmsMenuService.getMenu(activeMenuId);
-      setMenus(menus.map(m => m.id === activeMenuId ? updatedMenu : m));
+      setMenus(menus.map((m) => (m.id === activeMenuId ? updatedMenu : m)));
 
       // Update draft items to reflect deletion
       if (updatedMenu.items) {
@@ -823,24 +976,28 @@ export default function MenuManagementPage() {
       // Don't reset hasUnsavedChanges - delete operations save directly
 
       toast({
-        title: 'Başarılı',
-        description: 'Menü öğesi başarıyla silindi.',
+        title: "Başarılı",
+        description: "Menü öğesi başarıyla silindi.",
       });
     } catch (error: any) {
       // Better error handling for items with children
-      const errorMessage = error?.response?.data?.message || error?.message || 'Menü öğesi silinirken bir hata oluştu.';
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Menü öğesi silinirken bir hata oluştu.";
 
-      if (errorMessage.includes('child items')) {
+      if (errorMessage.includes("child items")) {
         toast({
-          title: 'Silinemez',
-          description: 'Bu menü öğesinin alt öğeleri var. Önce alt öğeleri silin veya başka bir üst öğeye taşıyın.',
-          variant: 'destructive',
+          title: "Silinemez",
+          description:
+            "Bu menü öğesinin alt öğeleri var. Önce alt öğeleri silin veya başka bir üst öğeye taşıyın.",
+          variant: "destructive",
         });
       } else {
         toast({
-          title: 'Hata',
+          title: "Hata",
           description: errorMessage,
-          variant: 'destructive',
+          variant: "destructive",
         });
       }
     } finally {
@@ -864,7 +1021,7 @@ export default function MenuManagementPage() {
       const flatItems = convertToFlatItems(draftItems);
 
       // Prepare batch update payload
-      const updates = flatItems.map(item => ({
+      const updates = flatItems.map((item) => ({
         id: item.id,
         parentId: item.parentId ?? null, // Convert undefined to null
         orderIndex: item.orderIndex,
@@ -875,19 +1032,19 @@ export default function MenuManagementPage() {
 
       // Reload menu to get fresh data
       const updatedMenu = await cmsMenuService.getMenu(activeMenuId);
-      setMenus(menus.map(m => m.id === activeMenuId ? updatedMenu : m));
+      setMenus(menus.map((m) => (m.id === activeMenuId ? updatedMenu : m)));
       setHasUnsavedChanges(false);
 
       toast({
-        title: 'Başarılı',
-        description: 'Menü yapısı kaydedildi.',
+        title: "Başarılı",
+        description: "Menü yapısı kaydedildi.",
       });
     } catch (error) {
-      console.error('Save error:', error);
+      console.error("Save error:", error);
       toast({
-        title: 'Hata',
-        description: 'Menü yapısı kaydedilirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Menü yapısı kaydedilirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -900,8 +1057,8 @@ export default function MenuManagementPage() {
       setDraftItems(convertToNestedTree(activeMenu.items));
       setHasUnsavedChanges(false);
       toast({
-        title: 'İptal Edildi',
-        description: 'Değişiklikler geri alındı.',
+        title: "İptal Edildi",
+        description: "Değişiklikler geri alındı.",
       });
     }
   };
@@ -918,14 +1075,19 @@ export default function MenuManagementPage() {
     <div className="container mx-auto py-6 px-4 md:px-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Menü Yönetimi</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Menü Yönetimi
+          </h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1">
             Web sitenizin navigasyonunu ve menülerini buradan yönetin.
           </p>
         </div>
         <Dialog open={menuDialogOpen} onOpenChange={setMenuDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setEditingMenu(undefined)} className="w-full md:w-auto">
+            <Button
+              onClick={() => setEditingMenu(undefined)}
+              className="w-full md:w-auto"
+            >
               <MenuIcon className="mr-2 h-4 w-4" />
               Yeni Menü Oluştur
             </Button>
@@ -952,8 +1114,9 @@ export default function MenuManagementPage() {
                   setEditingMenu(undefined);
                   setMenuDialogOpen(true);
                 }}
+                aria-label="Yeni menü"
               >
-                <PlusCircle className="h-4 w-4" />
+                <PlusCircle className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
           </CardHeader>
@@ -961,7 +1124,9 @@ export default function MenuManagementPage() {
             {menus.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <MenuIcon className="h-10 w-10 text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground mb-4">Henüz menü yok</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Henüz menü yok
+                </p>
                 <Button
                   size="sm"
                   variant="outline"
@@ -973,7 +1138,7 @@ export default function MenuManagementPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {menus.map(menu => (
+                {menus.map((menu) => (
                   <Button
                     key={menu.id}
                     variant={activeMenuId === menu.id ? "default" : "outline"}
@@ -987,7 +1152,9 @@ export default function MenuManagementPage() {
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-2">
                         <MenuIcon className="h-4 w-4" />
-                        <span className="font-medium truncate">{menu.name}</span>
+                        <span className="font-medium truncate">
+                          {menu.name}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Badge variant="secondary" className="text-xs">
@@ -1012,10 +1179,15 @@ export default function MenuManagementPage() {
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-4">
             <div className="flex items-center gap-4">
               <h3 className="text-lg font-semibold">
-                {activeMenu ? `${activeMenu.name} - Menü Öğeleri` : 'Menü Öğeleri'}
+                {activeMenu
+                  ? `${activeMenu.name} - Menü Öğeleri`
+                  : "Menü Öğeleri"}
               </h3>
               {hasUnsavedChanges && (
-                <Badge variant="outline" className="text-amber-600 border-amber-600 dark:text-amber-400 dark:border-amber-400">
+                <Badge
+                  variant="outline"
+                  className="text-amber-600 border-amber-600 dark:text-amber-400 dark:border-amber-400"
+                >
                   Kaydedilmemiş Değişiklikler
                 </Badge>
               )}
@@ -1064,9 +1236,11 @@ export default function MenuManagementPage() {
                 </DialogTrigger>
                 <MenuItemDialog
                   item={editingItem}
-                  menuId={activeMenuId || ''}
+                  menuId={activeMenuId || ""}
                   menuItems={activeMenu?.items || []}
-                  onSave={editingItem ? handleUpdateMenuItem : handleCreateMenuItem}
+                  onSave={
+                    editingItem ? handleUpdateMenuItem : handleCreateMenuItem
+                  }
                   onOpenChange={setItemDialogOpen}
                 />
               </Dialog>
@@ -1076,12 +1250,19 @@ export default function MenuManagementPage() {
             {!activeMenu ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <MenuIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Soldan bir menü seçin veya yeni menü oluşturun</p>
+                <p className="text-muted-foreground">
+                  Soldan bir menü seçin veya yeni menü oluşturun
+                </p>
               </div>
             ) : !activeMenu.items || activeMenu.items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
-                <p className="text-muted-foreground mb-4">Bu menüde henüz öğe yok</p>
-                <Button variant="outline" onClick={() => setItemDialogOpen(true)}>
+                <p className="text-muted-foreground mb-4">
+                  Bu menüde henüz öğe yok
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setItemDialogOpen(true)}
+                >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   İlk Öğeyi Ekle
                 </Button>
@@ -1098,7 +1279,7 @@ export default function MenuManagementPage() {
                         // Convert MenuTreeNode back to CmsMenuItem for editing
                         const cmsItem: CmsMenuItem = {
                           id: item.id,
-                          menuId: activeMenuId || '',
+                          menuId: activeMenuId || "",
                           label: item.label,
                           type: item.type,
                           url: item.url,
@@ -1114,7 +1295,7 @@ export default function MenuManagementPage() {
                         setEditingItem(cmsItem);
                         setItemDialogOpen(true);
                       },
-                      (nodeId) => setDeleteItemId(nodeId)
+                      (nodeId) => setDeleteItemId(nodeId),
                     )
                   }
                   collapsible={true}

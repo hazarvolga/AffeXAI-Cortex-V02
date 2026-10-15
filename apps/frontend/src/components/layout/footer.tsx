@@ -133,7 +133,7 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Company Info & Social */}
           <div className="space-y-4">
-            <Link href="/" className="text-2xl font-bold text-primary">
+            <Link href="/" className="text-2xl font-bold text-foreground">
               {siteSettings.companyName}
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs">

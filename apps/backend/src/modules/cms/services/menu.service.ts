@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { Menu } from '../entities/menu.entity';
-import { MenuItem } from '../entities/menu-item.entity';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import { Menu } from "../entities/menu.entity";
+import { MenuItem } from "../entities/menu-item.entity";
 import {
   CreateCmsMenuDto,
   UpdateCmsMenuDto,
@@ -11,9 +16,20 @@ import {
   ReorderMenuItemsDto,
   MenuLocation,
   CmsMenuTree,
-} from '@affexai/shared-types';
-import { slugify } from '../../../common/utils/slugify.util';
-import { TenantService } from '../../../core/tenant/tenant.service';
+} from "@affexai/shared-types";
+import { slugify } from "../../../common/utils/slugify.util";
+import { TenantService } from "../../../core/tenant/tenant.service";
+
+/** Root items of a flat list, each with its children filled in (unlimited depth). */
+function nestMenuItems(
+  items: MenuItem[],
+  parentId: string | null = null,
+): MenuItem[] {
+  return items
+    .filter((item) => item.parentId === parentId)
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((item) => ({ ...item, children: nestMenuItems(items, item.id) }));
+}
 
 @Injectable()
 export class MenuService {
@@ -23,7 +39,7 @@ export class MenuService {
     @InjectRepository(MenuItem)
     private menuItemRepository: Repository<MenuItem>,
     private tenantService: TenantService,
-  ) { }
+  ) {}
 
   private get tenantId(): string {
     return this.tenantService.getTenantId();
@@ -73,28 +89,30 @@ export class MenuService {
     isActive?: boolean;
     search?: string;
   }): Promise<Menu[]> {
-    const queryBuilder = this.menuRepository.createQueryBuilder('menu');
-    queryBuilder.where('menu.tenantId = :tenantId', { tenantId: this.tenantId });
+    const queryBuilder = this.menuRepository.createQueryBuilder("menu");
+    queryBuilder.where("menu.tenantId = :tenantId", {
+      tenantId: this.tenantId,
+    });
 
     if (params?.location) {
-      queryBuilder.andWhere('menu.location = :location', {
+      queryBuilder.andWhere("menu.location = :location", {
         location: params.location,
       });
     }
 
     if (params?.isActive !== undefined) {
-      queryBuilder.andWhere('menu.isActive = :isActive', {
+      queryBuilder.andWhere("menu.isActive = :isActive", {
         isActive: params.isActive,
       });
     }
 
     if (params?.search) {
-      queryBuilder.andWhere('menu.name ILIKE :search', {
+      queryBuilder.andWhere("menu.name ILIKE :search", {
         search: `%${params.search}%`,
       });
     }
 
-    queryBuilder.orderBy('menu.name', 'ASC');
+    queryBuilder.orderBy("menu.name", "ASC");
 
     const menus = await queryBuilder.getMany();
 
@@ -103,40 +121,28 @@ export class MenuService {
     }
 
     // Optimization: Fetch all items for all menus in a single query
-    const menuIds = menus.map(menu => menu.id);
+    const menuIds = menus.map((menu) => menu.id);
     const allItems = await this.menuItemRepository.find({
       where: { menuId: In(menuIds) },
       // relations: ['parent', 'children'], // Not strictly needed if we build tree manually, but kept for consistency if needed
       order: {
-        orderIndex: 'ASC',
-        label: 'ASC',
+        orderIndex: "ASC",
+        label: "ASC",
       },
     });
 
     // Group items by menuId
     const itemsByMenuId = new Map<string, MenuItem[]>();
     for (const item of allItems) {
-      if (!itemsByMenuId.has(item.menuId)) {
-        itemsByMenuId.set(item.menuId, []);
-      }
-      itemsByMenuId.get(item.menuId)!.push(item);
+      itemsByMenuId.set(item.menuId, [
+        ...(itemsByMenuId.get(item.menuId) ?? []),
+        item,
+      ]);
     }
 
-    // Build nested tree for each menu (unlimited depth)
-    const buildNestedTree = (items: any[], parentId: string | null): any[] => {
-      return items
-        .filter(item => item.parentId === parentId)
-        .sort((a, b) => a.orderIndex - b.orderIndex)
-        .map(item => ({
-          ...item,
-          children: buildNestedTree(items, item.id),
-        }));
-    };
-
-    // Assign items to menus
+    // Assign each menu its nested item tree
     for (const menu of menus) {
-      const items = itemsByMenuId.get(menu.id) || [];
-      menu.items = buildNestedTree(items, null);
+      menu.items = nestMenuItems(itemsByMenuId.get(menu.id) || []);
     }
 
     return menus;
@@ -146,64 +152,49 @@ export class MenuService {
    * Find one menu by ID
    */
   async findOneMenu(id: string): Promise<Menu> {
-    const menu = await this.menuRepository.findOne({
-      where: { id, tenantId: this.tenantId },
-    });
-
-    if (!menu) {
-      throw new NotFoundException(`Menu with ID ${id} not found`);
-    }
-
-    // Load all items for this menu (flat)
-    const allItems = await this.findMenuItems(id);
-
-    // Build nested tree recursively (unlimited depth)
-    const buildNestedTree = (parentId: string | null): any[] => {
-      return allItems
-        .filter(item => item.parentId === parentId)
-        .sort((a, b) => a.orderIndex - b.orderIndex)
-        .map(item => ({
-          ...item,
-          children: buildNestedTree(item.id), // Recursive call for unlimited depth
-        }));
-    };
-
-    // Set only root items with nested children
-    menu.items = buildNestedTree(null);
-
-    return menu;
+    return this.withItemTree(await this.requireMenu({ id }));
   }
 
   /**
    * Find menu by slug
    */
   async findMenuBySlug(slug: string): Promise<Menu> {
+    return this.withItemTree(await this.requireMenu({ slug }));
+  }
+
+  /** The tenant's menu, or 404. Ownership checks use this, never findOneMenu. */
+  private async requireMenu(
+    where: { id: string } | { slug: string },
+  ): Promise<Menu> {
     const menu = await this.menuRepository.findOne({
-      where: { slug, tenantId: this.tenantId },
+      where: { ...where, tenantId: this.tenantId },
     });
 
     if (!menu) {
-      throw new NotFoundException(`Menu with slug "${slug}" not found`);
+      const key = "id" in where ? `ID ${where.id}` : `slug "${where.slug}"`;
+      throw new NotFoundException(`Menu with ${key} not found`);
     }
 
-    // Load all items for this menu (flat)
-    const allItems = await this.findMenuItems(menu.id);
-
-    // Build nested tree recursively (unlimited depth)
-    const buildNestedTree = (parentId: string | null): any[] => {
-      return allItems
-        .filter(item => item.parentId === parentId)
-        .sort((a, b) => a.orderIndex - b.orderIndex)
-        .map(item => ({
-          ...item,
-          children: buildNestedTree(item.id), // Recursive call for unlimited depth
-        }));
-    };
-
-    // Set only root items with nested children
-    menu.items = buildNestedTree(null);
-
     return menu;
+  }
+
+  /** Items of a menu whose ownership the caller has already checked. */
+  private itemsOf(menuId: string): Promise<MenuItem[]> {
+    return this.menuItemRepository.find({
+      where: { menuId },
+      relations: ["parent", "children"],
+      order: {
+        orderIndex: "ASC",
+        label: "ASC",
+      },
+    });
+  }
+
+  /** The menu with its root items, each carrying its children (unlimited depth). */
+  private async withItemTree(menu: Menu): Promise<Menu> {
+    return Object.assign(menu, {
+      items: nestMenuItems(await this.itemsOf(menu.id)),
+    });
   }
 
   /**
@@ -225,7 +216,10 @@ export class MenuService {
       }
     }
 
-    await this.menuRepository.update({ id, tenantId: this.tenantId }, updateDto);
+    await this.menuRepository.update(
+      { id, tenantId: this.tenantId },
+      updateDto,
+    );
     return this.findOneMenu(id);
   }
 
@@ -233,7 +227,7 @@ export class MenuService {
    * Delete a menu
    */
   async removeMenu(id: string): Promise<void> {
-    const menu = await this.findOneMenu(id);
+    await this.requireMenu({ id });
     await this.menuRepository.delete({ id, tenantId: this.tenantId });
   }
 
@@ -245,8 +239,8 @@ export class MenuService {
    * Create a new menu item
    */
   async createMenuItem(createDto: CreateCmsMenuItemDto): Promise<MenuItem> {
-    // Validate menu exists
-    const menu = await this.findOneMenu(createDto.menuId);
+    // Validate the menu exists and belongs to the tenant
+    await this.requireMenu({ id: createDto.menuId });
 
     // Validate parent item if provided
     if (createDto.parentId) {
@@ -262,7 +256,7 @@ export class MenuService {
 
       if (parentItem.menuId !== createDto.menuId) {
         throw new BadRequestException(
-          'Parent menu item must belong to the same menu',
+          "Parent menu item must belong to the same menu",
         );
       }
     }
@@ -276,24 +270,16 @@ export class MenuService {
    */
   async findMenuItems(menuId: string): Promise<MenuItem[]> {
     // Ensure menu belongs to tenant first (security check)
-    await this.findOneMenu(menuId);
-
-    return this.menuItemRepository.find({
-      where: { menuId },
-      relations: ['parent', 'children'],
-      order: {
-        orderIndex: 'ASC',
-        label: 'ASC',
-      },
-    });
+    await this.requireMenu({ id: menuId });
+    return this.itemsOf(menuId);
   }
 
   /**
    * Get menu items as tree structure
    */
   async getMenuItemTree(menuId: string): Promise<CmsMenuTree[]> {
-    const menu = await this.findOneMenu(menuId);
-    const items = await this.findMenuItems(menuId);
+    await this.requireMenu({ id: menuId });
+    const items = await this.itemsOf(menuId);
 
     const buildTree = (
       parentId: string | null,
@@ -327,7 +313,7 @@ export class MenuService {
   async findOneMenuItem(id: string): Promise<MenuItem> {
     const menuItem = await this.menuItemRepository.findOne({
       where: { id },
-      relations: ['parent', 'children', 'menu'],
+      relations: ["parent", "children", "menu"],
     });
 
     if (!menuItem) {
@@ -354,7 +340,7 @@ export class MenuService {
     // Validate parent item change
     if (updateDto.parentId !== undefined) {
       if (updateDto.parentId === id) {
-        throw new BadRequestException('Menu item cannot be its own parent');
+        throw new BadRequestException("Menu item cannot be its own parent");
       }
 
       if (updateDto.parentId) {
@@ -370,7 +356,7 @@ export class MenuService {
 
         if (parentItem.menuId !== menuItem.menuId) {
           throw new BadRequestException(
-            'Parent menu item must belong to the same menu',
+            "Parent menu item must belong to the same menu",
           );
         }
 
@@ -382,7 +368,7 @@ export class MenuService {
 
         if (wouldCreateCircular) {
           throw new BadRequestException(
-            'Cannot set parent: would create circular reference',
+            "Cannot set parent: would create circular reference",
           );
         }
       }
@@ -420,7 +406,7 @@ export class MenuService {
    * Delete a menu item
    */
   async removeMenuItem(id: string): Promise<void> {
-    const menuItem = await this.findOneMenuItem(id); // Enforces tenant check
+    await this.findOneMenuItem(id); // Enforces tenant check
 
     // Check if menu item has children
     const childrenCount = await this.menuItemRepository.count({
@@ -429,7 +415,7 @@ export class MenuService {
 
     if (childrenCount > 0) {
       throw new BadRequestException(
-        'Cannot delete menu item with child items. Delete or move child items first.',
+        "Cannot delete menu item with child items. Delete or move child items first.",
       );
     }
 
@@ -442,7 +428,7 @@ export class MenuService {
   async reorderMenuItems(dto: ReorderMenuItemsDto): Promise<void> {
     if (dto.menuItemIds.length !== dto.orderIndexes.length) {
       throw new BadRequestException(
-        'Menu item IDs and order indexes arrays must have the same length',
+        "Menu item IDs and order indexes arrays must have the same length",
       );
     }
 
@@ -453,17 +439,19 @@ export class MenuService {
     await this.menuItemRepository.manager.transaction(async (manager) => {
       for (let i = 0; i < dto.menuItemIds.length; i++) {
         // We really should check ownership.
-        // But doing it for each item is expensive. 
-        // Assuming secure controller context. 
+        // But doing it for each item is expensive.
+        // Assuming secure controller context.
         // For strictness, let's look up the item.
         const item = await manager.findOne(MenuItem, {
           where: { id: dto.menuItemIds[i] },
-          relations: ['menu']
+          relations: ["menu"],
         });
 
         if (!item || item.menu.tenantId !== this.tenantId) {
           // Skip or throw? Throwing effectively cancels transaction.
-          throw new NotFoundException(`Menu item ${dto.menuItemIds[i]} not found`);
+          throw new NotFoundException(
+            `Menu item ${dto.menuItemIds[i]} not found`,
+          );
         }
 
         await manager.update(MenuItem, dto.menuItemIds[i], {
@@ -482,9 +470,9 @@ export class MenuService {
   ): Promise<void> {
     // Validate all items belong to the menu
     // AND menu belongs to tenant
-    await this.findOneMenu(menuId); // Checks tenant ownership
+    await this.requireMenu({ id: menuId }); // Checks tenant ownership
 
-    const menuItems = await this.findMenuItems(menuId);
+    const menuItems = await this.itemsOf(menuId);
     const menuItemIds = new Set(menuItems.map((item) => item.id));
 
     for (const update of updates) {

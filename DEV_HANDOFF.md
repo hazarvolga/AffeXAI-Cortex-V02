@@ -407,3 +407,15 @@ Açık: diğer tenant sayfalarının sayfa içi denetimi (F3.5–F3.7), light/da
 - **Kabul testi:** `apps/frontend/scripts/acceptance/tenant-routes.cjs` (`TENANT_ROUTES_ACCEPTANCE_ISOLATED=1`, `ROUTE_SET=email|support`, `ONLY=`). Fixture rolü gerçek tenant admin yetki listesini `TenantAdminPermissions` migration'ından okur (wildcard yok).
 
 Açık: e-posta şablon builder'ı (F3.6), otomasyon kaydet/etkinleştir ve kampanya planlama/gönderim akışı (modül sprinti), `TRUST_PROXY_HOPS` / throttle anahtarı (F4 sonrası altyapı işi).
+
+## UI/UX F3.6 — CMS ve builder çalışma alanı — 2026-10-15
+
+- **Editör kaydetme:** `components/cms/editor/page-persistence.ts` tek kaynak. Kirli durum = `editorSnapshot(components, meta)` son yüklenen/kaydedilen anlık görüntüden farklı. Yeni alan eklerken anlık görüntüye ve kaydedilen DTO'ya birlikte ekleyin; yoksa "Kaydedildi" yalan söyler. Yayınlama her zaman ekrandakini yayınlar (önce kaydeder).
+- **CMS çerçevesi:** `app/[tenant]/admin/cms/layout.tsx` → `CmsWorkbenchFrame` (genel bakış hariç; o `BccEditorialWrapper` kullanıyor). Yeni CMS sayfası kendi `<main>`'ini açmamalı. Bağlantılar `useTenantAdminHref()`; `/admin/cms…` yazmayın.
+- **Başlık şablonu:** alt sayfası olan her layout'ta `metadata.title = adminTitle("…")` (portalda `portalTitle`). Düz string başlık "· AffeXAI Cortex" ekini alt sayfalardan siler; taramalar artık bunu yakalıyor.
+- **API zarfı:** `httpClient.get/post` zarfı açmaz; backend `{success,data}` döndürdüğü için servislerde `getWrapped/postWrapped/patchWrapped` kullanın.
+- **Filtre olarak sekme kullanmayın:** içerik paneli olmayan Radix `Tabs` axe `aria-valid-attr-value` hatası verir; `role="group"` + `aria-pressed` düğmeleri kullanın.
+- **Backend:** `PageService` `title` ve `name`'i birlikte yazar. `MenuService`'te sahiplik kontrolü `requireMenu`, öğeler `itemsOf`; `findOneMenu`'yu kontrol için çağırmayın (özyineleme). Slug için `cms/services/unique-slug.ts` (Türkçe, kiracı kapsamlı, yeniden adlandırmada kendini hariç tutar).
+- **Kabul testleri:** `scripts/acceptance/cms-workbench.cjs` (`CMS_ACCEPTANCE_ISOLATED=1`, isteğe bağlı `FAIL_SCREENSHOT=`), `tenant-routes.cjs` varsayılan olarak tüm kümeleri (e-posta, destek, CMS) koşar. Ortak fikstür `scripts/acceptance/lib/tenant-fixture.cjs`. Tarayıcıda yıkıcı onaylarda Escape'ten önce odağın "Vazgeç"e yerleşmesini bekleyin.
+
+Açık: kiracı CMS sayfalarının ziyaretçiye sunumu (slug uç noktası JWT korumalı), sayfa+bileşen kaydının tek işlemde olmaması, sayfasız bileşen oluşturma.

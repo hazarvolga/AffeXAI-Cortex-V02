@@ -1,16 +1,22 @@
-'use client';
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Search } from 'lucide-react';
+} from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 interface ComponentSelectorProps {
   componentId: string;
@@ -32,7 +38,7 @@ export function ComponentSelector({
       <CardHeader>
         <CardTitle>Component Seçimi</CardTitle>
         <CardDescription>
-          Heatmap görmek istediğiniz component'i seçin
+          Heatmap görmek istediğiniz component&apos;i seçin
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -65,7 +71,7 @@ export function ComponentSelector({
         {/* Recent Components */}
         {recentComponents.length > 0 && (
           <div className="space-y-2">
-            <Label>Son Kullanılan Component'ler</Label>
+            <Label htmlFor="recent-components">Son kullanılan bileşenler</Label>
             <Select
               value={componentId}
               onValueChange={(value) => {
@@ -76,7 +82,7 @@ export function ComponentSelector({
                 }
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id="recent-components">
                 <SelectValue placeholder="Listeden seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -99,7 +105,8 @@ export function ComponentSelector({
         <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
           <p>💡 Component ID, tracking kodunuzda kullandığınız ID olmalıdır.</p>
           <p>
-            📍 Sayfa URL'si belirtmezseniz, tüm sayfalardaki heatmap birleştirilir.
+            📍 Sayfa URL&apos;si belirtmezseniz, tüm sayfalardaki heatmap
+            birleştirilir.
           </p>
         </div>
       </CardContent>

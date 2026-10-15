@@ -1,19 +1,25 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ReusableComponentsService,
   ReusableSectionsService,
   type ReusableComponent,
   type ReusableSection,
-} from '@/services/reusable-content.service';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+} from "@/services/reusable-content.service";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Star,
   Edit,
@@ -23,13 +29,17 @@ import {
   Box,
   Layers,
   BarChart,
-} from 'lucide-react';
+} from "lucide-react";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const FavoritesPage = () => {
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'components' | 'sections'>('components');
+  const [activeTab, setActiveTab] = useState<"components" | "sections">(
+    "components",
+  );
 
   // Fetch favorite components
   const {
@@ -37,7 +47,7 @@ const FavoritesPage = () => {
     isLoading: loadingComponents,
     refetch: refetchComponents,
   } = useQuery({
-    queryKey: ['favorite-components'],
+    queryKey: ["favorite-components"],
     queryFn: () => ReusableComponentsService.getFavorites(),
     refetchInterval: 30000,
   });
@@ -48,28 +58,29 @@ const FavoritesPage = () => {
     isLoading: loadingSections,
     refetch: refetchSections,
   } = useQuery({
-    queryKey: ['favorite-sections'],
+    queryKey: ["favorite-sections"],
     queryFn: () => ReusableSectionsService.getFavorites(),
     refetchInterval: 30000,
   });
 
   // Remove component from favorites
   const removeComponentMutation = useMutation({
-    mutationFn: (id: string) => ReusableComponentsService.removeFromFavorites(id),
+    mutationFn: (id: string) =>
+      ReusableComponentsService.removeFromFavorites(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorite-components'] });
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
+      queryClient.invalidateQueries({ queryKey: ["favorite-components"] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
       toast({
-        title: 'Favorilerden çıkarıldı',
-        description: 'Bileşen favorilerden çıkarıldı.',
+        title: "Favorilerden çıkarıldı",
+        description: "Bileşen favorilerden çıkarıldı.",
       });
     },
     onError: (error) => {
-      console.error('Failed to remove from favorites:', error);
+      console.error("Failed to remove from favorites:", error);
       toast({
-        title: 'Hata',
-        description: 'Favorilerden çıkarılırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Favorilerden çıkarılırken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -78,29 +89,29 @@ const FavoritesPage = () => {
   const removeSectionMutation = useMutation({
     mutationFn: (id: string) => ReusableSectionsService.removeFromFavorites(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorite-sections'] });
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
+      queryClient.invalidateQueries({ queryKey: ["favorite-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
       toast({
-        title: 'Favorilerden çıkarıldı',
-        description: 'Section favorilerden çıkarıldı.',
+        title: "Favorilerden çıkarıldı",
+        description: "Section favorilerden çıkarıldı.",
       });
     },
     onError: (error) => {
-      console.error('Failed to remove from favorites:', error);
+      console.error("Failed to remove from favorites:", error);
       toast({
-        title: 'Hata',
-        description: 'Favorilerden çıkarılırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Favorilerden çıkarılırken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
 
   const handleEditComponent = (componentId: string) => {
-    router.push(`/admin/cms/reusable-components/${componentId}`);
+    router.push(tenantHref(`/cms/reusable-components/${componentId}`));
   };
 
   const handleEditSection = (sectionId: string) => {
-    router.push(`/admin/cms/reusable-sections/${sectionId}`);
+    router.push(tenantHref(`/cms/reusable-sections/${sectionId}`));
   };
 
   const handleRemoveComponentFromFavorites = (componentId: string) => {
@@ -133,7 +144,7 @@ const FavoritesPage = () => {
           )}
         </div>
         <p className="text-sm text-muted-foreground mb-2">
-          {component.description || 'Açıklama yok'}
+          {component.description || "Açıklama yok"}
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>
@@ -212,7 +223,7 @@ const FavoritesPage = () => {
           )}
         </div>
         <p className="text-sm text-muted-foreground mb-2">
-          {section.description || 'Açıklama yok'}
+          {section.description || "Açıklama yok"}
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>
@@ -269,14 +280,16 @@ const FavoritesPage = () => {
               Favorilerim
             </h1>
             <p className="text-muted-foreground">
-              Favori olarak işaretlediğiniz bileşenler ve section'lar
+              Favori olarak işaretlediğiniz bileşenler ve section&apos;lar
             </p>
           </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={() =>
-                activeTab === 'components' ? refetchComponents() : refetchSections()
+                activeTab === "components"
+                  ? refetchComponents()
+                  : refetchSections()
               }
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -298,7 +311,7 @@ const FavoritesPage = () => {
           </TabsTrigger>
           <TabsTrigger value="sections" className="flex items-center gap-2">
             <Layers className="h-4 w-4" />
-            Section'lar
+            Section&apos;lar
             {favoriteSections && (
               <Badge variant="secondary">{favoriteSections.length}</Badge>
             )}
@@ -313,7 +326,7 @@ const FavoritesPage = () => {
               <CardDescription>
                 {favoriteComponents
                   ? `${favoriteComponents.length} favori bileşen`
-                  : 'Yükleniyor...'}
+                  : "Yükleniyor..."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -327,19 +340,24 @@ const FavoritesPage = () => {
                   <Star className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Henüz favori bileşen yok</p>
                   <p className="text-sm text-muted-foreground">
-                    Bileşen listesinden yıldız ikonuna tıklayarak favorilere ekleyin
+                    Bileşen listesinden yıldız ikonuna tıklayarak favorilere
+                    ekleyin
                   </p>
                   <Button
                     variant="outline"
                     className="mt-4"
-                    onClick={() => router.push('/admin/cms/reusable-components')}
+                    onClick={() =>
+                      router.push(tenantHref("/cms/reusable-components"))
+                    }
                   >
                     Bileşenlere Git
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {favoriteComponents.map((component) => renderComponentCard(component))}
+                  {favoriteComponents.map((component) =>
+                    renderComponentCard(component),
+                  )}
                 </div>
               )}
             </CardContent>
@@ -350,11 +368,11 @@ const FavoritesPage = () => {
         <TabsContent value="sections" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Favori Section'lar</CardTitle>
+              <CardTitle>Favori Section&apos;lar</CardTitle>
               <CardDescription>
                 {favoriteSections
                   ? `${favoriteSections.length} favori section`
-                  : 'Yükleniyor...'}
+                  : "Yükleniyor..."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -368,19 +386,24 @@ const FavoritesPage = () => {
                   <Star className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Henüz favori section yok</p>
                   <p className="text-sm text-muted-foreground">
-                    Section listesinden yıldız ikonuna tıklayarak favorilere ekleyin
+                    Section listesinden yıldız ikonuna tıklayarak favorilere
+                    ekleyin
                   </p>
                   <Button
                     variant="outline"
                     className="mt-4"
-                    onClick={() => router.push('/admin/cms/reusable-sections')}
+                    onClick={() =>
+                      router.push(tenantHref("/cms/reusable-sections"))
+                    }
                   >
-                    Section'lara Git
+                    Section&apos;lara Git
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {favoriteSections.map((section) => renderSectionCard(section))}
+                  {favoriteSections.map((section) =>
+                    renderSectionCard(section),
+                  )}
                 </div>
               )}
             </CardContent>

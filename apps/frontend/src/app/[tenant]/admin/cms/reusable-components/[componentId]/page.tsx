@@ -1,28 +1,52 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { ReusableComponentsService } from '@/services/reusable-content.service';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Save, Loader2, X } from 'lucide-react';
-import { ReusableComponentPropsEditor } from '@/components/cms/reusable/reusable-component-props-editor';
+import React, { useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { ReusableComponentsService } from "@/services/reusable-content.service";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Save, Loader2, X } from "lucide-react";
+import { ReusableComponentPropsEditor } from "@/components/cms/reusable/reusable-component-props-editor";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const componentSchema = z.object({
-  name: z.string().min(3, 'İsim en az 3 karakter olmalı').max(255),
+  name: z.string().min(3, "İsim en az 3 karakter olmalı").max(255),
   description: z.string().optional(),
-  componentType: z.enum(['text', 'button', 'image', 'card', 'form', 'input', 'container', 'grid', 'block', 'custom']),
+  componentType: z.enum([
+    "text",
+    "button",
+    "image",
+    "card",
+    "form",
+    "input",
+    "container",
+    "grid",
+    "block",
+    "custom",
+  ]),
   blockType: z.string().optional(),
   blockCategory: z.string().optional(),
   blockId: z.string().optional(),
@@ -38,18 +62,19 @@ type ComponentFormData = z.infer<typeof componentSchema>;
 
 const ComponentDetailPage = () => {
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const params = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const componentId = params.componentId as string;
-  const isNewComponent = componentId === 'new';
+  const isNewComponent = componentId === "new";
 
-  const [tagInput, setTagInput] = React.useState('');
-  const [propsJson, setPropsJson] = React.useState('{}');
+  const [tagInput, setTagInput] = React.useState("");
+  const [propsJson, setPropsJson] = React.useState("{}");
 
   // Fetch component if editing
   const { data: component, isLoading } = useQuery({
-    queryKey: ['reusable-component', componentId],
+    queryKey: ["reusable-component", componentId],
     queryFn: () => ReusableComponentsService.getById(componentId),
     enabled: !isNewComponent,
   });
@@ -64,9 +89,9 @@ const ComponentDetailPage = () => {
   } = useForm<ComponentFormData>({
     resolver: zodResolver(componentSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      componentType: 'custom',
+      name: "",
+      description: "",
+      componentType: "custom",
       props: {},
       tags: [],
       isPublic: false,
@@ -74,16 +99,16 @@ const ComponentDetailPage = () => {
     },
   });
 
-  const tags = watch('tags') || [];
-  const isPublic = watch('isPublic');
-  const isFeatured = watch('isFeatured');
+  const tags = watch("tags") || [];
+  const isPublic = watch("isPublic");
+  const isFeatured = watch("isFeatured");
 
   // Update form when component data is loaded
   useEffect(() => {
     if (component) {
       reset({
         name: component.name,
-        description: component.description || '',
+        description: component.description || "",
         componentType: component.componentType as any,
         blockType: component.blockType,
         blockCategory: component.blockCategory,
@@ -101,21 +126,22 @@ const ComponentDetailPage = () => {
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: ComponentFormData) => ReusableComponentsService.create(data),
+    mutationFn: (data: ComponentFormData) =>
+      ReusableComponentsService.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
       toast({
-        title: 'Bileşen oluşturuldu',
-        description: 'Bileşen başarıyla oluşturuldu.',
+        title: "Bileşen oluşturuldu",
+        description: "Bileşen başarıyla oluşturuldu.",
       });
-      router.push('/admin/cms/reusable-components');
+      router.push(tenantHref("/cms/reusable-components"));
     },
     onError: (error) => {
-      console.error('Failed to create component:', error);
+      console.error("Failed to create component:", error);
       toast({
-        title: 'Hata',
-        description: 'Bileşen oluşturulurken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Bileşen oluşturulurken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -125,20 +151,22 @@ const ComponentDetailPage = () => {
     mutationFn: (data: ComponentFormData) =>
       ReusableComponentsService.update(componentId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-components'] });
-      queryClient.invalidateQueries({ queryKey: ['reusable-component', componentId] });
-      toast({
-        title: 'Bileşen güncellendi',
-        description: 'Bileşen başarıyla güncellendi.',
+      queryClient.invalidateQueries({ queryKey: ["reusable-components"] });
+      queryClient.invalidateQueries({
+        queryKey: ["reusable-component", componentId],
       });
-      router.push('/admin/cms/reusable-components');
+      toast({
+        title: "Bileşen güncellendi",
+        description: "Bileşen başarıyla güncellendi.",
+      });
+      router.push(tenantHref("/cms/reusable-components"));
     },
     onError: (error) => {
-      console.error('Failed to update component:', error);
+      console.error("Failed to update component:", error);
       toast({
-        title: 'Hata',
-        description: 'Bileşen güncellenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Bileşen güncellenirken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -156,17 +184,20 @@ const ComponentDetailPage = () => {
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setValue('tags', [...tags, tagInput.trim()]);
-      setTagInput('');
+      setValue("tags", [...tags, tagInput.trim()]);
+      setTagInput("");
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setValue('tags', tags.filter(tag => tag !== tagToRemove));
+    setValue(
+      "tags",
+      tags.filter((tag) => tag !== tagToRemove),
+    );
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleAddTag();
     }
@@ -188,19 +219,19 @@ const ComponentDetailPage = () => {
       <div className="mb-8">
         <Button
           variant="ghost"
-          onClick={() => router.push('/admin/cms/reusable-components')}
+          onClick={() => router.push(tenantHref("/cms/reusable-components"))}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Geri
         </Button>
         <h1 className="text-3xl font-bold">
-          {isNewComponent ? 'Yeni Bileşen Oluştur' : 'Bileşeni Düzenle'}
+          {isNewComponent ? "Yeni Bileşen Oluştur" : "Bileşeni Düzenle"}
         </h1>
         <p className="text-muted-foreground">
           {isNewComponent
-            ? 'Yeniden kullanılabilir yeni bir bileşen oluşturun'
-            : 'Mevcut bileşeni düzenleyin'}
+            ? "Yeniden kullanılabilir yeni bir bileşen oluşturun"
+            : "Mevcut bileşeni düzenleyin"}
         </p>
       </div>
 
@@ -209,7 +240,9 @@ const ComponentDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Temel Bilgiler</CardTitle>
-            <CardDescription>Bileşenin temel özelliklerini girin</CardDescription>
+            <CardDescription>
+              Bileşenin temel özelliklerini girin
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Name */}
@@ -217,12 +250,14 @@ const ComponentDetailPage = () => {
               <Label htmlFor="name">İsim *</Label>
               <Input
                 id="name"
-                {...register('name')}
+                {...register("name")}
                 placeholder="Örn: Hero Section Background"
-                className={errors.name ? 'border-destructive' : ''}
+                className={errors.name ? "border-destructive" : ""}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
@@ -231,7 +266,7 @@ const ComponentDetailPage = () => {
               <Label htmlFor="description">Açıklama</Label>
               <Textarea
                 id="description"
-                {...register('description')}
+                {...register("description")}
                 placeholder="Bileşen hakkında açıklama..."
                 rows={3}
               />
@@ -241,10 +276,12 @@ const ComponentDetailPage = () => {
             <div className="space-y-2">
               <Label htmlFor="componentType">Bileşen Tipi *</Label>
               <Select
-                value={watch('componentType')}
-                onValueChange={(value) => setValue('componentType', value as any)}
+                value={watch("componentType")}
+                onValueChange={(value) =>
+                  setValue("componentType", value as any)
+                }
               >
-                <SelectTrigger>
+                <SelectTrigger id="componentType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -268,7 +305,7 @@ const ComponentDetailPage = () => {
                 <Label htmlFor="blockType">Blok Tipi</Label>
                 <Input
                   id="blockType"
-                  {...register('blockType')}
+                  {...register("blockType")}
                   placeholder="Örn: hero, content, features"
                 />
               </div>
@@ -278,7 +315,7 @@ const ComponentDetailPage = () => {
                 <Label htmlFor="blockCategory">Blok Kategorisi</Label>
                 <Input
                   id="blockCategory"
-                  {...register('blockCategory')}
+                  {...register("blockCategory")}
                   placeholder="Örn: layout, content, media"
                 />
               </div>
@@ -289,7 +326,7 @@ const ComponentDetailPage = () => {
               <Label htmlFor="blockId">Prebuild Block ID (Opsiyonel)</Label>
               <Input
                 id="blockId"
-                {...register('blockId')}
+                {...register("blockId")}
                 placeholder="Örn: hero-gradient-1, feature-grid-3-col"
               />
               <p className="text-xs text-muted-foreground">
@@ -301,12 +338,12 @@ const ComponentDetailPage = () => {
 
         {/* Props & Configuration */}
         <ReusableComponentPropsEditor
-          componentType={watch('componentType')}
-          blockType={watch('blockType')}
-          blockId={watch('blockId')}
-          value={watch('props')}
+          componentType={watch("componentType")}
+          blockType={watch("blockType")}
+          blockId={watch("blockId")}
+          value={watch("props")}
           onChange={(newProps) => {
-            setValue('props', newProps);
+            setValue("props", newProps);
             setPropsJson(JSON.stringify(newProps, null, 2));
           }}
         />
@@ -315,7 +352,9 @@ const ComponentDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Etiketler</CardTitle>
-            <CardDescription>Bileşeni bulmak için etiketler ekleyin</CardDescription>
+            <CardDescription>
+              Bileşeni bulmak için etiketler ekleyin
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -366,7 +405,7 @@ const ComponentDetailPage = () => {
               <Switch
                 id="isPublic"
                 checked={isPublic}
-                onCheckedChange={(checked) => setValue('isPublic', checked)}
+                onCheckedChange={(checked) => setValue("isPublic", checked)}
               />
             </div>
 
@@ -381,7 +420,7 @@ const ComponentDetailPage = () => {
               <Switch
                 id="isFeatured"
                 checked={isFeatured}
-                onCheckedChange={(checked) => setValue('isFeatured', checked)}
+                onCheckedChange={(checked) => setValue("isFeatured", checked)}
               />
             </div>
 
@@ -390,7 +429,7 @@ const ComponentDetailPage = () => {
               <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
               <Input
                 id="thumbnailUrl"
-                {...register('thumbnailUrl')}
+                {...register("thumbnailUrl")}
                 placeholder="https://example.com/thumbnail.jpg"
               />
             </div>
@@ -408,12 +447,12 @@ const ComponentDetailPage = () => {
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             )}
             <Save className="h-4 w-4 mr-2" />
-            {isNewComponent ? 'Oluştur' : 'Güncelle'}
+            {isNewComponent ? "Oluştur" : "Güncelle"}
           </Button>
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push('/admin/cms/reusable-components')}
+            onClick={() => router.push(tenantHref("/cms/reusable-components"))}
           >
             İptal
           </Button>

@@ -1,25 +1,37 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import React, { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   ReusableSectionsService,
   ReusableComponentsService,
   type SectionComponent,
-} from '@/services/reusable-content.service';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+} from "@/services/reusable-content.service";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Save,
@@ -29,12 +41,13 @@ import {
   Trash2,
   GripVertical,
   Box,
-} from 'lucide-react';
+} from "lucide-react";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const sectionSchema = z.object({
-  name: z.string().min(3, 'İsim en az 3 karakter olmalı').max(255),
+  name: z.string().min(3, "İsim en az 3 karakter olmalı").max(255),
   description: z.string().optional(),
-  sectionType: z.string().min(1, 'Section tipi gerekli'),
+  sectionType: z.string().min(1, "Section tipi gerekli"),
   tags: z.array(z.string()),
   thumbnailUrl: z.string().optional(),
   isPublic: z.boolean(),
@@ -54,26 +67,27 @@ interface ComponentItem {
 
 const SectionDetailPage = () => {
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const params = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const sectionId = params.sectionId as string;
-  const isNewSection = sectionId === 'new';
+  const isNewSection = sectionId === "new";
 
-  const [tagInput, setTagInput] = useState('');
+  const [tagInput, setTagInput] = useState("");
   const [components, setComponents] = useState<ComponentItem[]>([]);
   const [showComponentPicker, setShowComponentPicker] = useState(false);
 
   // Fetch section if editing
   const { data: section, isLoading } = useQuery({
-    queryKey: ['reusable-section', sectionId],
+    queryKey: ["reusable-section", sectionId],
     queryFn: () => ReusableSectionsService.getById(sectionId),
     enabled: !isNewSection,
   });
 
   // Fetch available components for picker
   const { data: availableComponents } = useQuery({
-    queryKey: ['reusable-components', { limit: 100 }],
+    queryKey: ["reusable-components", { limit: 100 }],
     queryFn: () => ReusableComponentsService.getAll({ limit: 100 }),
   });
 
@@ -87,25 +101,25 @@ const SectionDetailPage = () => {
   } = useForm<SectionFormData>({
     resolver: zodResolver(sectionSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      sectionType: 'custom',
+      name: "",
+      description: "",
+      sectionType: "custom",
       tags: [],
       isPublic: false,
       isFeatured: false,
     },
   });
 
-  const tags = watch('tags') || [];
-  const isPublic = watch('isPublic');
-  const isFeatured = watch('isFeatured');
+  const tags = watch("tags") || [];
+  const isPublic = watch("isPublic");
+  const isFeatured = watch("isFeatured");
 
   // Update form when section data is loaded
   useEffect(() => {
     if (section) {
       reset({
         name: section.name,
-        description: section.description || '',
+        description: section.description || "",
         sectionType: section.sectionType,
         tags: section.tags,
         thumbnailUrl: section.thumbnailUrl,
@@ -115,14 +129,16 @@ const SectionDetailPage = () => {
 
       // Load components
       if (section.components) {
-        const loadedComponents: ComponentItem[] = section.components.map((comp, idx) => ({
-          id: comp.id || `temp-${idx}`,
-          reusableComponentId: comp.reusableComponentId,
-          componentType: comp.componentType,
-          blockType: comp.blockType,
-          props: comp.props,
-          orderIndex: comp.orderIndex,
-        }));
+        const loadedComponents: ComponentItem[] = section.components.map(
+          (comp, idx) => ({
+            id: comp.id || `temp-${idx}`,
+            reusableComponentId: comp.reusableComponentId,
+            componentType: comp.componentType,
+            blockType: comp.blockType,
+            props: comp.props,
+            orderIndex: comp.orderIndex,
+          }),
+        );
         setComponents(loadedComponents);
       }
     }
@@ -132,19 +148,19 @@ const SectionDetailPage = () => {
   const createMutation = useMutation({
     mutationFn: (data: any) => ReusableSectionsService.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
       toast({
-        title: 'Section oluşturuldu',
-        description: 'Section başarıyla oluşturuldu.',
+        title: "Section oluşturuldu",
+        description: "Section başarıyla oluşturuldu.",
       });
-      router.push('/admin/cms/reusable-sections');
+      router.push(tenantHref("/cms/reusable-sections"));
     },
     onError: (error) => {
-      console.error('Failed to create section:', error);
+      console.error("Failed to create section:", error);
       toast({
-        title: 'Hata',
-        description: 'Section oluşturulurken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Section oluşturulurken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -153,20 +169,22 @@ const SectionDetailPage = () => {
   const updateMutation = useMutation({
     mutationFn: (data: any) => ReusableSectionsService.update(sectionId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
-      queryClient.invalidateQueries({ queryKey: ['reusable-section', sectionId] });
-      toast({
-        title: 'Section güncellendi',
-        description: 'Section başarıyla güncellendi.',
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
+      queryClient.invalidateQueries({
+        queryKey: ["reusable-section", sectionId],
       });
-      router.push('/admin/cms/reusable-sections');
+      toast({
+        title: "Section güncellendi",
+        description: "Section başarıyla güncellendi.",
+      });
+      router.push(tenantHref("/cms/reusable-sections"));
     },
     onError: (error) => {
-      console.error('Failed to update section:', error);
+      console.error("Failed to update section:", error);
       toast({
-        title: 'Hata',
-        description: 'Section güncellenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Section güncellenirken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -192,17 +210,22 @@ const SectionDetailPage = () => {
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setValue('tags', [...tags, tagInput.trim()]);
-      setTagInput('');
+      setValue("tags", [...tags, tagInput.trim()]);
+      setTagInput("");
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setValue('tags', tags.filter((tag) => tag !== tagToRemove));
+    setValue(
+      "tags",
+      tags.filter((tag) => tag !== tagToRemove),
+    );
   };
 
   const handleAddComponent = (componentId: string) => {
-    const reusableComponent = availableComponents?.data.find((c) => c.id === componentId);
+    const reusableComponent = availableComponents?.data.find(
+      (c) => c.id === componentId,
+    );
     if (!reusableComponent) return;
 
     const newComponent: ComponentItem = {
@@ -222,12 +245,15 @@ const SectionDetailPage = () => {
     setComponents(components.filter((c) => c.id !== componentId));
   };
 
-  const handleMoveComponent = (componentId: string, direction: 'up' | 'down') => {
+  const handleMoveComponent = (
+    componentId: string,
+    direction: "up" | "down",
+  ) => {
     const index = components.findIndex((c) => c.id === componentId);
     if (index === -1) return;
 
     const newComponents = [...components];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
 
     if (targetIndex < 0 || targetIndex >= newComponents.length) return;
 
@@ -255,19 +281,19 @@ const SectionDetailPage = () => {
       <div className="mb-8">
         <Button
           variant="ghost"
-          onClick={() => router.push('/admin/cms/reusable-sections')}
+          onClick={() => router.push(tenantHref("/cms/reusable-sections"))}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Geri
         </Button>
         <h1 className="text-3xl font-bold">
-          {isNewSection ? 'Yeni Section Oluştur' : 'Section\'ı Düzenle'}
+          {isNewSection ? "Yeni Section Oluştur" : "Section'ı Düzenle"}
         </h1>
         <p className="text-muted-foreground">
           {isNewSection
-            ? 'Birden fazla bileşenden oluşan yeni bir section oluşturun'
-            : 'Mevcut section\'ı düzenleyin'}
+            ? "Birden fazla bileşenden oluşan yeni bir section oluşturun"
+            : "Mevcut section'ı düzenleyin"}
         </p>
       </div>
 
@@ -276,19 +302,23 @@ const SectionDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Temel Bilgiler</CardTitle>
-            <CardDescription>Section\'ın temel özelliklerini girin</CardDescription>
+            <CardDescription>
+              Section\&apos;ın temel özelliklerini girin
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">İsim *</Label>
               <Input
                 id="name"
-                {...register('name')}
+                {...register("name")}
                 placeholder="Örn: Product Features Section"
-                className={errors.name ? 'border-destructive' : ''}
+                className={errors.name ? "border-destructive" : ""}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
@@ -296,7 +326,7 @@ const SectionDetailPage = () => {
               <Label htmlFor="description">Açıklama</Label>
               <Textarea
                 id="description"
-                {...register('description')}
+                {...register("description")}
                 placeholder="Section hakkında açıklama..."
                 rows={3}
               />
@@ -305,10 +335,10 @@ const SectionDetailPage = () => {
             <div className="space-y-2">
               <Label htmlFor="sectionType">Section Tipi *</Label>
               <Select
-                value={watch('sectionType')}
-                onValueChange={(value) => setValue('sectionType', value)}
+                value={watch("sectionType")}
+                onValueChange={(value) => setValue("sectionType", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="sectionType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -368,7 +398,8 @@ const SectionDetailPage = () => {
                             <p className="font-medium">{component.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {component.componentType}
-                              {component.blockType && ` · ${component.blockType}`}
+                              {component.blockType &&
+                                ` · ${component.blockType}`}
                             </p>
                           </div>
                         </div>
@@ -384,13 +415,15 @@ const SectionDetailPage = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <Box className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>Henüz bileşen eklenmedi</p>
-                <p className="text-sm">Yukarıdaki butonu kullanarak bileşen ekleyin</p>
+                <p className="text-sm">
+                  Yukarıdaki butonu kullanarak bileşen ekleyin
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {components.map((component, index) => {
                   const reusableComp = availableComponents?.data.find(
-                    (c) => c.id === component.reusableComponentId
+                    (c) => c.id === component.reusableComponentId,
                   );
                   return (
                     <div
@@ -412,7 +445,9 @@ const SectionDetailPage = () => {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleMoveComponent(component.id, 'up')}
+                          onClick={() =>
+                            handleMoveComponent(component.id, "up")
+                          }
                           disabled={index === 0}
                         >
                           ↑
@@ -421,7 +456,9 @@ const SectionDetailPage = () => {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleMoveComponent(component.id, 'down')}
+                          onClick={() =>
+                            handleMoveComponent(component.id, "down")
+                          }
                           disabled={index === components.length - 1}
                         >
                           ↓
@@ -448,14 +485,18 @@ const SectionDetailPage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Etiketler</CardTitle>
-            <CardDescription>Section\'ı bulmak için etiketler ekleyin</CardDescription>
+            <CardDescription>
+              Section\&apos;ı bulmak için etiketler ekleyin
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), handleAddTag())
+                }
                 placeholder="Etiket ekle..."
               />
               <Button type="button" onClick={handleAddTag} variant="outline">
@@ -492,13 +533,13 @@ const SectionDetailPage = () => {
               <div className="space-y-0.5">
                 <Label htmlFor="isPublic">Herkese Açık</Label>
                 <p className="text-sm text-muted-foreground">
-                  Diğer kullanıcılar bu section\'ı görebilir
+                  Diğer kullanıcılar bu section\&apos;ı görebilir
                 </p>
               </div>
               <Switch
                 id="isPublic"
                 checked={isPublic}
-                onCheckedChange={(checked) => setValue('isPublic', checked)}
+                onCheckedChange={(checked) => setValue("isPublic", checked)}
               />
             </div>
 
@@ -506,13 +547,13 @@ const SectionDetailPage = () => {
               <div className="space-y-0.5">
                 <Label htmlFor="isFeatured">Öne Çıkan</Label>
                 <p className="text-sm text-muted-foreground">
-                  Bu section\'ı öne çıkan olarak işaretle
+                  Bu section\&apos;ı öne çıkan olarak işaretle
                 </p>
               </div>
               <Switch
                 id="isFeatured"
                 checked={isFeatured}
-                onCheckedChange={(checked) => setValue('isFeatured', checked)}
+                onCheckedChange={(checked) => setValue("isFeatured", checked)}
               />
             </div>
 
@@ -520,7 +561,7 @@ const SectionDetailPage = () => {
               <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
               <Input
                 id="thumbnailUrl"
-                {...register('thumbnailUrl')}
+                {...register("thumbnailUrl")}
                 placeholder="https://example.com/thumbnail.jpg"
               />
             </div>
@@ -538,12 +579,12 @@ const SectionDetailPage = () => {
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             )}
             <Save className="h-4 w-4 mr-2" />
-            {isNewSection ? 'Oluştur' : 'Güncelle'}
+            {isNewSection ? "Oluştur" : "Güncelle"}
           </Button>
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push('/admin/cms/reusable-sections')}
+            onClick={() => router.push(tenantHref("/cms/reusable-sections"))}
           >
             İptal
           </Button>

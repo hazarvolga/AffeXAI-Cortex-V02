@@ -214,7 +214,7 @@ export default function ABTestsPage() {
             setStatusFilter(value as ABTestStatus | "all")
           }
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[180px]" aria-label="Test durumu">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

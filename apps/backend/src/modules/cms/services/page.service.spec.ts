@@ -1,169 +1,210 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { PageService } from './page.service';
-import { Page } from '../entities/page.entity';
-import { EventBusService } from '../../platform-integration/services/event-bus.service';
-import { PageStatus } from '@affexai/shared-types';
-import { Component } from '../entities/component.entity';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException } from "@nestjs/common";
+import { PageStatus } from "@affexai/shared-types";
+import { PageService } from "./page.service";
 
-describe('PageService', () => {
-    let service: PageService;
-    let pageRepository: Repository<Page>;
-    let eventBusService: EventBusService;
+jest.mock("../../platform-integration/services/event-bus.service", () => ({
+  EventBusService: class {},
+}));
+jest.mock("../../../core/tenant/tenant.service", () => ({
+  TenantService: class {},
+}));
 
-    const mockPage = {
-        id: 'page-1',
-        title: 'Test Page',
-        slug: 'test-page',
-        status: PageStatus.DRAFT,
-        components: [],
-    };
+const TENANT = "acme";
 
-    const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-        delete: jest.fn().mockResolvedValue({ affected: 1 }),
-    };
+function setup() {
+  const stored = () => ({
+    id: "page-1",
+    tenantId: TENANT,
+    name: "Hakkımızda",
+    title: "Hakkımızda",
+    slug: "hakkimizda",
+    description: "Biz kimiz",
+    status: PageStatus.DRAFT,
+    publishedAt: null as Date | null,
+    categoryId: null,
+    layoutOptions: { showHeader: true },
+    components: [
+      {
+        id: "c-1",
+        pageId: "page-1",
+        type: "block",
+        props: { title: "x" },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  });
+  const updateBuilder = {
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    returning: jest.fn().mockReturnThis(),
+    execute: jest.fn(async () => ({
+      raw: [{ id: "page-1", slug: "hakkimizda" }],
+    })),
+  };
+  const repository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: "new-page", ...value })),
+    findOne: jest.fn(async () => stored()),
+    update: jest.fn<
+      Promise<{ affected: number }>,
+      [unknown, Record<string, unknown>]
+    >(async () => ({ affected: 1 })),
+    delete: jest.fn(async () => ({ affected: 2 })),
+    createQueryBuilder: jest.fn(() => updateBuilder),
+    manager: {
+      create: jest.fn((_entity, value) => value),
+      save: jest.fn(async () => []),
+      createQueryBuilder: jest.fn(),
+    },
+  };
+  const eventBus = { publishPagePublished: jest.fn(async () => undefined) };
+  const service = new PageService(
+    repository as never,
+    eventBus as never,
+    { getTenantId: () => TENANT } as never,
+  );
+  return { service, repository, eventBus, stored, updateBuilder };
+}
 
-    const mockPageRepository = {
-        create: jest.fn().mockImplementation(dto => dto),
-        save: jest.fn().mockImplementation(page => Promise.resolve({ id: '1', ...page })),
-        find: jest.fn().mockResolvedValue([mockPage]),
-        findOne: jest.fn().mockResolvedValue(mockPage),
-        createQueryBuilder: jest.fn(() => mockQueryBuilder),
-        update: jest.fn().mockResolvedValue({ affected: 1 }),
-        delete: jest.fn().mockResolvedValue({ affected: 1 }),
-        manager: {
-            createQueryBuilder: jest.fn(() => mockQueryBuilder),
-            create: jest.fn().mockImplementation((entity, data) => data),
-            save: jest.fn().mockResolvedValue([]),
-        },
-    };
+describe("PageService", () => {
+  describe("create", () => {
+    it("stores the title in both title and name for the tenant", async () => {
+      const { service, repository } = setup();
+      await service.create({
+        title: "Kabul Sayfası",
+        slug: "kabul",
+        status: "draft",
+      } as never);
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Kabul Sayfası",
+          name: "Kabul Sayfası",
+          slug: "kabul",
+          tenantId: TENANT,
+        }),
+      );
+    });
+  });
 
-    const mockEventBusService = {
-        publishPagePublished: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                PageService,
-                { provide: getRepositoryToken(Page), useValue: mockPageRepository },
-                { provide: EventBusService, useValue: mockEventBusService },
-            ],
-        }).compile();
-
-        service = module.get<PageService>(PageService);
-        pageRepository = module.get(getRepositoryToken(Page));
-        eventBusService = module.get(EventBusService);
-
-        jest.clearAllMocks();
+  describe("update", () => {
+    it("keeps title and name in step and scopes the write to the tenant", async () => {
+      const { service, repository } = setup();
+      await service.update("page-1", {
+        title: "Yeni Başlık",
+        slug: "yeni",
+      } as never);
+      expect(repository.update).toHaveBeenCalledWith(
+        { id: "page-1", tenantId: TENANT },
+        expect.objectContaining({
+          title: "Yeni Başlık",
+          name: "Yeni Başlık",
+          slug: "yeni",
+        }),
+      );
     });
 
-    describe('create', () => {
-        it('should create a page', async () => {
-            const dto = { title: 'New Page', slug: 'new-page' };
-            const result = await service.create(dto as any);
-            expect(result).toBeDefined();
-            expect(pageRepository.create).toHaveBeenCalledWith(dto);
-            expect(pageRepository.save).toHaveBeenCalled();
-        });
+    it("leaves the title alone when the update does not carry one", async () => {
+      const { service, repository } = setup();
+      await service.update("page-1", { slug: "yeni" } as never);
+      const written = repository.update.mock.calls[0][1];
+      expect(written).not.toHaveProperty("title");
+      expect(written).not.toHaveProperty("name");
     });
 
-    describe('findAll', () => {
-        it('should return all pages', async () => {
-            const result = await service.findAll();
-            expect(result).toEqual([]); // Mismatched mock vs QueryBuilder return, let's align
-            // Logic uses createQueryBuilder. It returns [] from mockQueryBuilder.getMany
-        });
+    it("answers a page from another tenant with 404", async () => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValueOnce(null as never);
+      await expect(
+        service.update("foreign", { slug: "x" } as never),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 
-        it('should filter by status', async () => {
-            await service.findAll(PageStatus.PUBLISHED);
-            expect(pageRepository.createQueryBuilder).toHaveBeenCalled();
-            expect(mockQueryBuilder.where).toHaveBeenCalledWith('page.status = :status', { status: PageStatus.PUBLISHED });
-        });
+  describe("publish / unpublish", () => {
+    it("publishes, stamps the time and emits the tenant event", async () => {
+      const { service, repository, eventBus } = setup();
+      const page = await service.publish("page-1");
+      expect(page.status).toBe(PageStatus.PUBLISHED);
+      expect(page.publishedAt).toBeInstanceOf(Date);
+      expect(repository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "page-1", tenantId: TENANT } }),
+      );
+      expect(eventBus.publishPagePublished).toHaveBeenCalledWith(
+        "page-1",
+        "hakkimizda",
+        TENANT,
+      );
     });
 
-    describe('findOne', () => {
-        it('should return a page with components', async () => {
-            mockPageRepository.findOne.mockResolvedValue({
-                ...mockPage,
-                components: [{ id: 'comp-1' }]
-            });
-
-            const result = await service.findOne('page-1');
-            expect(result).toBeDefined();
-            expect(result.components.length).toBe(1);
-        });
-
-        it('should fallback to manual component fetching if relation missing', async () => {
-            mockPageRepository.findOne.mockResolvedValue({ ...mockPage, components: [] });
-            mockQueryBuilder.getMany.mockResolvedValue([{ id: 'manual-comp' }]);
-
-            const result = await service.findOne('page-1');
-            expect(result.components.length).toBe(1);
-            expect(result.components[0].id).toBe('manual-comp');
-        });
+    it("returns a published page to draft and clears the publish time", async () => {
+      const { service, repository, stored } = setup();
+      repository.findOne.mockResolvedValueOnce({
+        ...stored(),
+        status: PageStatus.PUBLISHED,
+        publishedAt: new Date(),
+      } as never);
+      const page = await service.unpublish("page-1");
+      expect(page.status).toBe(PageStatus.DRAFT);
+      expect(page.publishedAt).toBeNull();
     });
 
-    describe('publish', () => {
-        it('should publish page and emit event', async () => {
-            mockPageRepository.findOne.mockResolvedValue(mockPage);
+    it("answers a missing page with 404 instead of a server error", async () => {
+      const { service, repository } = setup();
+      repository.findOne.mockResolvedValue(null as never);
+      await expect(service.publish("missing")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await expect(service.unpublish("missing")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
 
-            await service.publish('page-1');
+  describe("clone", () => {
+    it("creates a draft copy with a title, a new slug and copied components", async () => {
+      const { service, repository } = setup();
+      await service.clone("page-1");
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Hakkımızda (Kopya)",
+          name: "Hakkımızda (Kopya)",
+          status: PageStatus.DRAFT,
+          tenantId: TENANT,
+          slug: expect.stringMatching(/^hakkimizda-copy-\d+$/),
+        }),
+      );
+      expect(repository.manager.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ pageId: "new-page", type: "block" }),
+      );
+    });
+  });
 
-            expect(pageRepository.save).toHaveBeenCalledWith(expect.objectContaining({
-                status: PageStatus.PUBLISHED
-            }));
-            expect(eventBusService.publishPagePublished).toHaveBeenCalled();
-        });
-
-        it('should throw if page not found', async () => {
-            mockPageRepository.findOne.mockResolvedValue(null);
-            await expect(service.publish('bad-id')).rejects.toThrow();
-        });
+  describe("bulk operations", () => {
+    it("publishes only rows that changed and reports the rest as failed", async () => {
+      const { service, updateBuilder, eventBus } = setup();
+      await expect(
+        service.bulkPublish(["page-1", "page-1", "foreign"]),
+      ).resolves.toEqual({ successCount: 1, failedCount: 1 });
+      expect(updateBuilder.andWhere).toHaveBeenCalledWith(
+        "tenantId = :tenantId",
+        { tenantId: TENANT },
+      );
+      expect(eventBus.publishPagePublished).toHaveBeenCalledTimes(1);
     });
 
-    describe('clone', () => {
-        it('should clone page and components', async () => {
-            mockPageRepository.findOne.mockResolvedValue({
-                ...mockPage,
-                components: [{ id: 'c1', type: 'hero' }]
-            });
-
-            const result = await service.clone('page-1');
-
-            expect(pageRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-                title: expect.stringContaining('(Kopya)'),
-                status: PageStatus.DRAFT
-            }));
-            expect(pageRepository.manager.create).toHaveBeenCalled(); // Component cloning
-        });
+    it("deletes within the tenant and counts what was removed", async () => {
+      const { service, repository } = setup();
+      await expect(service.bulkDelete(["a", "b", "c"])).resolves.toEqual({
+        successCount: 2,
+        failedCount: 1,
+      });
+      expect(repository.delete).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: TENANT }),
+      );
     });
-
-    describe('bulkOperations', () => {
-        it('should bulk publish', async () => {
-            const ids = ['1', '2'];
-            mockPageRepository.update.mockResolvedValue({ affected: 2 });
-
-            const res = await service.bulkPublish(ids);
-
-            expect(res.successCount).toBe(2);
-            expect(pageRepository.update).toHaveBeenCalledWith(
-                { id: In(ids) },
-                expect.objectContaining({ status: PageStatus.PUBLISHED })
-            );
-        });
-
-        it('should bulk delete', async () => {
-            const ids = ['1'];
-            mockPageRepository.delete.mockResolvedValue({ affected: 1 });
-
-            const res = await service.bulkDelete(ids);
-
-            expect(res.successCount).toBe(1);
-        });
-    });
+  });
 });

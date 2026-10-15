@@ -1,13 +1,29 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
-import { ReusableSectionsService, type ReusableSection, type SectionFilters } from '@/services/reusable-content.service';
+import React, { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import {
+  ReusableSectionsService,
+  type ReusableSection,
+  type SectionFilters,
+} from "@/services/reusable-content.service";
 import {
   Plus,
   Search,
@@ -18,25 +34,32 @@ import {
   BarChart,
   Filter,
   RefreshCw,
-  Layers
-} from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  Layers,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 
 const ReusableSectionsPage = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sectionType, setSectionType] = useState<string>('all');
-  const [filterPublic, setFilterPublic] = useState<string>('all');
-  const [filterFeatured, setFilterFeatured] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sectionType, setSectionType] = useState<string>("all");
+  const [filterPublic, setFilterPublic] = useState<string>("all");
+  const [filterFeatured, setFilterFeatured] = useState<string>("all");
   const [filterMySections, setFilterMySections] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'usageCount' | 'featured'>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [sortBy, setSortBy] = useState<
+    "name" | "createdAt" | "updatedAt" | "usageCount" | "featured"
+  >("createdAt");
+  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sectionToDelete, setSectionToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [sectionToDelete, setSectionToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const router = useRouter();
+  const tenantHref = useTenantAdminHref();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -50,19 +73,28 @@ const ReusableSectionsPage = () => {
     };
 
     if (searchQuery) f.search = searchQuery;
-    if (sectionType !== 'all') f.sectionType = sectionType;
-    if (filterPublic === 'public') f.isPublic = true;
-    if (filterPublic === 'private') f.isPublic = false;
-    if (filterFeatured === 'featured') f.isFeatured = true;
-    if (filterFeatured === 'not-featured') f.isFeatured = false;
+    if (sectionType !== "all") f.sectionType = sectionType;
+    if (filterPublic === "public") f.isPublic = true;
+    if (filterPublic === "private") f.isPublic = false;
+    if (filterFeatured === "featured") f.isFeatured = true;
+    if (filterFeatured === "not-featured") f.isFeatured = false;
     if (filterMySections) f.mySections = true;
 
     return f;
-  }, [searchQuery, sectionType, filterPublic, filterFeatured, filterMySections, sortBy, sortOrder, currentPage]);
+  }, [
+    searchQuery,
+    sectionType,
+    filterPublic,
+    filterFeatured,
+    filterMySections,
+    sortBy,
+    sortOrder,
+    currentPage,
+  ]);
 
   // Fetch sections with React Query
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['reusable-sections', filters],
+    queryKey: ["reusable-sections", filters],
     queryFn: () => ReusableSectionsService.getAll(filters),
     refetchInterval: 30000,
     staleTime: 10000,
@@ -72,18 +104,18 @@ const ReusableSectionsPage = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => ReusableSectionsService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
       toast({
-        title: 'Section silindi',
+        title: "Section silindi",
         description: `"${sectionToDelete?.name}" başarıyla silindi.`,
       });
     },
     onError: (error) => {
-      console.error('Failed to delete section:', error);
+      console.error("Failed to delete section:", error);
       toast({
-        title: 'Hata',
-        description: 'Section silinirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Section silinirken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
@@ -93,25 +125,31 @@ const ReusableSectionsPage = () => {
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       ReusableSectionsService.duplicate(id, name, false),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
       toast({
-        title: 'Section kopyalandı',
-        description: 'Section başarıyla kopyalandı.',
+        title: "Section kopyalandı",
+        description: "Section başarıyla kopyalandı.",
       });
     },
     onError: (error) => {
-      console.error('Failed to duplicate section:', error);
+      console.error("Failed to duplicate section:", error);
       toast({
-        title: 'Hata',
-        description: 'Section kopyalanırken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Section kopyalanırken bir hata oluştu.",
+        variant: "destructive",
       });
     },
   });
 
   // Toggle favorite mutation
   const toggleFavoriteMutation = useMutation({
-    mutationFn: async ({ id, isFavorite }: { id: string; isFavorite: boolean }) => {
+    mutationFn: async ({
+      id,
+      isFavorite,
+    }: {
+      id: string;
+      isFavorite: boolean;
+    }) => {
       if (isFavorite) {
         await ReusableSectionsService.removeFromFavorites(id);
       } else {
@@ -119,7 +157,7 @@ const ReusableSectionsPage = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reusable-sections'] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-sections"] });
     },
   });
 
@@ -150,22 +188,22 @@ const ReusableSectionsPage = () => {
 
   const handleEdit = (sectionId: string) => {
     // Navigate to section builder
-    router.push(`/admin/cms/reusable-sections/${sectionId}`);
+    router.push(tenantHref(`/cms/reusable-sections/${sectionId}`));
   };
 
   const handleCreate = () => {
     // Navigate to section builder
-    router.push('/admin/cms/reusable-sections/new');
+    router.push(tenantHref("/cms/reusable-sections/new"));
   };
 
   const resetFilters = () => {
-    setSearchQuery('');
-    setSectionType('all');
-    setFilterPublic('all');
-    setFilterFeatured('all');
+    setSearchQuery("");
+    setSectionType("all");
+    setFilterPublic("all");
+    setFilterFeatured("all");
     setFilterMySections(false);
-    setSortBy('createdAt');
-    setSortOrder('DESC');
+    setSortBy("createdAt");
+    setSortOrder("DESC");
     setCurrentPage(1);
   };
 
@@ -173,14 +211,16 @@ const ReusableSectionsPage = () => {
     <div className="container mx-auto py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Yeniden Kullanılabilir Section'lar</h1>
+            <h1 className="text-3xl font-bold">
+              Yeniden kullanılabilir bölümler
+            </h1>
             <p className="text-muted-foreground">
-              Birden fazla bileşenden oluşan section'ları yönetin
+              Birden fazla bileşenden oluşan section&apos;ları yönetin
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Yenile
@@ -216,7 +256,7 @@ const ReusableSectionsPage = () => {
 
             {/* Section Type */}
             <Select value={sectionType} onValueChange={setSectionType}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Bölüm tipi">
                 <SelectValue placeholder="Section Tipi" />
               </SelectTrigger>
               <SelectContent>
@@ -237,7 +277,7 @@ const ReusableSectionsPage = () => {
 
             {/* Public Filter */}
             <Select value={filterPublic} onValueChange={setFilterPublic}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Görünürlük">
                 <SelectValue placeholder="Görünürlük" />
               </SelectTrigger>
               <SelectContent>
@@ -249,7 +289,7 @@ const ReusableSectionsPage = () => {
 
             {/* Featured Filter */}
             <Select value={filterFeatured} onValueChange={setFilterFeatured}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Öne Çıkan">
                 <SelectValue placeholder="Öne Çıkan" />
               </SelectTrigger>
               <SelectContent>
@@ -261,7 +301,7 @@ const ReusableSectionsPage = () => {
 
             {/* Sort By */}
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Sıralama">
                 <SelectValue placeholder="Sıralama" />
               </SelectTrigger>
               <SelectContent>
@@ -274,8 +314,11 @@ const ReusableSectionsPage = () => {
             </Select>
 
             {/* Sort Order */}
-            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as any)}>
-              <SelectTrigger>
+            <Select
+              value={sortOrder}
+              onValueChange={(v) => setSortOrder(v as any)}
+            >
+              <SelectTrigger aria-label="Sıra">
                 <SelectValue placeholder="Sıra" />
               </SelectTrigger>
               <SelectContent>
@@ -294,7 +337,7 @@ const ReusableSectionsPage = () => {
                   onChange={(e) => setFilterMySections(e.target.checked)}
                   className="rounded"
                 />
-                <span className="text-sm">Sadece Benim Section'larım</span>
+                <span className="text-sm">Sadece Benim Section&apos;larım</span>
               </label>
             </div>
             <Button variant="ghost" size="sm" onClick={resetFilters}>
@@ -309,9 +352,9 @@ const ReusableSectionsPage = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Section'lar</CardTitle>
+              <CardTitle>Section&apos;lar</CardTitle>
               <CardDescription>
-                {data ? `${data.total} section bulundu` : 'Yükleniyor...'}
+                {data ? `${data.total} section bulundu` : "Yükleniyor..."}
               </CardDescription>
             </div>
           </div>
@@ -320,11 +363,11 @@ const ReusableSectionsPage = () => {
           {isLoading ? (
             <div className="text-center py-8">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
-              <p>Section'lar yükleniyor...</p>
+              <p>Section&apos;lar yükleniyor...</p>
             </div>
           ) : error ? (
             <div className="text-center py-8 text-destructive">
-              <p>Section'lar yüklenirken bir hata oluştu.</p>
+              <p>Section&apos;lar yüklenirken bir hata oluştu.</p>
             </div>
           ) : data && data.data.length === 0 ? (
             <div className="text-center py-8">
@@ -342,7 +385,9 @@ const ReusableSectionsPage = () => {
                       <div className="flex items-start gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-lg">{section.name}</h3>
+                            <h3 className="font-medium text-lg">
+                              {section.name}
+                            </h3>
                             {section.isFeatured && (
                               <Badge variant="secondary">
                                 <Star className="h-3 w-3 mr-1" />
@@ -354,35 +399,49 @@ const ReusableSectionsPage = () => {
                             ) : (
                               <Badge variant="secondary">Özel</Badge>
                             )}
-                            {section.components && section.components.length > 0 && (
-                              <Badge variant="outline">
-                                <Layers className="h-3 w-3 mr-1" />
-                                {section.components.length} bileşen
-                              </Badge>
-                            )}
+                            {section.components &&
+                              section.components.length > 0 && (
+                                <Badge variant="outline">
+                                  <Layers className="h-3 w-3 mr-1" />
+                                  {section.components.length} bileşen
+                                </Badge>
+                              )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">
-                            {section.description || 'Açıklama yok'}
+                            {section.description || "Açıklama yok"}
                           </p>
                           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                            <span>Tip: <span className="font-medium">{section.sectionType}</span></span>
+                            <span>
+                              Tip:{" "}
+                              <span className="font-medium">
+                                {section.sectionType}
+                              </span>
+                            </span>
                             <span className="flex items-center gap-1">
                               <BarChart className="h-3 w-3" />
                               {section.usageCount} kullanım
                             </span>
                             <span>
-                              Güncellenme: {new Date(section.updatedAt).toLocaleDateString('tr-TR')}
+                              Güncellenme:{" "}
+                              {new Date(section.updatedAt).toLocaleDateString(
+                                "tr-TR",
+                              )}
                             </span>
                             {section.author && (
                               <span>
-                                Yazar: {section.author.firstName} {section.author.lastName}
+                                Yazar: {section.author.firstName}{" "}
+                                {section.author.lastName}
                               </span>
                             )}
                           </div>
                           {section.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                               {section.tags.map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
                                   {tag}
                                 </Badge>
                               ))}
@@ -444,7 +503,9 @@ const ReusableSectionsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
                       disabled={currentPage === 1}
                     >
                       Önceki
@@ -452,7 +513,11 @@ const ReusableSectionsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(data.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(data.totalPages, prev + 1),
+                        )
+                      }
                       disabled={currentPage === data.totalPages}
                     >
                       Sonraki

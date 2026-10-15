@@ -212,7 +212,8 @@ async function audit(page, width, consoleErrors) {
         if (
           !r.title ||
           r.title === DEFAULT_TITLE ||
-          r.title === "AffeXAI Cortex"
+          r.title === "AffeXAI Cortex" ||
+          !r.title.endsWith(" · Portal · AffeXAI")
         )
           problems.push(`title="${r.title}"`);
         if (r.h1 !== 1) problems.push(`h1=${r.h1}`);

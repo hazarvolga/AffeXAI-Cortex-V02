@@ -250,16 +250,17 @@ const MediaManagementPage = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Media Library</CardTitle>
-                <div className="flex gap-2">
+              <div className="flex flex-wrap justify-between items-center gap-3">
+                <CardTitle>Medya kütüphanesi</CardTitle>
+                <div className="flex flex-wrap gap-2">
                   <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search media..."
+                      placeholder="Medya ara..."
+                      aria-label="Medya ara"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 w-64"
+                      className="pl-8 w-full sm:w-64"
                     />
                     {searchQuery && (
                       <Button
@@ -267,8 +268,9 @@ const MediaManagementPage = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3"
                         onClick={() => setSearchQuery("")}
+                        aria-label="Aramayı temizle"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     )}
                   </div>
@@ -278,7 +280,7 @@ const MediaManagementPage = () => {
                       setSelectedType(value as MediaType | "all")
                     }
                   >
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-32" aria-label="Medya türü">
                       <SelectValue placeholder="Filter by type" />
                     </SelectTrigger>
                     <SelectContent>

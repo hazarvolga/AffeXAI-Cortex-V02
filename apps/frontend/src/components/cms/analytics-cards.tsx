@@ -1,37 +1,46 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cmsMetricsService, type CmsMetrics } from '@/lib/api/cmsMetricsService';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BccHudTile } from '@/components/brand/BccHudTile';
-import { TrendingUp, Activity, Map, FlaskConical } from 'lucide-react';
+import React, { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
+import {
+  cmsMetricsService,
+  type CmsMetrics,
+} from "@/lib/api/cmsMetricsService";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BccHudTile } from "@/components/brand/BccHudTile";
+import { TrendingUp, Activity, Map, FlaskConical } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type Period = 'day' | 'week' | 'month';
+type Period = "day" | "week" | "month";
+
+const PERIOD_OPTIONS: ReadonlyArray<{ value: Period; label: string }> = [
+  { value: "day", label: "24 saat" },
+  { value: "week", label: "7 gün" },
+  { value: "month", label: "30 gün" },
+];
 
 export function AnalyticsCards() {
   const [metrics, setMetrics] = useState<CmsMetrics | null>(null);
-  const [period, setPeriod] = useState<Period>('week');
+  const [period, setPeriod] = useState<Period>("week");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadMetrics();
-  }, [period]);
-
-  const loadMetrics = async () => {
-    try {
+  useAsyncEffect(
+    async (run) => {
       setLoading(true);
       setError(null);
-      const data = await cmsMetricsService.getMetrics(period);
-      setMetrics(data);
-    } catch (err) {
-      setError('Telemetry Sync Failed');
-      console.error('Analytics load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const data = await cmsMetricsService.getMetrics(period);
+        if (!run.cancelled) setMetrics(data);
+      } catch (err) {
+        console.error("Analytics load error:", err);
+        if (!run.cancelled) setError("İçerik metrikleri yüklenemedi");
+      } finally {
+        if (!run.cancelled) setLoading(false);
+      }
+    },
+    [period],
+  );
 
   if (loading) {
     return (
@@ -46,43 +55,43 @@ export function AnalyticsCards() {
   if (error || !metrics) {
     return (
       <div className="p-6 bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-mono uppercase tracking-widest">
-        {error || 'Data Stream Interrupted'}
+        {error || "Metrik verisi yok"}
       </div>
     );
   }
 
   const statsCards = [
     {
-      title: 'Resonance Index',
-      subtitle: 'Total_Views',
+      title: "Resonance Index",
+      subtitle: "Total_Views",
       value: metrics.summary.totalViews.toLocaleString(),
-      description: 'Unique Nodes',
+      description: "Unique Nodes",
       subValue: metrics.summary.uniqueVisitors.toLocaleString(),
-      color: '#9df425'
+      color: "#9df425",
     },
     {
-      title: 'Signal Coupling',
-      subtitle: 'Link_Clicks',
+      title: "Signal Coupling",
+      subtitle: "Link_Clicks",
       value: metrics.summary.totalClicks.toLocaleString(),
-      description: 'Unique Links',
+      description: "Unique Links",
       subValue: metrics.summary.uniqueLinks.toLocaleString(),
-      color: '#ff8c00'
+      color: "#ff8c00",
     },
     {
-      title: 'Calibration Log',
-      subtitle: 'Edit_Events',
+      title: "Calibration Log",
+      subtitle: "Edit_Events",
       value: metrics.summary.edits.toLocaleString(),
-      description: 'Total Ops',
+      description: "Total Ops",
       subValue: `${metrics.summary.edits} calc`,
-      color: '#ffffff'
+      color: "#ffffff",
     },
     {
-      title: 'Propagation',
-      subtitle: 'Publish_Nodes',
+      title: "Propagation",
+      subtitle: "Publish_Nodes",
       value: metrics.summary.publishes.toLocaleString(),
-      description: 'Live Deployments',
+      description: "Live Deployments",
       subValue: `${metrics.summary.publishes} units`,
-      color: '#9df425'
+      color: "#9df425",
     },
   ];
 
@@ -90,23 +99,45 @@ export function AnalyticsCards() {
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* Period Selector (Sub-Nav Style) */}
       <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-2 mb-2">
-        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 ml-4">Temporal Range:</div>
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <TabsList className="bg-transparent border-none rounded-none h-8 space-x-2">
-            <TabsTrigger value="day" className="bg-transparent rounded-none border border-transparent data-[state=active]:border-white/20 data-[state=active]:bg-white/5 text-[9px] uppercase tracking-widest font-bold text-white/40 data-[state=active]:text-white transition-all h-full px-4">Cycle_24h</TabsTrigger>
-            <TabsTrigger value="week" className="bg-transparent rounded-none border border-transparent data-[state=active]:border-white/20 data-[state=active]:bg-white/5 text-[9px] uppercase tracking-widest font-bold text-white/40 data-[state=active]:text-white transition-all h-full px-4">Cycle_7d</TabsTrigger>
-            <TabsTrigger value="month" className="bg-transparent rounded-none border border-transparent data-[state=active]:border-white/20 data-[state=active]:bg-white/5 text-[9px] uppercase tracking-widest font-bold text-white/40 data-[state=active]:text-white transition-all h-full px-4">Cycle_30d</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 ml-4">
+          Temporal Range:
+        </div>
+        <div role="group" aria-label="Dönem" className="flex h-8 gap-2">
+          {PERIOD_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={period === option.value}
+              onClick={() => setPeriod(option.value)}
+              className={cn(
+                "h-full border px-4 text-xs font-bold uppercase tracking-widest transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+                period === option.value
+                  ? "border-white/20 bg-white/5 text-white"
+                  : "border-transparent text-white/70 hover:text-white",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statsCards.map((stat) => {
           return (
-            <BccHudTile key={stat.title} title={stat.title} subtitle={stat.subtitle}>
+            <BccHudTile
+              key={stat.title}
+              title={stat.title}
+              subtitle={stat.subtitle}
+            >
               <div className="space-y-1">
-                <div className="text-3xl font-light tracking-tighter text-white" style={{ color: stat.color }}>{stat.value}</div>
+                <div
+                  className="text-3xl font-light tracking-tighter text-white"
+                  style={{ color: stat.color }}
+                >
+                  {stat.value}
+                </div>
                 <div className="text-[9px] text-white/40 font-mono uppercase tracking-widest">
                   {stat.description}: {stat.subValue}
                 </div>
@@ -126,24 +157,35 @@ export function AnalyticsCards() {
         >
           <div className="space-y-4 pt-2">
             {metrics.topPages.length === 0 ? (
-              <p className="text-[10px] font-mono text-white/20 uppercase">Registry Empty</p>
+              <p className="text-[10px] font-mono text-white/20 uppercase">
+                Registry Empty
+              </p>
             ) : (
               metrics.topPages.slice(0, 5).map((page, index) => (
-                <div key={page.pageId} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0 group">
+                <div
+                  key={page.pageId}
+                  className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0 group"
+                >
                   <div className="flex items-center gap-4">
                     <div className="flex h-6 w-6 items-center justify-center bg-white/5 font-mono text-[9px] text-white/40 group-hover:text-amber-500 transition-colors">
-                      {String(index + 1).padStart(2, '0')}
+                      {String(index + 1).padStart(2, "0")}
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-tight text-white/80 group-hover:text-white transition-colors">{page.pageTitle}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-tight text-white/80 group-hover:text-white transition-colors">
+                        {page.pageTitle}
+                      </p>
                       <p className="text-[9px] font-mono text-white/30 mt-0.5">
                         {page.uniqueVisitors} unique_nodes_identified
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[12px] font-mono font-bold text-amber-500">{page.viewCount}</p>
-                    <p className="text-[8px] font-mono text-white/20 uppercase tracking-tighter">Resonance_Count</p>
+                    <p className="text-[12px] font-mono font-bold text-amber-500">
+                      {page.viewCount}
+                    </p>
+                    <p className="text-[8px] font-mono text-white/20 uppercase tracking-tighter">
+                      Resonance_Count
+                    </p>
                   </div>
                 </div>
               ))
@@ -159,22 +201,35 @@ export function AnalyticsCards() {
         >
           <div className="space-y-4 pt-2">
             {metrics.topLinks.length === 0 ? (
-              <p className="text-[10px] font-mono text-white/20 uppercase">Registry Empty</p>
+              <p className="text-[10px] font-mono text-white/20 uppercase">
+                Registry Empty
+              </p>
             ) : (
               metrics.topLinks.slice(0, 5).map((link, index) => (
-                <div key={link.linkUrl} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0 group">
+                <div
+                  key={link.linkUrl}
+                  className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0 group"
+                >
                   <div className="flex items-center gap-4">
                     <div className="flex h-6 w-6 items-center justify-center bg-white/5 font-mono text-[9px] text-white/40 group-hover:text-[#9df425] transition-colors">
-                      {String(index + 1).padStart(2, '0')}
+                      {String(index + 1).padStart(2, "0")}
                     </div>
                     <div className="max-w-[180px]">
-                      <p className="text-[11px] font-bold uppercase tracking-tight text-white/80 group-hover:text-white transition-colors truncate">{link.linkText || 'Unnamed_Vector'}</p>
-                      <p className="text-[9px] font-mono text-white/30 mt-0.5 truncate">{link.linkUrl}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-tight text-white/80 group-hover:text-white transition-colors truncate">
+                        {link.linkText || "Unnamed_Vector"}
+                      </p>
+                      <p className="text-[9px] font-mono text-white/30 mt-0.5 truncate">
+                        {link.linkUrl}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[12px] font-mono font-bold text-[#9df425]">{link.clickCount}</p>
-                    <p className="text-[8px] font-mono text-white/20 uppercase tracking-tighter">Coupling_Events</p>
+                    <p className="text-[12px] font-mono font-bold text-[#9df425]">
+                      {link.clickCount}
+                    </p>
+                    <p className="text-[8px] font-mono text-white/20 uppercase tracking-tighter">
+                      Coupling_Events
+                    </p>
                   </div>
                 </div>
               ))
@@ -184,19 +239,29 @@ export function AnalyticsCards() {
       </div>
 
       {/* Category Engagement */}
-      <BccHudTile title="Spectrum Analysis" subtitle="Category_Resonance_Distribution">
+      <BccHudTile
+        title="Spectrum Analysis"
+        subtitle="Category_Resonance_Distribution"
+      >
         <div className="space-y-5 pt-2">
           {metrics.categoryEngagement.length === 0 ? (
-            <p className="text-[10px] font-mono text-white/20 uppercase">Registry Empty</p>
+            <p className="text-[10px] font-mono text-white/20 uppercase">
+              Registry Empty
+            </p>
           ) : (
             metrics.categoryEngagement.map((cat) => {
               const totalInteractions = cat.views + cat.clicks;
-              const viewPercentage = totalInteractions > 0 ? (cat.views / totalInteractions) * 100 : 0;
+              const viewPercentage =
+                totalInteractions > 0
+                  ? (cat.views / totalInteractions) * 100
+                  : 0;
 
               return (
                 <div key={cat.category} className="space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-white/80 group-hover:text-white transition-colors">{cat.category}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-white/80 group-hover:text-white transition-colors">
+                      {cat.category}
+                    </p>
                     <div className="text-[9px] font-mono text-white/40 uppercase tracking-tighter">
                       {cat.views} reso · {cat.clicks} coup
                     </div>
