@@ -1,3 +1,4 @@
+import { withMembership } from "../../../core/auth/session-identity.fixture";
 import { Test } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { JwtModule, JwtService } from "@nestjs/jwt";
@@ -50,15 +51,16 @@ describe("FAQ actual HTTP boundaries", () => {
         {
           provide: UsersService,
           useValue: {
-            findOne: async (role: string) => ({
-              id: role,
-              tenantId: "ta",
-              isActive: true,
-              tokenVersion: 1,
-              roleNames: [role],
-              roles: [{ name: role, permissions: [] }],
-              roleEntity: { name: role },
-            }),
+            findOne: async (role: string) =>
+              withMembership({
+                id: role,
+                tenantId: "ta",
+                isActive: true,
+                tokenVersion: 1,
+                roleNames: [role],
+                roles: [{ name: role, permissions: [] }],
+                roleEntity: { name: role },
+              }),
           },
         },
       ],

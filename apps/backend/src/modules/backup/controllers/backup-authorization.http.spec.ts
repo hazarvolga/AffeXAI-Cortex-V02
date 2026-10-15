@@ -1,3 +1,4 @@
+import { withMembership } from "../../../core/auth/session-identity.fixture";
 import {
   ExecutionContext,
   ForbiddenException,
@@ -39,29 +40,31 @@ describe("full-database backup platform boundary (HTTP)", () => {
         {
           provide: UsersService,
           useValue: {
-            findOne: jest.fn(async (id: string) => ({
-              id,
-              tenantId: "tenant-a",
-              isActive: true,
-              tokenVersion: 1,
-              roleNames: [
-                id === superAdmin
-                  ? "super_admin"
-                  : id === platformAdmin
-                    ? "viewer"
-                    : "admin",
-              ],
-              roles: [
-                {
-                  name:
-                    id === superAdmin
-                      ? "super_admin"
-                      : id === platformAdmin
-                        ? "viewer"
-                        : "admin",
-                },
-              ],
-            })),
+            findOne: jest.fn(async (id: string) =>
+              withMembership({
+                id,
+                tenantId: "tenant-a",
+                isActive: true,
+                tokenVersion: 1,
+                roleNames: [
+                  id === superAdmin
+                    ? "super_admin"
+                    : id === platformAdmin
+                      ? "viewer"
+                      : "admin",
+                ],
+                roles: [
+                  {
+                    name:
+                      id === superAdmin
+                        ? "super_admin"
+                        : id === platformAdmin
+                          ? "viewer"
+                          : "admin",
+                  },
+                ],
+              }),
+            ),
           },
         },
         { provide: BackupService, useValue: backups },

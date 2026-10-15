@@ -1,3 +1,4 @@
+import { withMembership } from "../../../core/auth/session-identity.fixture";
 jest.mock("@nestjs/mapped-types", () => ({
   PartialType: require("@nestjs/swagger").PartialType,
 }));
@@ -37,7 +38,11 @@ describe("CSAT real HTTP tenant, role and bearer lifecycle", () => {
     create: jest.fn((v) => v),
     save: jest.fn(async (v) => v),
   };
-  const transaction = jest.fn(async callback => callback({ getRepository: (entity: unknown) => entity === Ticket ? tickets : repo }));
+  const transaction = jest.fn(async (callback) =>
+    callback({
+      getRepository: (entity: unknown) => (entity === Ticket ? tickets : repo),
+    }),
+  );
   const tickets = { findOne: jest.fn(), manager: { transaction } };
   const email = { sendTicketResolved: jest.fn(async () => undefined) };
   beforeAll(async () => {
@@ -57,13 +62,14 @@ describe("CSAT real HTTP tenant, role and bearer lifecycle", () => {
         {
           provide: UsersService,
           useValue: {
-            findOne: async (id) => ({
-              id,
-              tenantId: "tenant-a",
-              isActive: true,
-              tokenVersion: 1,
-              roleNames: id === "staff" ? ["support"] : ["user"],
-            }),
+            findOne: async (id) =>
+              withMembership({
+                id,
+                tenantId: "tenant-a",
+                isActive: true,
+                tokenVersion: 1,
+                roleNames: id === "staff" ? ["support"] : ["user"],
+              }),
           },
         },
       ],
@@ -83,8 +89,13 @@ describe("CSAT real HTTP tenant, role and bearer lifecycle", () => {
   afterAll(async () => app.close());
   beforeEach(() => {
     jest.clearAllMocks();
-    transaction.mockImplementation(async callback => callback({ getRepository: (entity: unknown) => entity === Ticket ? tickets : repo }));
-    repo.save.mockImplementation(async value => value);
+    transaction.mockImplementation(async (callback) =>
+      callback({
+        getRepository: (entity: unknown) =>
+          entity === Ticket ? tickets : repo,
+      }),
+    );
+    repo.save.mockImplementation(async (value) => value);
     ticket = {
       id: ticketId,
       tenantId: "tenant-a",
@@ -92,7 +103,11 @@ describe("CSAT real HTTP tenant, role and bearer lifecycle", () => {
       status: "resolved",
       subject: "Safe title",
       description: "private-ticket-secret",
-      user: { id: "customer-a", tenantId: "tenant-a", email: "private@example.test" },
+      user: {
+        id: "customer-a",
+        tenantId: "tenant-a",
+        email: "private@example.test",
+      },
     };
     survey = {
       id: "survey-id",
@@ -172,24 +187,49 @@ describe("CSAT real HTTP tenant, role and bearer lifecycle", () => {
       }),
     );
   });
-  it('rejects a corrupt cross-tenant mail recipient relation', async () => {
-    ticket.user = { ...ticket.user, tenantId: 'tenant-b' };
-    await request(app.getHttpServer()).post(`/tickets/csat/${ticketId}/request`).auth(auth(), { type: 'bearer' }).expect(404);
+  it("rejects a corrupt cross-tenant mail recipient relation", async () => {
+    ticket.user = { ...ticket.user, tenantId: "tenant-b" };
+    await request(app.getHttpServer())
+      .post(`/tickets/csat/${ticketId}/request`)
+      .auth(auth(), { type: "bearer" })
+      .expect(404);
     expect(email.sendTicketResolved).not.toHaveBeenCalled();
   });
-  it('serializes concurrent initial issuance through a ticket row lock', async () => {
+  it("serializes concurrent initial issuance through a ticket row lock", async () => {
     let issued: Record<string, unknown> | null = null;
     let queue = Promise.resolve();
-    transaction.mockImplementation(callback => {
-      const run = queue.then(() => callback({ getRepository: (entity: unknown) => entity === Ticket ? tickets : repo }));
-      queue = run.then(() => undefined, () => undefined); return run;
+    transaction.mockImplementation((callback) => {
+      const run = queue.then(() =>
+        callback({
+          getRepository: (entity: unknown) =>
+            entity === Ticket ? tickets : repo,
+        }),
+      );
+      queue = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
     });
     repo.findOne.mockImplementation(async () => issued);
-    repo.save.mockImplementation(async value => { issued = value; return value; });
-    await Promise.all([1, 2].map(() => request(app.getHttpServer()).post(`/tickets/csat/${ticketId}/request`).auth(auth(), { type: 'bearer' }).expect(201)));
+    repo.save.mockImplementation(async (value) => {
+      issued = value;
+      return value;
+    });
+    await Promise.all(
+      [1, 2].map(() =>
+        request(app.getHttpServer())
+          .post(`/tickets/csat/${ticketId}/request`)
+          .auth(auth(), { type: "bearer" })
+          .expect(201),
+      ),
+    );
     expect(repo.save).toHaveBeenCalledTimes(1);
     expect(transaction).toHaveBeenCalledTimes(2);
-    expect(tickets.findOne).toHaveBeenCalledWith({ where: { id: ticketId, tenantId: 'tenant-a' }, lock: { mode: 'pessimistic_write' } });
+    expect(tickets.findOne).toHaveBeenCalledWith({
+      where: { id: ticketId, tenantId: "tenant-a" },
+      lock: { mode: "pessimistic_write" },
+    });
   });
   it("rejects request for unresolved tickets", async () => {
     ticket = { ...ticket, status: "open" };

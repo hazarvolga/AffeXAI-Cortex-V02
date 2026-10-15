@@ -1,3 +1,4 @@
+import { withMembership } from "../../core/auth/session-identity.fixture";
 import { Test } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { JwtModule, JwtService } from "@nestjs/jwt";
@@ -57,15 +58,16 @@ describe("Ticket HTTP actor and provider boundaries", () => {
         {
           provide: UsersService,
           useValue: {
-            findOne: async (id: string) => ({
-              id,
-              tenantId: "tenant-a",
-              isActive: true,
-              tokenVersion: 1,
-              roles: [{ name: id, permissions: [] }],
-              roleEntity: { name: id },
-              roleNames: [id],
-            }),
+            findOne: async (id: string) =>
+              withMembership({
+                id,
+                tenantId: "tenant-a",
+                isActive: true,
+                tokenVersion: 1,
+                roles: [{ name: id, permissions: [] }],
+                roleEntity: { name: id },
+                roleNames: [id],
+              }),
           },
         },
       ],

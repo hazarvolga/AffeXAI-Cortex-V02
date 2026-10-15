@@ -1,3 +1,4 @@
+import { withMembership } from "../../../core/auth/session-identity.fixture";
 import {
   INestApplication,
   ValidationPipe,
@@ -78,16 +79,17 @@ describe("template private data HTTP boundary with production response stack", (
         {
           provide: UsersService,
           useValue: {
-            findOne: async (id) => ({
-              id,
-              tenantId: id === foreign ? "tenant-b" : "tenant-a",
-              isActive: true,
-              tokenVersion: 1,
-              roles: [],
-              roleNames: [
-                id === owner || id === editor ? "editor" : "customer",
-              ],
-            }),
+            findOne: async (id) =>
+              withMembership({
+                id,
+                tenantId: id === foreign ? "tenant-b" : "tenant-a",
+                isActive: true,
+                tokenVersion: 1,
+                roles: [],
+                roleNames: [
+                  id === owner || id === editor ? "editor" : "customer",
+                ],
+              }),
           },
         },
       ],

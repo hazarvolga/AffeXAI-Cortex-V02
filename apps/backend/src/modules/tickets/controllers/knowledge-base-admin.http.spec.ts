@@ -1,3 +1,4 @@
+import { withMembership } from "../../../core/auth/session-identity.fixture";
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { JwtModule, JwtService } from "@nestjs/jwt";
@@ -29,14 +30,15 @@ describe("knowledge base draft administration HTTP boundary", () => {
         {
           provide: UsersService,
           useValue: {
-            findOne: async (id) => ({
-              id,
-              tenantId: "tenant-a",
-              isActive: true,
-              tokenVersion: 1,
-              roles: [],
-              roleNames: [id === editor ? "editor" : "customer"],
-            }),
+            findOne: async (id) =>
+              withMembership({
+                id,
+                tenantId: "tenant-a",
+                isActive: true,
+                tokenVersion: 1,
+                roles: [],
+                roleNames: [id === editor ? "editor" : "customer"],
+              }),
           },
         },
       ],
