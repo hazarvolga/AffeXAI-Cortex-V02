@@ -4,7 +4,7 @@
  * into <main> and no console errors.
  *
  *   TENANT_ROUTES_ACCEPTANCE_ISOLATED=1 BASE_URL=http://localhost:19003 \
- *   [ROUTE_SET=email|support|cms] [ONLY=email/campaigns] [CHROME_PATH=...] \
+ *   [ROUTE_SET=email|support|cms|brand] [ONLY=email/campaigns] [CHROME_PATH=...] \
  *   node apps/frontend/scripts/acceptance/tenant-routes.cjs
  *
  * Same harness as tenant-crud.cjs. Each route is loaded once and re-checked by
@@ -103,6 +103,12 @@ const ROUTE_SETS = {
     "cms/templates",
     "design",
     "email/templates/builder",
+  ],
+  brand: [
+    "brand/intelligence",
+    "brand/module",
+    "brand/resonance",
+    "brand/strategy",
   ],
 };
 const ROUTES = (

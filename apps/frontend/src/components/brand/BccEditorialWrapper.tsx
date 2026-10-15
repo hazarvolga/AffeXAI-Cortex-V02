@@ -4,6 +4,7 @@ import React, { ReactNode } from "react";
 import { useParams, usePathname } from "next/navigation";
 import { Space_Grotesk } from "next/font/google";
 import Link from "next/link";
+import { DemoDataBadge } from "@/components/patterns/demo-data-badge";
 import { BccCollapsibleSidebar } from "./BccCollapsibleSidebar";
 import { AiCoPilot } from "./ai/AiCoPilot";
 import {
@@ -28,6 +29,8 @@ interface BccEditorialWrapperProps {
     value: string;
     suffix?: string;
     color?: string;
+    /** The value is illustrative, not computed from this workspace's records. */
+    demo?: boolean;
   }>;
   headerTitle?: string;
   headerSubtitle?: string;
@@ -228,14 +231,22 @@ export const BccEditorialWrapper = ({
           {/* FIXED TOP TELEMETRY SECTION */}
           <div className="flex-none px-4 pt-8 pb-4 z-20 bg-[#080808]/90 backdrop-blur-sm border-b border-white/5 md:px-8 lg:px-12 lg:pt-12">
             <div className="w-full flex items-center justify-between gap-4 pb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="hidden space-x-12 md:flex">
+              <div className="hidden items-center space-x-12 md:flex">
+                {telemetryData.some((item) => item.demo) && (
+                  <DemoDataBadge
+                    label="Önizleme"
+                    reason="Bu üst bilgideki işaretli değerler gerçek kayıtlardan hesaplanmıyor."
+                  />
+                )}
                 {telemetryData.map((item, idx) => (
                   <React.Fragment key={idx}>
                     <div className="flex items-center space-x-3">
                       <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
                         {item.label}
                       </span>
-                      <div className="text-xl font-light tabular-nums text-white">
+                      <div
+                        className={`text-xl font-light tabular-nums text-white ${item.demo ? "underline decoration-dashed decoration-white/40 underline-offset-4" : ""}`}
+                      >
                         {item.value}
                         <span className="text-xs text-white/40 ml-0.5">
                           {item.suffix}

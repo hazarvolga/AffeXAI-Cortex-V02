@@ -436,3 +436,12 @@ Açık: billing ve sistem e-posta katalogları için kiracı sayfası; kiracıs�
 - **Backend'de başıboş kopya:** `apps/backend/src/app`, `src/lib`, `src/ai` Nest uygulamasının parçası değil (eski Next.js kopyası); dokunmadan önce ayrı bir temizlik görevinde ele alın.
 
 Açık: backend başıboş Next.js kopyası; eski oturum anahtarlarının kaldırılması.
+
+## UI/UX F4 (1–2) — dürüst önizleme ve karar kartı — 2026-10-15
+
+- **Kural:** gerçek kayıtlardan hesaplanmayan her değer `DemoDataBadge` ("Önizleme") taşır; veri yoksa varsayılan sayı değil "Yeterli veri yok" / "Kaynak okunamıyor" yazılır; yapay tarihçe veya rastgele seri çizilmez. Wrapper telemetrisinde örnek değerler `demo: true`.
+- **Backend:** `BrandService.getBrandIntelligence` kaynak başına `dataQuality` döndürür (`live | insufficient | unavailable`); yeni bir kaynak eklerken `Promise.allSettled` listesine ve `dataQuality`'ye ekleyin. Sahte yedek (mock) dönmeyin; her şey düşerse hata fırlatın. Tahmin `brand/trajectory.ts`'teki deterministik yardımcıyla.
+- **Karar kartı:** `components/patterns/decision-card/` — model (`decisionView`) saf ve testli; kanıt yalnız izleyicinin kiracısından gösterilir, öneri tek cümle olmalı, eylem izin adı gerçek rol izinleriyle (`support.assign` gibi) eşleşmeli. G4 gelince `StrategyDecisionPreview`'daki örnek kartlar gerçek kaynakla ve `isDemo` olmadan değiştirilecek.
+- **Kabul testi:** `scripts/acceptance/bcc-honesty.cjs` (`BCC_ACCEPTANCE_ISOLATED=1`); konsol adımı izole stack'te `PLATFORM_ADMIN_USER_IDS`'teki kimlikle fikstür kullanıcısı oluşturur. `tenant-routes.cjs` artık `brand` kümesini de kapsar.
+
+Açık: G4 sonrası gerçek öneri ve onay akışı; sosyal medya migration'ı; `/editorial-console` sunucu tarafı koruma.
