@@ -1,182 +1,133 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { getQueueToken } from '@nestjs/bullmq';
-import { Repository } from 'typeorm';
-import { Queue } from 'bullmq';
-import { BulkExportService } from '../bulk-export.service';
-import { ExportJob } from '../../entities/export-job.entity';
-import { Subscriber } from '../../entities/subscriber.entity';
-import { Group } from '../../entities/group.entity';
-import { Segment } from '../../entities/segment.entity';
-import { SubscriberStatus } from '@affexai/shared-types';
+import { SubscriberStatus } from "@affexai/shared-types";
+import { Queue } from "bullmq";
+import { Repository } from "typeorm";
+import { TenantService } from "../../../../core/tenant/tenant.service";
+import { ExportJob, ExportJobStatus } from "../../entities/export-job.entity";
+import { Group } from "../../entities/group.entity";
+import { Segment } from "../../entities/segment.entity";
+import { Subscriber } from "../../entities/subscriber.entity";
+import { BulkExportService, spreadsheetSafeRow } from "../bulk-export.service";
+import { BulkOperationsComplianceService } from "../bulk-operations-compliance.service";
 
-describe('BulkExportService', () => {
-  let service: BulkExportService;
-  let exportJobRepository: Repository<ExportJob>;
-  let subscriberRepository: Repository<Subscriber>;
-  let groupRepository: Repository<Group>;
-  let segmentRepository: Repository<Segment>;
-  let exportQueue: Queue;
-
-  const mockRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    findOne: jest.fn(),
-    findByIds: jest.fn(),
-    update: jest.fn(),
-    createQueryBuilder: jest.fn(),
+function setup() {
+  const jobs = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: "job-1", ...value })),
   };
+  const queue = { add: jest.fn(async () => ({ id: "q-1" })) };
+  const service = new BulkExportService(
+    jobs as unknown as Repository<ExportJob>,
+    {} as Repository<Subscriber>,
+    { findBy: jest.fn(async () => []) } as unknown as Repository<Group>,
+    { findBy: jest.fn(async () => []) } as unknown as Repository<Segment>,
+    {} as BulkOperationsComplianceService,
+    queue as unknown as Queue,
+    { getTenantId: () => "tenant-a" } as unknown as TenantService,
+  );
+  return { service, jobs, queue };
+}
 
-  const mockQueue = {
-    add: jest.fn(),
-  };
+const subscriber = (overrides: Partial<Subscriber> = {}) =>
+  ({
+    email: "ada@example.com",
+    firstName: "Ada",
+    lastName: null,
+    status: SubscriberStatus.ACTIVE,
+    groups: ["g1", "g2"],
+    segments: null,
+    opens: 3,
+    subscribedAt: new Date("2026-10-01T00:00:00Z"),
+    ...overrides,
+  }) as unknown as Subscriber;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        BulkExportService,
-        {
-          provide: getRepositoryToken(ExportJob),
-          useValue: mockRepository,
-        },
-        {
-          provide: getRepositoryToken(Subscriber),
-          useValue: mockRepository,
-        },
-        {
-          provide: getRepositoryToken(Group),
-          useValue: mockRepository,
-        },
-        {
-          provide: getRepositoryToken(Segment),
-          useValue: mockRepository,
-        },
-        {
-          provide: getQueueToken('export'),
-          useValue: mockQueue,
-        },
+describe("BulkExportService formatting and jobs", () => {
+  it("offers the documented export fields", () => {
+    expect(setup().service.getAvailableFields()).toEqual(
+      expect.arrayContaining([
+        "email",
+        "firstName",
+        "status",
+        "groups",
+        "segments",
+        "subscribedAt",
+      ]),
+    );
+  });
+
+  it("formats only the selected fields, with empty values and joined lists", async () => {
+    const [row] = await setup().service.formatSubscriberData([subscriber()], {
+      format: "csv",
+      fields: [
+        "email",
+        "lastName",
+        "groups",
+        "segments",
+        "opens",
+        "subscribedAt",
       ],
-    }).compile();
-
-    service = module.get<BulkExportService>(BulkExportService);
-    exportJobRepository = module.get<Repository<ExportJob>>(getRepositoryToken(ExportJob));
-    subscriberRepository = module.get<Repository<Subscriber>>(getRepositoryToken(Subscriber));
-    groupRepository = module.get<Repository<Group>>(getRepositoryToken(Group));
-    segmentRepository = module.get<Repository<Segment>>(getRepositoryToken(Segment));
-    exportQueue = module.get<Queue>(getQueueToken('export'));
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  describe('getAvailableFields', () => {
-    it('should return list of available export fields', () => {
-      const fields = service.getAvailableFields();
-      
-      expect(fields).toContain('email');
-      expect(fields).toContain('firstName');
-      expect(fields).toContain('lastName');
-      expect(fields).toContain('status');
-      expect(fields).toContain('groups');
-      expect(fields).toContain('segments');
+    } as never);
+    expect(row).toEqual({
+      email: "ada@example.com",
+      lastName: "",
+      groups: "g1;g2",
+      segments: "",
+      opens: 3,
+      subscribedAt: "2026-10-01T00:00:00.000Z",
     });
   });
 
-  describe('formatSubscriberData', () => {
-    it('should format subscriber data correctly', async () => {
-      const mockSubscriber = {
-        id: '1',
-        email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        status: SubscriberStatus.ACTIVE,
-        groups: ['group1', 'group2'],
-        segments: ['segment1'],
-        sent: 5,
-        opens: 3,
-        clicks: 1,
-        subscribedAt: new Date('2023-01-01'),
-        lastUpdated: new Date('2023-01-02'),
-      } as Subscriber;
-
-      const options = {
-        fields: ['email', 'firstName', 'lastName', 'status', 'groups'],
-        format: 'csv' as const,
-        includeMetadata: false,
-        batchSize: 1000,
-      };
-
-      const result = await service.formatSubscriberData([mockSubscriber], options);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        status: SubscriberStatus.ACTIVE,
-        groups: 'group1;group2',
-      });
+  it("neutralises spreadsheet formulas in exported text", async () => {
+    const [row] = await setup().service.formatSubscriberData(
+      [
+        subscriber({
+          firstName: '=HYPERLINK("http://evil.test")',
+          company: "+1 calc",
+          phone: "-5",
+        } as never),
+      ],
+      {
+        format: "csv",
+        fields: ["firstName", "company", "phone", "opens"],
+      } as never,
+    );
+    expect(row).toEqual({
+      firstName: `'=HYPERLINK("http://evil.test")`,
+      company: "'+1 calc",
+      phone: "'-5",
+      opens: 3,
     });
-
-    it('should handle empty groups and segments', async () => {
-      const mockSubscriber = {
-        id: '1',
-        email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        status: SubscriberStatus.ACTIVE,
-        groups: null,
-        segments: null,
-      } as Subscriber;
-
-      const options = {
-        fields: ['email', 'groups', 'segments'],
-        format: 'csv' as const,
-        includeMetadata: false,
-        batchSize: 1000,
-      };
-
-      const result = await service.formatSubscriberData([mockSubscriber], options);
-
-      expect(result[0].groups).toBe('');
-      expect(result[0].segments).toBe('');
+    expect(spreadsheetSafeRow({ note: "@SUM(A1)", plain: "hello" })).toEqual({
+      note: "'@SUM(A1)",
+      plain: "hello",
     });
   });
 
-  describe('createExportJob', () => {
-    it('should create export job successfully', async () => {
-      const filters = {
-        status: [SubscriberStatus.ACTIVE],
-      };
-
-      const options = {
-        fields: ['email', 'firstName'],
-        format: 'csv' as const,
-        includeMetadata: false,
-        batchSize: 1000,
-      };
-
-      const mockExportJob = {
-        id: '1',
-        fileName: 'test-export.csv',
-        status: 'pending',
-      };
-
-      mockRepository.create.mockReturnValue(mockExportJob);
-      mockRepository.save.mockResolvedValue(mockExportJob);
-      mockRepository.findByIds.mockResolvedValue([]);
-
-      const result = await service.createExportJob(filters, options, 'user1');
-
-      expect(mockRepository.create).toHaveBeenCalled();
-      expect(mockRepository.save).toHaveBeenCalled();
-      expect(mockQueue.add).toHaveBeenCalledWith('process-export', expect.any(Object), expect.any(Object));
-      expect(result).toEqual(mockExportJob);
+  it("creates a pending job for the requesting tenant and queues it with retries", async () => {
+    const { service, jobs, queue } = setup();
+    const job = await service.createExportJob(
+      { status: [SubscriberStatus.ACTIVE], tenantId: "tenant-b" } as never,
+      { format: "csv", fields: ["email"] } as never,
+      "tenant-a",
+      "user-1",
+    );
+    expect(job).toMatchObject({
+      id: "job-1",
+      status: ExportJobStatus.PENDING,
+      tenantId: "tenant-a",
+      userId: "user-1",
     });
+    expect(jobs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: expect.objectContaining({ tenantId: "tenant-a" }),
+      }),
+    );
+    expect(queue.add).toHaveBeenCalledWith(
+      "process-export",
+      expect.objectContaining({
+        jobId: "job-1",
+        filters: expect.objectContaining({ tenantId: "tenant-a" }),
+      }),
+      expect.objectContaining({ attempts: 3 }),
+    );
   });
 });

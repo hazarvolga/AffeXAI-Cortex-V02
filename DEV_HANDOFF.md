@@ -494,3 +494,10 @@ Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mev
 
 - **A/B test:** varyantlar `tenantId` olmadan oluşturuluyordu, `updateVariant` ise kiracıyla aradığı için yeni varyantlar hiç düzenlenemiyordu. `sendAbTest` hiçbir e-posta kuyruğa koymadan "gönderim başladı" deyip testi `testing` durumuna alıyordu; test silinemez hale gelip boş veriyle kazanan cron'una giriyordu. Artık yalnız dağıtım planını `sent: false` ile döndürür, durumu değiştirmez (gerçek varyant gönderimi S3). Silmede `winnerSelectionDate` "şimdi" yerine `null`.
 - **IP itibarı (DNSBL):** ağ/çözücü hataları "listede değil" sayılıp önbelleğe yazılıyordu; ağ yokken her IP "temiz" görünürdü. Spamhaus'un genel çözücülere verdiği `127.255.255.x` ret kodları "listelenmiş" sayılıyordu. Hatalar artık `errors`'ta, hiçbir liste yanıt vermezse sonuç `unknown` ve önbelleğe yazılmaz; yalnız `127.*` (ret kodları hariç) listeleme sayılır. Her sorguda 8 adet 5 sn'lik zamanlayıcı açık kalıyordu; temizleniyor.
+
+### Sprint 1 P1 — email-marketing spec'leri, 5. parti (2026-10-15)
+
+- **Dışa aktarma filtresi:** grup/segment filtresi MySQL'e özgü `JSON_OVERLAPS` kullanıyordu; Postgres'te fonksiyon yok, filtreli her dışa aktarma ve önizleme hata verirdi. `groups::jsonb ?| ARRAY[...]` ile yazıldı (izole DB'de doğrulandı). Grup/segment kimlik doğrulaması kiracı kapsamında (`findBy` + `tenantId`); iş, filtreler ne derse desin işin kiracısıyla okunur.
+- **CSV formül enjeksiyonu:** abone verisi herkese açık formlardan geliyor; `=`, `+`, `-`, `@`, sekme ile başlayan hücreler artık `'` önekiyle yazılıyor (Excel/LibreOffice'te formül çalışmaz).
+- **Temizlik:** içe ve dışa aktarma `cleanupOldJobs` Mongo sözdizimi (`{ $lt: date }`) kullanıyordu; TypeORM/Postgres'te anlamsız. `LessThan` ile düzeltildi.
+- **Bilinen açık (S3):** içe aktarma iptali kuyruktaki işi kaldırmıyor (kodda not var); işleyici iş durumuna bakmalı.

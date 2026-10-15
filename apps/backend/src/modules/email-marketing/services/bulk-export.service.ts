@@ -1,20 +1,29 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
-import { ExportJob, ExportJobStatus } from '../entities/export-job.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { Group } from '../entities/group.entity';
-import { Segment } from '../entities/segment.entity';
-import { SubscriberStatus } from '@affexai/shared-types';
-import { ExportFilters, ExportOptions } from '../entities/export-job.entity';
-import { BulkOperationsComplianceService, BulkExportComplianceOptions } from './bulk-operations-compliance.service';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { createObjectCsvWriter } from 'csv-writer';
-import { Workbook } from 'exceljs';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, LessThan, Repository, SelectQueryBuilder } from "typeorm";
+import { ExportJob, ExportJobStatus } from "../entities/export-job.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { Group } from "../entities/group.entity";
+import { Segment } from "../entities/segment.entity";
+import { SubscriberStatus } from "@affexai/shared-types";
+import { ExportFilters, ExportOptions } from "../entities/export-job.entity";
+import {
+  BulkOperationsComplianceService,
+  BulkExportComplianceOptions,
+} from "./bulk-operations-compliance.service";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import * as path from "path";
+import * as fs from "fs/promises";
+import { createObjectCsvWriter } from "csv-writer";
+import { Workbook } from "exceljs";
 
 export interface ExportJobData {
   jobId: string;
@@ -22,10 +31,27 @@ export interface ExportJobData {
   options: ExportOptions;
 }
 
+/** Cells starting with these characters run as formulas in Excel and LibreOffice. */
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+/** Subscriber data comes from public forms; neutralise formula injection before export. */
+export function spreadsheetSafeRow(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [
+      key,
+      typeof value === "string" && FORMULA_PREFIX.test(value)
+        ? `'${value}`
+        : value,
+    ]),
+  );
+}
+
 @Injectable()
 export class BulkExportService {
   private readonly logger = new Logger(BulkExportService.name);
-  private readonly exportDir = path.join(process.cwd(), 'temp', 'exports');
+  private readonly exportDir = path.join(process.cwd(), "temp", "exports");
 
   constructor(
     @InjectRepository(ExportJob)
@@ -37,7 +63,7 @@ export class BulkExportService {
     @InjectRepository(Segment)
     private readonly segmentRepository: Repository<Segment>,
     private readonly complianceService: BulkOperationsComplianceService,
-    @InjectQueue('export')
+    @InjectQueue("export")
     private readonly exportQueue: Queue,
     private readonly tenantService: TenantService,
   ) {
@@ -49,7 +75,9 @@ export class BulkExportService {
    * @private
    */
   private getActiveTenantId(): string {
-    return this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   private async ensureExportDirectory(): Promise<void> {
@@ -70,11 +98,14 @@ export class BulkExportService {
     userId?: string,
   ): Promise<ExportJob> {
     try {
+      // The job's tenant decides which subscribers are read, whatever the filters say.
+      filters = { ...filters, tenantId };
+
       // Validate filters and options
       await this.validateExportRequest(filters, options);
 
       // Generate unique filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const fileName = `subscribers-export-${timestamp}.${options.format}`;
       const filePath = path.join(this.exportDir, fileName);
 
@@ -100,22 +131,29 @@ export class BulkExportService {
       const savedJob = await this.exportJobRepository.save(exportJob);
 
       // Add job to queue for processing
-      await this.exportQueue.add('process-export', {
-        jobId: savedJob.id,
-        filters,
-        options,
-      } as ExportJobData, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+      await this.exportQueue.add(
+        "process-export",
+        {
+          jobId: savedJob.id,
+          filters,
+          options,
+        } as ExportJobData,
+        {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000,
+          },
         },
-      });
+      );
 
       this.logger.log(`Created export job ${savedJob.id} for user ${userId}`);
       return savedJob;
     } catch (error) {
-      this.logger.error(`Failed to create export job: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create export job: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -126,7 +164,7 @@ export class BulkExportService {
   async getExportStatus(jobId: string): Promise<ExportJob> {
     const tenantId = this.getActiveTenantId();
     const job = await this.exportJobRepository.findOne({
-      where: { id: jobId, tenantId }
+      where: { id: jobId, tenantId },
     });
     if (!job) {
       throw new NotFoundException(`Export job ${jobId} not found`);
@@ -137,40 +175,53 @@ export class BulkExportService {
   /**
    * Build subscriber query with filters
    */
-  async buildSubscriberQuery(filters: ExportFilters): Promise<SelectQueryBuilder<Subscriber>> {
-    const query = this.subscriberRepository.createQueryBuilder('subscriber');
+  async buildSubscriberQuery(
+    filters: ExportFilters,
+  ): Promise<SelectQueryBuilder<Subscriber>> {
+    const query = this.subscriberRepository.createQueryBuilder("subscriber");
 
     // Base tenant filter
-    query.andWhere('subscriber.tenantId = :tenantId', { tenantId: filters.tenantId });
+    query.andWhere("subscriber.tenantId = :tenantId", {
+      tenantId: filters.tenantId,
+    });
 
     // Filter by status
     if (filters.status && filters.status.length > 0) {
-      query.andWhere('subscriber.status IN (:...statuses)', { statuses: filters.status });
+      query.andWhere("subscriber.status IN (:...statuses)", {
+        statuses: filters.status,
+      });
     }
 
     // Filter by groups
     if (filters.groupIds && filters.groupIds.length > 0) {
-      query.andWhere('JSON_OVERLAPS(subscriber.groups, :groupIds)', {
-        groupIds: JSON.stringify(filters.groupIds),
-      });
+      // groups/segments are json arrays; Postgres has no JSON_OVERLAPS.
+      query.andWhere(
+        "subscriber.groups::jsonb ?| ARRAY[:...groupIds]::text[]",
+        {
+          groupIds: filters.groupIds,
+        },
+      );
     }
 
     // Filter by segments
     if (filters.segmentIds && filters.segmentIds.length > 0) {
-      query.andWhere('JSON_OVERLAPS(subscriber.segments, :segmentIds)', {
-        segmentIds: JSON.stringify(filters.segmentIds),
-      });
+      query.andWhere(
+        "subscriber.segments::jsonb ?| ARRAY[:...segmentIds]::text[]",
+        {
+          segmentIds: filters.segmentIds,
+        },
+      );
     }
 
     // Filter by date range
     if (filters.dateRange) {
       if (filters.dateRange.start) {
-        query.andWhere('subscriber.subscribedAt >= :startDate', {
+        query.andWhere("subscriber.subscribedAt >= :startDate", {
           startDate: filters.dateRange.start,
         });
       }
       if (filters.dateRange.end) {
-        query.andWhere('subscriber.subscribedAt <= :endDate', {
+        query.andWhere("subscriber.subscribedAt <= :endDate", {
           endDate: filters.dateRange.end,
         });
       }
@@ -178,9 +229,12 @@ export class BulkExportService {
 
     // Filter by validation status
     if (filters.validationStatus && filters.validationStatus.length > 0) {
-      query.andWhere('subscriber.mailerCheckResult IN (:...validationStatuses)', {
-        validationStatuses: filters.validationStatus,
-      });
+      query.andWhere(
+        "subscriber.mailerCheckResult IN (:...validationStatuses)",
+        {
+          validationStatuses: filters.validationStatus,
+        },
+      );
     }
 
     return query;
@@ -201,62 +255,62 @@ export class BulkExportService {
       // Add selected fields
       for (const field of options.fields) {
         switch (field) {
-          case 'email':
+          case "email":
             row.email = subscriber.email;
             break;
-          case 'firstName':
-            row.firstName = subscriber.firstName || '';
+          case "firstName":
+            row.firstName = subscriber.firstName || "";
             break;
-          case 'lastName':
-            row.lastName = subscriber.lastName || '';
+          case "lastName":
+            row.lastName = subscriber.lastName || "";
             break;
-          case 'company':
-            row.company = subscriber.company || '';
+          case "company":
+            row.company = subscriber.company || "";
             break;
-          case 'phone':
-            row.phone = subscriber.phone || '';
+          case "phone":
+            row.phone = subscriber.phone || "";
             break;
-          case 'status':
+          case "status":
             row.status = subscriber.status;
             break;
-          case 'customerStatus':
-            row.customerStatus = subscriber.customerStatus || '';
+          case "customerStatus":
+            row.customerStatus = subscriber.customerStatus || "";
             break;
-          case 'subscriptionType':
-            row.subscriptionType = subscriber.subscriptionType || '';
+          case "subscriptionType":
+            row.subscriptionType = subscriber.subscriptionType || "";
             break;
-          case 'location':
-            row.location = subscriber.location || '';
+          case "location":
+            row.location = subscriber.location || "";
             break;
-          case 'sent':
+          case "sent":
             row.sent = subscriber.sent;
             break;
-          case 'opens':
+          case "opens":
             row.opens = subscriber.opens;
             break;
-          case 'clicks':
+          case "clicks":
             row.clicks = subscriber.clicks;
             break;
-          case 'subscribedAt':
+          case "subscribedAt":
             row.subscribedAt = subscriber.subscribedAt.toISOString();
             break;
-          case 'lastUpdated':
+          case "lastUpdated":
             row.lastUpdated = subscriber.lastUpdated.toISOString();
             break;
-          case 'groups':
+          case "groups":
             row.groups = Array.isArray(subscriber.groups)
-              ? subscriber.groups.join(';')
-              : '';
+              ? subscriber.groups.join(";")
+              : "";
             break;
-          case 'segments':
+          case "segments":
             row.segments = Array.isArray(subscriber.segments)
-              ? subscriber.segments.join(';')
-              : '';
+              ? subscriber.segments.join(";")
+              : "";
             break;
           default:
             // Handle custom fields or metadata
-            if (options.includeMetadata && field.startsWith('metadata.')) {
-              const metadataKey = field.replace('metadata.', '');
+            if (options.includeMetadata && field.startsWith("metadata.")) {
+              const metadataKey = field.replace("metadata.", "");
               // Note: This would require a metadata column in the subscriber entity
               // For now, we'll skip unknown fields
             }
@@ -264,7 +318,7 @@ export class BulkExportService {
         }
       }
 
-      formattedData.push(row);
+      formattedData.push(spreadsheetSafeRow(row));
     }
 
     return formattedData;
@@ -276,10 +330,10 @@ export class BulkExportService {
   async generateCsvFile(data: any[], filePath: string): Promise<void> {
     if (data.length === 0) {
       // Create empty file with headers
-      const headers = ['email']; // Default header
+      const headers = ["email"]; // Default header
       const csvWriter = createObjectCsvWriter({
         path: filePath,
-        header: headers.map(h => ({ id: h, title: h })),
+        header: headers.map((h) => ({ id: h, title: h })),
       });
       await csvWriter.writeRecords([]);
       return;
@@ -288,7 +342,7 @@ export class BulkExportService {
     const headers = Object.keys(data[0]);
     const csvWriter = createObjectCsvWriter({
       path: filePath,
-      header: headers.map(header => ({ id: header, title: header })),
+      header: headers.map((header) => ({ id: header, title: header })),
     });
 
     await csvWriter.writeRecords(data);
@@ -299,8 +353,8 @@ export class BulkExportService {
    */
   async generateExcelFile(data: any[], filePath: string): Promise<void> {
     const workbook = new Workbook();
-    const worksheet = workbook.addWorksheet('Subscribers');
-    const headers = data.length > 0 ? Object.keys(data[0]) : ['email'];
+    const worksheet = workbook.addWorksheet("Subscribers");
+    const headers = data.length > 0 ? Object.keys(data[0]) : ["email"];
 
     worksheet.columns = headers.map((header) => ({ header, key: header }));
     worksheet.addRows(data);
@@ -316,7 +370,8 @@ export class BulkExportService {
     totalRecords: number,
     status?: ExportJobStatus,
   ): Promise<void> {
-    const progressPercentage = totalRecords > 0 ? (processedRecords / totalRecords) * 100 : 0;
+    const progressPercentage =
+      totalRecords > 0 ? (processedRecords / totalRecords) * 100 : 0;
 
     const updateData: Partial<ExportJob> = {
       processedRecords,
@@ -325,7 +380,10 @@ export class BulkExportService {
 
     if (status) {
       updateData.status = status;
-      if (status === ExportJobStatus.COMPLETED || status === ExportJobStatus.FAILED) {
+      if (
+        status === ExportJobStatus.COMPLETED ||
+        status === ExportJobStatus.FAILED
+      ) {
         updateData.completedAt = new Date();
       }
     }
@@ -339,11 +397,14 @@ export class BulkExportService {
    */
   async markExportAsFailed(jobId: string, error: string): Promise<void> {
     const tenantId = this.getActiveTenantId();
-    await this.exportJobRepository.update({ id: jobId, tenantId }, {
-      status: ExportJobStatus.FAILED,
-      error,
-      completedAt: new Date(),
-    });
+    await this.exportJobRepository.update(
+      { id: jobId, tenantId },
+      {
+        status: ExportJobStatus.FAILED,
+        error,
+        completedAt: new Date(),
+      },
+    );
   }
 
   /**
@@ -353,11 +414,16 @@ export class BulkExportService {
     try {
       const stats = await fs.stat(filePath);
       const tenantId = this.getActiveTenantId();
-      await this.exportJobRepository.update({ id: jobId, tenantId }, {
-        fileSizeBytes: stats.size,
-      });
+      await this.exportJobRepository.update(
+        { id: jobId, tenantId },
+        {
+          fileSizeBytes: stats.size,
+        },
+      );
     } catch (error) {
-      this.logger.warn(`Failed to get file size for ${filePath}: ${error.message}`);
+      this.logger.warn(
+        `Failed to get file size for ${filePath}: ${error.message}`,
+      );
     }
   }
 
@@ -369,47 +435,75 @@ export class BulkExportService {
     options: ExportOptions,
   ): Promise<void> {
     // Validate format
-    if (!['csv', 'xlsx'].includes(options.format)) {
-      throw new BadRequestException('Invalid export format. Must be csv or xlsx');
+    if (!["csv", "xlsx"].includes(options.format)) {
+      throw new BadRequestException(
+        "Invalid export format. Must be csv or xlsx",
+      );
     }
 
     // Validate fields
     if (!options.fields || options.fields.length === 0) {
-      throw new BadRequestException('At least one field must be selected for export');
+      throw new BadRequestException(
+        "At least one field must be selected for export",
+      );
     }
 
     const validFields = [
-      'email', 'firstName', 'lastName', 'company', 'phone', 'status',
-      'customerStatus', 'subscriptionType', 'location', 'sent', 'opens',
-      'clicks', 'subscribedAt', 'lastUpdated', 'groups', 'segments'
+      "email",
+      "firstName",
+      "lastName",
+      "company",
+      "phone",
+      "status",
+      "customerStatus",
+      "subscriptionType",
+      "location",
+      "sent",
+      "opens",
+      "clicks",
+      "subscribedAt",
+      "lastUpdated",
+      "groups",
+      "segments",
     ];
 
-    const invalidFields = options.fields.filter(field =>
-      !validFields.includes(field) && !field.startsWith('metadata.')
+    const invalidFields = options.fields.filter(
+      (field) => !validFields.includes(field) && !field.startsWith("metadata."),
     );
 
     if (invalidFields.length > 0) {
-      throw new BadRequestException(`Invalid fields: ${invalidFields.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid fields: ${invalidFields.join(", ")}`,
+      );
     }
 
     // Validate batch size
-    if (options.batchSize && (options.batchSize < 100 || options.batchSize > 10000)) {
-      throw new BadRequestException('Batch size must be between 100 and 10000');
+    if (
+      options.batchSize &&
+      (options.batchSize < 100 || options.batchSize > 10000)
+    ) {
+      throw new BadRequestException("Batch size must be between 100 and 10000");
     }
 
     // Validate group IDs exist
     if (filters.groupIds && filters.groupIds.length > 0) {
-      const existingGroups = await this.groupRepository.findByIds(filters.groupIds);
+      const existingGroups = await this.groupRepository.findBy({
+        id: In(filters.groupIds),
+        tenantId: filters.tenantId,
+      });
       if (existingGroups.length !== filters.groupIds.length) {
-        throw new BadRequestException('One or more group IDs do not exist');
+        throw new BadRequestException("One or more group IDs do not exist");
       }
     }
 
     // Validate segment IDs exist
     if (filters.segmentIds && filters.segmentIds.length > 0) {
-      const existingSegments = await this.segmentRepository.findByIds(filters.segmentIds);
+      const existingSegments = await this.segmentRepository.findBy({
+        id: In(filters.segmentIds),
+        tenantId: filters.tenantId,
+      });
       if (existingSegments.length !== filters.segmentIds.length) {
-        throw new BadRequestException('One or more segment IDs do not exist');
+        throw new BadRequestException("One or more segment IDs do not exist");
       }
     }
 
@@ -417,7 +511,7 @@ export class BulkExportService {
     if (filters.dateRange) {
       if (filters.dateRange.start && filters.dateRange.end) {
         if (filters.dateRange.start > filters.dateRange.end) {
-          throw new BadRequestException('Start date must be before end date');
+          throw new BadRequestException("Start date must be before end date");
         }
       }
     }
@@ -428,22 +522,22 @@ export class BulkExportService {
    */
   getAvailableFields(): string[] {
     return [
-      'email',
-      'firstName',
-      'lastName',
-      'company',
-      'phone',
-      'status',
-      'customerStatus',
-      'subscriptionType',
-      'location',
-      'sent',
-      'opens',
-      'clicks',
-      'subscribedAt',
-      'lastUpdated',
-      'groups',
-      'segments'
+      "email",
+      "firstName",
+      "lastName",
+      "company",
+      "phone",
+      "status",
+      "customerStatus",
+      "subscriptionType",
+      "location",
+      "sent",
+      "opens",
+      "clicks",
+      "subscribedAt",
+      "lastUpdated",
+      "groups",
+      "segments",
     ];
   }
 
@@ -453,9 +547,9 @@ export class BulkExportService {
   async cleanupExpiredExports(): Promise<void> {
     try {
       const expiredJobs = await this.exportJobRepository
-        .createQueryBuilder('job')
-        .where('job.expiresAt < :now', { now: new Date() })
-        .andWhere('job.status = :status', { status: ExportJobStatus.COMPLETED })
+        .createQueryBuilder("job")
+        .where("job.expiresAt < :now", { now: new Date() })
+        .andWhere("job.status = :status", { status: ExportJobStatus.COMPLETED })
         .getMany();
 
       for (const job of expiredJobs) {
@@ -464,53 +558,70 @@ export class BulkExportService {
           await fs.unlink(job.filePath);
           this.logger.log(`Deleted expired export file: ${job.filePath}`);
         } catch (error) {
-          this.logger.warn(`Failed to delete expired file ${job.filePath}: ${error.message}`);
+          this.logger.warn(
+            `Failed to delete expired file ${job.filePath}: ${error.message}`,
+          );
         }
 
         // Update job status
-        await this.exportJobRepository.update({ id: job.id, tenantId: job.tenantId }, {
-          status: ExportJobStatus.FAILED,
-          error: 'Export file expired and was deleted',
-        });
+        await this.exportJobRepository.update(
+          { id: job.id, tenantId: job.tenantId },
+          {
+            status: ExportJobStatus.FAILED,
+            error: "Export file expired and was deleted",
+          },
+        );
       }
 
       this.logger.log(`Cleaned up ${expiredJobs.length} expired export files`);
     } catch (error) {
-      this.logger.error(`Failed to cleanup expired exports: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to cleanup expired exports: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
   /**
    * List export jobs with pagination and filtering
    */
-  async listExportJobs(options: {
-    userId?: string;
-    tenantId?: string;
-    status?: string;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{
+  async listExportJobs(
+    options: {
+      userId?: string;
+      tenantId?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
     jobs: ExportJob[];
     total: number;
     page: number;
     limit: number;
   }> {
-    const { userId, tenantId: filterTenantId, status, page = 1, limit = 20 } = options;
+    const {
+      userId,
+      tenantId: filterTenantId,
+      status,
+      page = 1,
+      limit = 20,
+    } = options;
     const tenantId = filterTenantId || this.getActiveTenantId();
 
-    const queryBuilder = this.exportJobRepository.createQueryBuilder('job')
-      .where('job.tenantId = :tenantId', { tenantId });
+    const queryBuilder = this.exportJobRepository
+      .createQueryBuilder("job")
+      .where("job.tenantId = :tenantId", { tenantId });
 
     if (userId) {
-      queryBuilder.andWhere('job.userId = :userId', { userId });
+      queryBuilder.andWhere("job.userId = :userId", { userId });
     }
 
     if (status) {
-      queryBuilder.andWhere('job.status = :status', { status });
+      queryBuilder.andWhere("job.status = :status", { status });
     }
 
     queryBuilder
-      .orderBy('job.createdAt', 'DESC')
+      .orderBy("job.createdAt", "DESC")
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -520,7 +631,7 @@ export class BulkExportService {
       jobs,
       total,
       page,
-      limit
+      limit,
     };
   }
 
@@ -530,20 +641,23 @@ export class BulkExportService {
   async createExportJobWithGdprCompliance(
     filters: ExportFilters,
     options: ExportOptions & { gdprCompliance?: BulkExportComplianceOptions },
-    userId?: string
+    userId?: string,
   ): Promise<ExportJob> {
     try {
-      this.logger.log('Creating GDPR-compliant export job');
+      this.logger.log("Creating GDPR-compliant export job");
 
       // Validate GDPR compliance if required
       if (options.gdprCompliance) {
-        const complianceValidation = await this.complianceService.validateBulkExportCompliance(
-          filters,
-          options.gdprCompliance
-        );
+        const complianceValidation =
+          await this.complianceService.validateBulkExportCompliance(
+            filters,
+            options.gdprCompliance,
+          );
 
         if (!complianceValidation.isCompliant) {
-          throw new BadRequestException(`Export failed GDPR compliance validation: ${complianceValidation.issues.join(', ')}`);
+          throw new BadRequestException(
+            `Export failed GDPR compliance validation: ${complianceValidation.issues.join(", ")}`,
+          );
         }
 
         this.logger.log(`GDPR compliance validation passed for export`);
@@ -552,9 +666,11 @@ export class BulkExportService {
       // Create the export job
       const tenantId = this.getActiveTenantId();
       return await this.createExportJob(filters, options, tenantId, userId);
-
     } catch (error) {
-      this.logger.error(`Failed to create GDPR-compliant export job: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create GDPR-compliant export job: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -564,14 +680,14 @@ export class BulkExportService {
    */
   async processExportWithGdprCompliance(
     jobId: string,
-    complianceOptions: BulkExportComplianceOptions
+    complianceOptions: BulkExportComplianceOptions,
   ): Promise<void> {
     try {
       this.logger.log(`Processing GDPR-compliant export for job ${jobId}`);
       const tenantId = this.getActiveTenantId();
 
       const job = await this.exportJobRepository.findOne({
-        where: { id: jobId, tenantId }
+        where: { id: jobId, tenantId },
       });
       if (!job) {
         throw new NotFoundException(`Export job ${jobId} not found`);
@@ -582,44 +698,56 @@ export class BulkExportService {
       const subscribers = await query.getMany();
 
       // Process with compliance service
-      const { data: processedData, report } = await this.complianceService.processBulkExportWithCompliance(
-        subscribers,
-        complianceOptions,
-        jobId
-      );
+      const { data: processedData, report } =
+        await this.complianceService.processBulkExportWithCompliance(
+          subscribers,
+          complianceOptions,
+          jobId,
+        );
 
       // Generate file with processed data
       const fileName = `export_${jobId}_${Date.now()}.${job.options.format}`;
       const filePath = path.join(this.exportDir, fileName);
 
-      if (job.options.format === 'csv') {
+      if (job.options.format === "csv") {
         await this.generateCsvFile(processedData, filePath);
       } else {
         await this.generateExcelFile(processedData, filePath);
       }
 
       // Update job with compliance results
-      await this.exportJobRepository.update({ id: jobId, tenantId }, {
-        status: ExportJobStatus.COMPLETED,
-        filePath,
-        fileName,
-        processedRecords: report.compliantRecords,
-        totalRecords: report.totalRecords,
-        progressPercentage: 100,
-        error: report.issues.length > 0 ? report.issues.join('; ') : undefined
-      });
+      await this.exportJobRepository.update(
+        { id: jobId, tenantId },
+        {
+          status: ExportJobStatus.COMPLETED,
+          filePath,
+          fileName,
+          processedRecords: report.compliantRecords,
+          totalRecords: report.totalRecords,
+          progressPercentage: 100,
+          error:
+            report.issues.length > 0 ? report.issues.join("; ") : undefined,
+        },
+      );
 
-      this.logger.log(`GDPR-compliant export completed for job ${jobId}: ${report.compliantRecords}/${report.totalRecords} records`);
-
+      this.logger.log(
+        `GDPR-compliant export completed for job ${jobId}: ${report.compliantRecords}/${report.totalRecords} records`,
+      );
     } catch (error) {
-      this.logger.error(`GDPR-compliant export failed for job ${jobId}:`, error);
+      this.logger.error(
+        `GDPR-compliant export failed for job ${jobId}:`,
+        error,
+      );
       const tenantId = this.getActiveTenantId();
 
-      await this.exportJobRepository.update({ id: jobId, tenantId }, {
-        status: ExportJobStatus.FAILED,
-        error: `GDPR compliance processing failed: ${error.message}`,
-        progressPercentage: 100
-      });
+      await this.exportJobRepository.update(
+        { id: jobId, tenantId },
+        {
+          status: ExportJobStatus.FAILED,
+          error: `GDPR compliance processing failed: ${error.message}`,
+          progressPercentage: 100,
+        },
+      );
 
       throw error;
     }
@@ -631,15 +759,20 @@ export class BulkExportService {
   async cancelExportJob(jobId: string): Promise<void> {
     const tenantId = this.getActiveTenantId();
     const job = await this.exportJobRepository.findOne({
-      where: { id: jobId, tenantId }
+      where: { id: jobId, tenantId },
     });
 
     if (!job) {
       throw new NotFoundException(`Export job ${jobId} not found`);
     }
 
-    if (job.status === ExportJobStatus.COMPLETED || job.status === ExportJobStatus.FAILED) {
-      throw new BadRequestException(`Cannot cancel job in ${job.status} status`);
+    if (
+      job.status === ExportJobStatus.COMPLETED ||
+      job.status === ExportJobStatus.FAILED
+    ) {
+      throw new BadRequestException(
+        `Cannot cancel job in ${job.status} status`,
+      );
     }
 
     // Remove from queue if still pending
@@ -648,18 +781,23 @@ export class BulkExportService {
       // await this.exportQueue.removeJobs(jobId);
     }
 
-    await this.exportJobRepository.update({ id: jobId, tenantId }, {
-      status: ExportJobStatus.FAILED,
-      error: 'Job cancelled by user',
-      completedAt: new Date()
-    });
+    await this.exportJobRepository.update(
+      { id: jobId, tenantId },
+      {
+        status: ExportJobStatus.FAILED,
+        error: "Job cancelled by user",
+        completedAt: new Date(),
+      },
+    );
 
     // Clean up partial file if it exists
     try {
       await fs.unlink(job.filePath);
     } catch (error) {
       // File might not exist yet, which is fine
-      this.logger.debug(`Could not delete file during cancellation: ${error.message}`);
+      this.logger.debug(
+        `Could not delete file during cancellation: ${error.message}`,
+      );
     }
 
     this.logger.log(`Export job ${jobId} cancelled`);
@@ -674,8 +812,8 @@ export class BulkExportService {
 
     const oldJobs = await this.exportJobRepository.find({
       where: {
-        createdAt: { $lt: cutoffDate } as any
-      }
+        createdAt: LessThan(cutoffDate),
+      },
     });
 
     let cleanedCount = 0;
@@ -687,7 +825,9 @@ export class BulkExportService {
           await fs.unlink(job.filePath);
         } catch (error) {
           // File might not exist, which is fine
-          this.logger.debug(`Could not delete file during cleanup: ${error.message}`);
+          this.logger.debug(
+            `Could not delete file during cleanup: ${error.message}`,
+          );
         }
 
         // Delete job
@@ -695,7 +835,9 @@ export class BulkExportService {
 
         cleanedCount++;
       } catch (error) {
-        this.logger.warn(`Failed to cleanup export job ${job.id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to cleanup export job ${job.id}: ${error.message}`,
+        );
       }
     }
 

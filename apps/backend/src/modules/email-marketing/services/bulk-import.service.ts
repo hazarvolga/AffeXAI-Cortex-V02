@@ -1,16 +1,40 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { ImportJob, ImportJobStatus, ImportOptions, ValidationSummary } from '../entities/import-job.entity';
-import { ImportResult, ImportResultStatus } from '../entities/import-result.entity';
-import { FileProcessingService, CsvParseResult } from './file-processing.service';
-import { FileUploadService, UploadResult } from './file-upload.service';
-import { BulkOperationsComplianceService, BulkImportComplianceOptions } from './bulk-operations-compliance.service';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { TenantService } from '../../../core/tenant/tenant.service';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, LessThan, Repository } from "typeorm";
+import {
+  ImportJob,
+  ImportJobStatus,
+  ImportOptions,
+  ValidationSummary,
+} from "../entities/import-job.entity";
+import {
+  ImportResult,
+  ImportResultStatus,
+} from "../entities/import-result.entity";
+import {
+  FileProcessingService,
+  CsvParseResult,
+} from "./file-processing.service";
+import { FileUploadService, UploadResult } from "./file-upload.service";
+import {
+  BulkOperationsComplianceService,
+  BulkImportComplianceOptions,
+} from "./bulk-operations-compliance.service";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { TenantService } from "../../../core/tenant/tenant.service";
 
-import { CreateImportJobDto, ImportStatisticsDto, ImportOptionsDto } from '../dto/bulk-import.dto';
+import {
+  CreateImportJobDto,
+  ImportStatisticsDto,
+  ImportOptionsDto,
+} from "../dto/bulk-import.dto";
 
 export interface CreateImportJobParams {
   file: any;
@@ -18,7 +42,6 @@ export interface CreateImportJobParams {
   userId?: string;
   tenantId: string;
 }
-
 
 export interface ImportJobSummary {
   id: string;
@@ -46,7 +69,7 @@ export interface ImportJobDetails extends ImportJobSummary {
 export interface DuplicateCheckResult {
   isDuplicate: boolean;
   existingSubscriberId?: string;
-  duplicateType: 'exact' | 'email_only' | 'none';
+  duplicateType: "exact" | "email_only" | "none";
 }
 
 @Injectable()
@@ -61,43 +84,62 @@ export class BulkImportService {
     private readonly fileProcessingService: FileProcessingService,
     private readonly fileUploadService: FileUploadService,
     private readonly complianceService: BulkOperationsComplianceService,
-    @InjectQueue('import') private readonly importQueue: Queue,
+    @InjectQueue("import") private readonly importQueue: Queue,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
    * @private
    */
   private getActiveTenantId(): string {
-    return this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   /**
    * Create a new import job from uploaded file
    */
-  async createImportJob(createDto: CreateImportJobParams): Promise<ImportJobDetails> {
-    this.logger.log(`Creating import job for file: ${createDto.file.originalname}`);
+  async createImportJob(
+    createDto: CreateImportJobParams,
+  ): Promise<ImportJobDetails> {
+    this.logger.log(
+      `Creating import job for file: ${createDto.file.originalname}`,
+    );
 
     try {
       // Step 1: Upload and validate file
-      const uploadResult = await this.fileUploadService.uploadFile(createDto.file, createDto.tenantId, {
-        generateJobId: true,
-        customPath: 'imports'
-      });
+      const uploadResult = await this.fileUploadService.uploadFile(
+        createDto.file,
+        createDto.tenantId,
+        {
+          generateJobId: true,
+          customPath: "imports",
+        },
+      );
 
       // Step 2: Parse CSV to get structure
       // Use local filePath for initial synchronous parsing
-      const parseResult = await this.fileProcessingService.parseCsvFile(uploadResult.filePath, createDto.tenantId);
+      const parseResult = await this.fileProcessingService.parseCsvFile(
+        uploadResult.filePath,
+        createDto.tenantId,
+      );
 
       if (parseResult.errors.length > 0) {
-        this.logger.warn(`CSV parsing warnings for ${uploadResult.jobId}:`, parseResult.errors);
+        this.logger.warn(
+          `CSV parsing warnings for ${uploadResult.jobId}:`,
+          parseResult.errors,
+        );
       }
 
       // Step 3: Validate column mapping
-      const isValidMapping = await this.fileProcessingService.validateColumnMapping(createDto.options.columnMapping);
+      const isValidMapping =
+        await this.fileProcessingService.validateColumnMapping(
+          createDto.options.columnMapping,
+        );
       if (!isValidMapping) {
-        throw new BadRequestException('Invalid column mapping provided');
+        throw new BadRequestException("Invalid column mapping provided");
       }
 
       // Determine persistent file path (S3 URL if available, else local)
@@ -114,47 +156,55 @@ export class BulkImportService {
         columnMapping: createDto.options.columnMapping,
         userId: createDto.userId,
         tenantId: createDto.tenantId,
-        progressPercentage: 0
+        progressPercentage: 0,
       });
 
       const savedJob = await this.importJobRepository.save(importJob);
 
       // Step 5: Validate GDPR compliance if required
       if (createDto.options.gdprCompliance) {
-        const complianceValidation = await this.complianceService.validateBulkImportCompliance(
-          parseResult.data,
-          createDto.options.gdprCompliance
-        );
+        const complianceValidation =
+          await this.complianceService.validateBulkImportCompliance(
+            parseResult.data,
+            createDto.options.gdprCompliance,
+          );
 
         if (!complianceValidation.isCompliant) {
           savedJob.status = ImportJobStatus.FAILED;
-          savedJob.error = `GDPR compliance validation failed: ${complianceValidation.issues.join(', ')}`;
+          savedJob.error = `GDPR compliance validation failed: ${complianceValidation.issues.join(", ")}`;
           await this.importJobRepository.save(savedJob);
 
-          throw new BadRequestException(`Import failed GDPR compliance validation: ${complianceValidation.issues.join(', ')}`);
+          throw new BadRequestException(
+            `Import failed GDPR compliance validation: ${complianceValidation.issues.join(", ")}`,
+          );
         }
 
-        this.logger.log(`GDPR compliance validation passed for job ${savedJob.id}`);
+        this.logger.log(
+          `GDPR compliance validation passed for job ${savedJob.id}`,
+        );
       }
 
       // Step 5: Queue the job for processing
-      await this.importQueue.add('process-import', {
-        jobId: savedJob.id,
-        tenantId: createDto.tenantId, // Pass tenantId
-        filePath: persistentFilePath, // Pass S3 URL to worker
-        options: createDto.options
-      }, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        }
-      });
+      await this.importQueue.add(
+        "process-import",
+        {
+          jobId: savedJob.id,
+          tenantId: createDto.tenantId, // Pass tenantId
+          filePath: persistentFilePath, // Pass S3 URL to worker
+          options: createDto.options,
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000,
+          },
+        },
+      );
 
       this.logger.log(`Import job created successfully: ${savedJob.id}`);
 
       return this.mapToJobDetails(savedJob);
-
     } catch (error) {
       this.logger.error(`Failed to create import job: ${error.message}`, error);
       throw error;
@@ -167,7 +217,7 @@ export class BulkImportService {
   async getImportJob(jobId: string): Promise<ImportJobDetails> {
     const tenantId = this.getActiveTenantId();
     const job = await this.importJobRepository.findOne({
-      where: { id: jobId, tenantId }
+      where: { id: jobId, tenantId },
     });
 
     if (!job) {
@@ -183,7 +233,7 @@ export class BulkImportService {
   async getImportJobSummary(jobId: string): Promise<ImportJobSummary> {
     const tenantId = this.getActiveTenantId();
     const job = await this.importJobRepository.findOne({
-      where: { id: jobId, tenantId }
+      where: { id: jobId, tenantId },
     });
 
     if (!job) {
@@ -196,12 +246,14 @@ export class BulkImportService {
   /**
    * List import jobs with pagination and filtering
    */
-  async listImportJobs(options: {
-    userId?: string;
-    status?: ImportJobStatus;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{
+  async listImportJobs(
+    options: {
+      userId?: string;
+      status?: ImportJobStatus;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
     jobs: ImportJobSummary[];
     total: number;
     page: number;
@@ -210,29 +262,30 @@ export class BulkImportService {
     const { userId, status, page = 1, limit = 20 } = options;
     const tenantId = this.getActiveTenantId();
 
-    const queryBuilder = this.importJobRepository.createQueryBuilder('job')
-      .where('job.tenantId = :tenantId', { tenantId });
+    const queryBuilder = this.importJobRepository
+      .createQueryBuilder("job")
+      .where("job.tenantId = :tenantId", { tenantId });
 
     if (userId) {
-      queryBuilder.andWhere('job.userId = :userId', { userId });
+      queryBuilder.andWhere("job.userId = :userId", { userId });
     }
 
     if (status) {
-      queryBuilder.andWhere('job.status = :status', { status });
+      queryBuilder.andWhere("job.status = :status", { status });
     }
 
     queryBuilder
-      .orderBy('job.createdAt', 'DESC')
+      .orderBy("job.createdAt", "DESC")
       .skip((page - 1) * limit)
       .take(limit);
 
     const [jobs, total] = await queryBuilder.getManyAndCount();
 
     return {
-      jobs: jobs.map(job => this.mapToJobSummary(job)),
+      jobs: jobs.map((job) => this.mapToJobSummary(job)),
       total,
       page,
-      limit
+      limit,
     };
   }
 
@@ -251,18 +304,23 @@ export class BulkImportService {
       progressPercentage?: number;
       error?: string;
       validationSummary?: ValidationSummary;
-    }
+    },
   ): Promise<void> {
     const updateData: any = { ...updates };
 
-    if (updates.status === ImportJobStatus.COMPLETED || updates.status === ImportJobStatus.FAILED) {
+    if (
+      updates.status === ImportJobStatus.COMPLETED ||
+      updates.status === ImportJobStatus.FAILED
+    ) {
       updateData.completedAt = new Date();
     }
 
     const tenantId = this.getActiveTenantId();
     await this.importJobRepository.update({ id: jobId, tenantId }, updateData);
 
-    this.logger.log(`Updated job ${jobId} progress: ${updates.progressPercentage || 0}%`);
+    this.logger.log(
+      `Updated job ${jobId} progress: ${updates.progressPercentage || 0}%`,
+    );
   }
 
   /**
@@ -271,15 +329,20 @@ export class BulkImportService {
   async cancelImportJob(jobId: string): Promise<void> {
     const tenantId = this.getActiveTenantId();
     const job = await this.importJobRepository.findOne({
-      where: { id: jobId, tenantId }
+      where: { id: jobId, tenantId },
     });
 
     if (!job) {
       throw new NotFoundException(`Import job ${jobId} not found`);
     }
 
-    if (job.status === ImportJobStatus.COMPLETED || job.status === ImportJobStatus.FAILED) {
-      throw new BadRequestException(`Cannot cancel job in ${job.status} status`);
+    if (
+      job.status === ImportJobStatus.COMPLETED ||
+      job.status === ImportJobStatus.FAILED
+    ) {
+      throw new BadRequestException(
+        `Cannot cancel job in ${job.status} status`,
+      );
     }
 
     // Remove from queue if still pending
@@ -288,11 +351,14 @@ export class BulkImportService {
       // await this.importQueue.removeJobs(jobId);
     }
 
-    await this.importJobRepository.update({ id: jobId, tenantId }, {
-      status: ImportJobStatus.FAILED,
-      error: 'Job cancelled by user',
-      completedAt: new Date()
-    });
+    await this.importJobRepository.update(
+      { id: jobId, tenantId },
+      {
+        status: ImportJobStatus.FAILED,
+        error: "Job cancelled by user",
+        completedAt: new Date(),
+      },
+    );
 
     // Clean up uploaded file
     await this.fileProcessingService.cleanupTempFiles(jobId);
@@ -309,7 +375,7 @@ export class BulkImportService {
       status?: ImportResultStatus;
       page?: number;
       limit?: number;
-    } = {}
+    } = {},
   ): Promise<{
     results: ImportResult[];
     total: number;
@@ -319,16 +385,17 @@ export class BulkImportService {
     const { status, page = 1, limit = 100 } = options;
     const tenantId = this.getActiveTenantId();
 
-    const queryBuilder = this.importResultRepository.createQueryBuilder('result')
-      .where('result.importJobId = :jobId', { jobId })
-      .andWhere('result.tenantId = :tenantId', { tenantId });
+    const queryBuilder = this.importResultRepository
+      .createQueryBuilder("result")
+      .where("result.importJobId = :jobId", { jobId })
+      .andWhere("result.tenantId = :tenantId", { tenantId });
 
     if (status) {
-      queryBuilder.andWhere('result.status = :status', { status });
+      queryBuilder.andWhere("result.status = :status", { status });
     }
 
     queryBuilder
-      .orderBy('result.rowNumber', 'ASC')
+      .orderBy("result.rowNumber", "ASC")
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -338,7 +405,7 @@ export class BulkImportService {
       results,
       total,
       page,
-      limit
+      limit,
     };
   }
 
@@ -347,13 +414,13 @@ export class BulkImportService {
    */
   async checkDuplicates(
     emails: string[],
-    duplicateHandling: 'skip' | 'update' | 'replace'
+    duplicateHandling: "skip" | "update" | "replace",
   ): Promise<Map<string, DuplicateCheckResult>> {
     const results = new Map<string, DuplicateCheckResult>();
 
     // Batch check for existing subscribers by email
     // Note: For large datasets, this should be optimized with a single IN query
-    const normalizedEmails = emails.map(e => e.toLowerCase().trim());
+    const normalizedEmails = emails.map((e) => e.toLowerCase().trim());
 
     // Query existing subscribers in batch (limit to prevent memory issues)
     const batchSize = 1000;
@@ -363,14 +430,14 @@ export class BulkImportService {
       const batch = normalizedEmails.slice(i, i + batchSize);
       const tenantId = this.getActiveTenantId();
       const existingSubscribers = await this.importResultRepository.manager
-        .getRepository('Subscriber')
-        .createQueryBuilder('subscriber')
-        .select('LOWER(subscriber.email)', 'email')
-        .where('LOWER(subscriber.email) IN (:...emails)', { emails: batch })
-        .andWhere('subscriber.tenantId = :tenantId', { tenantId })
+        .getRepository("Subscriber")
+        .createQueryBuilder("subscriber")
+        .select("LOWER(subscriber.email)", "email")
+        .where("LOWER(subscriber.email) IN (:...emails)", { emails: batch })
+        .andWhere("subscriber.tenantId = :tenantId", { tenantId })
         .getRawMany();
 
-      existingSubscribers.forEach(s => existingEmails.add(s.email));
+      existingSubscribers.forEach((s) => existingEmails.add(s.email));
     }
 
     // Build results map
@@ -380,7 +447,7 @@ export class BulkImportService {
 
       results.set(email, {
         isDuplicate,
-        duplicateType: isDuplicate ? 'email_only' : 'none'
+        duplicateType: isDuplicate ? "email_only" : "none",
       });
     }
 
@@ -390,7 +457,10 @@ export class BulkImportService {
   /**
    * Validate CSV structure and suggest column mappings
    */
-  async validateCsvStructure(filePath: string, tenantId: string): Promise<{
+  async validateCsvStructure(
+    filePath: string,
+    tenantId: string,
+  ): Promise<{
     isValid: boolean;
     headers: string[];
     sampleData: any[];
@@ -398,15 +468,20 @@ export class BulkImportService {
     errors: string[];
   }> {
     try {
-      const parseResult = await this.fileProcessingService.parseCsvFile(filePath, tenantId);
-      const columnDetection = await this.fileProcessingService.detectColumns(parseResult.data);
+      const parseResult = await this.fileProcessingService.parseCsvFile(
+        filePath,
+        tenantId,
+      );
+      const columnDetection = await this.fileProcessingService.detectColumns(
+        parseResult.data,
+      );
 
       return {
         isValid: parseResult.errors.length === 0,
         headers: parseResult.headers,
         sampleData: parseResult.data.slice(0, 5), // First 5 rows as sample
         suggestions: columnDetection.suggestions,
-        errors: parseResult.errors.map(e => e.message)
+        errors: parseResult.errors.map((e) => e.message),
       };
     } catch (error) {
       this.logger.error(`CSV structure validation failed: ${error.message}`);
@@ -415,7 +490,7 @@ export class BulkImportService {
         headers: [],
         sampleData: [],
         suggestions: [],
-        errors: [error.message]
+        errors: [error.message],
       };
     }
   }
@@ -425,21 +500,32 @@ export class BulkImportService {
    */
   async getImportStatistics(userId?: string): Promise<ImportStatisticsDto> {
     const tenantId = this.getActiveTenantId();
-    const queryBuilder = this.importJobRepository.createQueryBuilder('job')
-      .where('job.tenantId = :tenantId', { tenantId });
+    const queryBuilder = this.importJobRepository
+      .createQueryBuilder("job")
+      .where("job.tenantId = :tenantId", { tenantId });
 
     if (userId) {
-      queryBuilder.andWhere('job.userId = :userId', { userId });
+      queryBuilder.andWhere("job.userId = :userId", { userId });
     }
 
     const jobs = await queryBuilder.getMany();
 
     const totalJobs = jobs.length;
-    const completedJobs = jobs.filter(j => j.status === ImportJobStatus.COMPLETED).length;
-    const failedJobs = jobs.filter(j => j.status === ImportJobStatus.FAILED).length;
-    const totalRecordsProcessed = jobs.reduce((sum, j) => sum + j.processedRecords, 0);
+    const completedJobs = jobs.filter(
+      (j) => j.status === ImportJobStatus.COMPLETED,
+    ).length;
+    const failedJobs = jobs.filter(
+      (j) => j.status === ImportJobStatus.FAILED,
+    ).length;
+    const totalRecordsProcessed = jobs.reduce(
+      (sum, j) => sum + j.processedRecords,
+      0,
+    );
     const totalValidRecords = jobs.reduce((sum, j) => sum + j.validRecords, 0);
-    const averageSuccessRate = totalRecordsProcessed > 0 ? (totalValidRecords / totalRecordsProcessed) * 100 : 0;
+    const averageSuccessRate =
+      totalRecordsProcessed > 0
+        ? (totalValidRecords / totalRecordsProcessed) * 100
+        : 0;
 
     return {
       totalJobs,
@@ -447,7 +533,7 @@ export class BulkImportService {
       failedJobs,
       totalRecordsProcessed,
       totalValidRecords,
-      averageSuccessRate
+      averageSuccessRate,
     };
   }
 
@@ -460,8 +546,8 @@ export class BulkImportService {
 
     const oldJobs = await this.importJobRepository.find({
       where: {
-        createdAt: { $lt: cutoffDate } as any
-      }
+        createdAt: LessThan(cutoffDate),
+      },
     });
 
     let cleanedCount = 0;
@@ -505,7 +591,7 @@ export class BulkImportService {
       options: job.options,
       columnMapping: job.columnMapping,
       validationSummary: job.validationSummary,
-      filePath: job.filePath
+      filePath: job.filePath,
     };
   }
 
@@ -526,7 +612,7 @@ export class BulkImportService {
       progressPercentage: job.progressPercentage,
       createdAt: job.createdAt,
       completedAt: job.completedAt,
-      error: job.error
+      error: job.error,
     };
   }
 
@@ -536,43 +622,56 @@ export class BulkImportService {
   async processImportWithGdprCompliance(
     jobId: string,
     subscriberData: any[],
-    complianceOptions: BulkImportComplianceOptions
+    complianceOptions: BulkImportComplianceOptions,
   ): Promise<void> {
     try {
-      this.logger.log(`Processing import with GDPR compliance for job ${jobId}`);
+      this.logger.log(
+        `Processing import with GDPR compliance for job ${jobId}`,
+      );
 
       // Process with compliance service
-      const complianceReport = await this.complianceService.processBulkImportWithCompliance(
-        subscriberData,
-        complianceOptions,
-        jobId
-      );
+      const complianceReport =
+        await this.complianceService.processBulkImportWithCompliance(
+          subscriberData,
+          complianceOptions,
+          jobId,
+        );
 
       // Update job with compliance results
       await this.updateJobProgress(jobId, {
-        status: complianceReport.compliantRecords > 0 ? ImportJobStatus.COMPLETED : ImportJobStatus.FAILED,
+        status:
+          complianceReport.compliantRecords > 0
+            ? ImportJobStatus.COMPLETED
+            : ImportJobStatus.FAILED,
         processedRecords: complianceReport.totalRecords,
         validRecords: complianceReport.compliantRecords,
         invalidRecords: complianceReport.nonCompliantRecords,
         progressPercentage: 100,
-        error: complianceReport.issues.length > 0 ? complianceReport.issues.join('; ') : undefined,
+        error:
+          complianceReport.issues.length > 0
+            ? complianceReport.issues.join("; ")
+            : undefined,
         validationSummary: {
           gdprCompliant: complianceReport.compliantRecords,
           gdprNonCompliant: complianceReport.nonCompliantRecords,
           consentTracked: complianceReport.consentTracked,
-          gdprRegionAffected: complianceReport.gdprRegionAffected
-        } as any
+          gdprRegionAffected: complianceReport.gdprRegionAffected,
+        } as any,
       });
 
-      this.logger.log(`GDPR compliant import completed for job ${jobId}: ${complianceReport.compliantRecords}/${complianceReport.totalRecords} processed`);
-
+      this.logger.log(
+        `GDPR compliant import completed for job ${jobId}: ${complianceReport.compliantRecords}/${complianceReport.totalRecords} processed`,
+      );
     } catch (error) {
-      this.logger.error(`GDPR compliant import failed for job ${jobId}:`, error);
+      this.logger.error(
+        `GDPR compliant import failed for job ${jobId}:`,
+        error,
+      );
 
       await this.updateJobProgress(jobId, {
         status: ImportJobStatus.FAILED,
         error: `GDPR compliance processing failed: ${error.message}`,
-        progressPercentage: 100
+        progressPercentage: 100,
       });
 
       throw error;

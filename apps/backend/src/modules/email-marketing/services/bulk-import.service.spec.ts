@@ -1,162 +1,215 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { getQueueToken } from '@nestjs/bullmq';
-import { Repository } from 'typeorm';
-import { Queue } from 'bullmq';
-import { BulkImportService } from './bulk-import.service';
-import { Subscriber } from '../entities/subscriber.entity';
-import { BulkImportJob } from '../entities/bulk-import-job.entity';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Queue } from "bullmq";
+import { LessThan, Repository } from "typeorm";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { ImportJob, ImportJobStatus } from "../entities/import-job.entity";
+import { ImportResult } from "../entities/import-result.entity";
+import { BulkImportService } from "./bulk-import.service";
+import { BulkOperationsComplianceService } from "./bulk-operations-compliance.service";
+import { FileProcessingService } from "./file-processing.service";
+import { FileUploadService } from "./file-upload.service";
 
-describe('BulkImportService', () => {
-    let service: BulkImportService;
-    let subscriberRepository: Repository<Subscriber>;
-    let jobRepository: Repository<BulkImportJob>;
-    let importQueue: Queue;
+// The real collaborators pull in S3 and file-type (ESM); none of their code runs here.
+jest.mock("./file-processing.service", () => ({
+  FileProcessingService: class {},
+}));
+jest.mock("./file-upload.service", () => ({ FileUploadService: class {} }));
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-    };
+const TENANT = "tenant-a";
 
-    const mockQueue = {
-        add: jest.fn(),
-        getJob: jest.fn(),
-    };
+function setup(
+  options: {
+    tenant?: string | null;
+    validMapping?: boolean;
+    compliant?: boolean;
+  } = {},
+) {
+  const jobs = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({
+      id: "job-1",
+      createdAt: new Date(),
+      ...value,
+    })),
+    findOne: jest.fn(async () => null as ImportJob | null),
+    find: jest.fn(
+      async () => [{ id: "old-1" }, { id: "old-2" }] as ImportJob[],
+    ),
+    update: jest.fn(async () => ({ affected: 1 })),
+    remove: jest.fn(async () => undefined),
+  };
+  const existing = {
+    select: jest.fn(),
+    where: jest.fn(),
+    andWhere: jest.fn(),
+    getRawMany: jest.fn(async () => [{ email: "ada@example.com" }]),
+  };
+  existing.select.mockReturnValue(existing);
+  existing.where.mockReturnValue(existing);
+  existing.andWhere.mockReturnValue(existing);
+  const results = {
+    manager: {
+      getRepository: jest.fn(() => ({
+        createQueryBuilder: jest.fn(() => existing),
+      })),
+    },
+  };
+  const files = {
+    parseCsvFile: jest.fn(async () => ({
+      totalRows: 2,
+      data: [{ email: "a@b.co" }],
+      headers: ["email"],
+      errors: [],
+    })),
+    validateColumnMapping: jest.fn(async () => options.validMapping ?? true),
+    cleanupTempFiles: jest.fn(async () => undefined),
+  };
+  const upload = {
+    uploadFile: jest.fn(async () => ({
+      jobId: "u1",
+      fileName: "f.csv",
+      originalFileName: "list.csv",
+      filePath: "/tmp/f.csv",
+      s3Url: "s3://bucket/f.csv",
+    })),
+  };
+  const compliance = {
+    validateBulkImportCompliance: jest.fn(async () => ({
+      isCompliant: options.compliant ?? true,
+      issues: ["no consent column"],
+    })),
+  };
+  const queue = { add: jest.fn(async () => ({ id: "q-1" })) };
+  const service = new BulkImportService(
+    jobs as unknown as Repository<ImportJob>,
+    results as unknown as Repository<ImportResult>,
+    files as unknown as FileProcessingService,
+    upload as unknown as FileUploadService,
+    compliance as unknown as BulkOperationsComplianceService,
+    queue as unknown as Queue,
+    {
+      getTenantId: () =>
+        options.tenant === undefined ? TENANT : options.tenant,
+    } as unknown as TenantService,
+  );
+  return { service, jobs, files, queue, existing };
+}
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                BulkImportService,
-                {
-                    provide: getRepositoryToken(Subscriber),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getRepositoryToken(BulkImportJob),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getQueueToken('bulk-import'),
-                    useValue: mockQueue,
-                },
-            ],
-        }).compile();
+const params = (gdpr = false) =>
+  ({
+    file: { originalname: "list.csv" },
+    tenantId: TENANT,
+    userId: "user-1",
+    options: {
+      columnMapping: { Email: "email" },
+      ...(gdpr ? { gdprCompliance: { requireConsent: true } } : {}),
+    },
+  }) as never;
 
-        service = module.get<BulkImportService>(BulkImportService);
-        subscriberRepository = module.get(getRepositoryToken(Subscriber));
-        jobRepository = module.get(getRepositoryToken(BulkImportJob));
-        importQueue = module.get(getQueueToken('bulk-import'));
+describe("BulkImportService", () => {
+  it("stores the job with the persistent file and queues it for the tenant", async () => {
+    const { service, jobs, queue } = setup();
+    const job = await service.createImportJob(params());
+    expect(jobs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filePath: "s3://bucket/f.csv",
+        totalRecords: 2,
+        status: ImportJobStatus.PENDING,
+        tenantId: TENANT,
+      }),
+    );
+    expect(queue.add).toHaveBeenCalledWith(
+      "process-import",
+      expect.objectContaining({
+        jobId: "job-1",
+        tenantId: TENANT,
+        filePath: "s3://bucket/f.csv",
+      }),
+      expect.objectContaining({ attempts: 3 }),
+    );
+    expect(job.id).toBe("job-1");
+  });
 
-        jest.clearAllMocks();
+  it("rejects an invalid column mapping before creating a job", async () => {
+    const { service, jobs, queue } = setup({ validMapping: false });
+    await expect(service.createImportJob(params())).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(jobs.save).not.toHaveBeenCalled();
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it("fails the job and queues nothing when GDPR validation fails", async () => {
+    const { service, jobs, queue } = setup({ compliant: false });
+    await expect(service.createImportJob(params(true))).rejects.toThrow(
+      "GDPR compliance validation",
+    );
+    expect(jobs.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: ImportJobStatus.FAILED }),
+    );
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it("marks duplicates case-insensitively inside the tenant", async () => {
+    const { service, existing } = setup();
+    const result = await service.checkDuplicates(
+      [" Ada@Example.com", "new@example.com"],
+      "skip",
+    );
+    expect(existing.andWhere).toHaveBeenCalledWith(
+      "subscriber.tenantId = :tenantId",
+      { tenantId: TENANT },
+    );
+    expect(result.get(" Ada@Example.com")).toEqual({
+      isDuplicate: true,
+      duplicateType: "email_only",
     });
-
-    describe('validateCSV', () => {
-        it('should validate correct CSV format', async () => {
-            const csvData = 'email,name\ntest@example.com,Test User';
-
-            const result = await service.validateCSV(csvData);
-
-            expect(result.isValid).toBe(true);
-            expect(result.rowCount).toBe(1);
-        });
-
-        it('should reject CSV without email column', async () => {
-            const csvData = 'name,phone\nTest User,123456';
-
-            const result = await service.validateCSV(csvData);
-
-            expect(result.isValid).toBe(false);
-            expect(result.errors).toContain('Missing required column: email');
-        });
-
-        it('should detect invalid email addresses', async () => {
-            const csvData = 'email,name\ninvalid-email,Test User';
-
-            const result = await service.validateCSV(csvData);
-
-            expect(result.isValid).toBe(false);
-            expect(result.errors.length).toBeGreaterThan(0);
-        });
+    expect(result.get("new@example.com")).toEqual({
+      isDuplicate: false,
+      duplicateType: "none",
     });
+  });
 
-    describe('startImport', () => {
-        it('should create import job and add to queue', async () => {
-            const csvData = 'email,name\ntest@example.com,Test User';
-            const mockJob = { id: 'job-123', status: 'pending' };
+  it("cancels a running job of the tenant and refuses a finished one", async () => {
+    const { service, jobs, files } = setup();
+    await expect(service.cancelImportJob("job-x")).rejects.toThrow(
+      NotFoundException,
+    );
+    jobs.findOne.mockResolvedValueOnce({
+      id: "job-1",
+      status: ImportJobStatus.PROCESSING,
+    } as ImportJob);
+    await service.cancelImportJob("job-1");
+    expect(jobs.update).toHaveBeenCalledWith(
+      { id: "job-1", tenantId: TENANT },
+      expect.objectContaining({ status: ImportJobStatus.FAILED }),
+    );
+    expect(files.cleanupTempFiles).toHaveBeenCalledWith("job-1");
+    jobs.findOne.mockResolvedValueOnce({
+      id: "job-2",
+      status: ImportJobStatus.COMPLETED,
+    } as ImportJob);
+    await expect(service.cancelImportJob("job-2")).rejects.toThrow(
+      BadRequestException,
+    );
+  });
 
-            mockRepository.create.mockReturnValue(mockJob);
-            mockRepository.save.mockResolvedValue(mockJob);
-            mockQueue.add.mockResolvedValue({ id: 'queue-job-123' });
+  it("cleans up only jobs older than the cutoff", async () => {
+    const { service, jobs } = setup();
+    await expect(service.cleanupOldJobs(30)).resolves.toBe(2);
+    const [[query]] = jobs.find.mock.calls as unknown as [
+      [{ where: { createdAt: unknown } }],
+    ];
+    expect(query.where.createdAt).toEqual(LessThan(expect.any(Date)));
+  });
 
-            const result = await service.startImport(csvData, {
-                duplicateHandling: 'skip',
-            });
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(mockQueue.add).toHaveBeenCalled();
-            expect(result).toEqual(mockJob);
-        });
-    });
-
-    describe('getJobStatus', () => {
-        it('should return job status', async () => {
-            const mockJob = {
-                id: 'job-123',
-                status: 'processing',
-                progress: 50,
-                totalRows: 100,
-                processedRows: 50,
-            };
-
-            mockRepository.findOne.mockResolvedValue(mockJob);
-
-            const result = await service.getJobStatus('job-123');
-
-            expect(result).toEqual(mockJob);
-        });
-    });
-
-    describe('processImport', () => {
-        it('should process import and create subscribers', async () => {
-            const subscribers = [
-                { email: 'test1@example.com', name: 'User 1' },
-                { email: 'test2@example.com', name: 'User 2' },
-            ];
-
-            mockRepository.save.mockResolvedValue({});
-
-            await service.processImport('job-123', subscribers);
-
-            expect(mockRepository.save).toHaveBeenCalled();
-        });
-
-        it('should skip duplicates when configured', async () => {
-            const subscribers = [{ email: 'existing@example.com' }];
-
-            mockRepository.findOne.mockResolvedValue({ email: 'existing@example.com' });
-
-            await service.processImport('job-123', subscribers, {
-                duplicateHandling: 'skip',
-            });
-
-            expect(mockRepository.save).not.toHaveBeenCalled();
-        });
-
-        it('should update duplicates when configured', async () => {
-            const subscribers = [{ email: 'existing@example.com', name: 'Updated' }];
-            const existing = { email: 'existing@example.com', name: 'Old' };
-
-            mockRepository.findOne.mockResolvedValue(existing);
-            mockRepository.save.mockResolvedValue({ ...existing, name: 'Updated' });
-
-            await service.processImport('job-123', subscribers, {
-                duplicateHandling: 'update',
-            });
-
-            expect(mockRepository.save).toHaveBeenCalled();
-        });
-    });
+  it("requires a tenant context", async () => {
+    await expect(
+      setup({ tenant: null }).service.getImportJob("job-1"),
+    ).rejects.toThrow(UnauthorizedException);
+  });
 });

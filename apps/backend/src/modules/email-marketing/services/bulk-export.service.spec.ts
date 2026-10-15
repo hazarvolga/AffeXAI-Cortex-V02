@@ -1,110 +1,122 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { getQueueToken } from '@nestjs/bullmq';
-import { Repository } from 'typeorm';
-import { Queue } from 'bullmq';
-import { BulkExportService } from './bulk-export.service';
-import { Subscriber } from '../entities/subscriber.entity';
-import { BulkExportJob } from '../entities/bulk-export-job.entity';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Queue } from "bullmq";
+import { In, Repository } from "typeorm";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { ExportJob } from "../entities/export-job.entity";
+import { Group } from "../entities/group.entity";
+import { Segment } from "../entities/segment.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { BulkExportService } from "./bulk-export.service";
+import { BulkOperationsComplianceService } from "./bulk-operations-compliance.service";
 
-describe('BulkExportService', () => {
-    let service: BulkExportService;
-    let subscriberRepository: Repository<Subscriber>;
-    let jobRepository: Repository<BulkExportJob>;
-    let exportQueue: Queue;
+function setup(
+  options: { groups?: Partial<Group>[]; tenant?: string | null } = {},
+) {
+  const qb = { andWhere: jest.fn(() => qb) };
+  const groups = { findBy: jest.fn(async () => options.groups ?? []) };
+  const jobs = {
+    findOne: jest.fn(async () => null),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+  const queue = { add: jest.fn() };
+  const service = new BulkExportService(
+    jobs as unknown as Repository<ExportJob>,
+    {
+      createQueryBuilder: jest.fn(() => qb),
+    } as unknown as Repository<Subscriber>,
+    groups as unknown as Repository<Group>,
+    { findBy: jest.fn(async () => []) } as unknown as Repository<Segment>,
+    {} as BulkOperationsComplianceService,
+    queue as unknown as Queue,
+    {
+      getTenantId: () =>
+        options.tenant === undefined ? "tenant-a" : options.tenant,
+    } as unknown as TenantService,
+  );
+  return { service, qb, groups, jobs, queue };
+}
 
-    const mockRepository = {
-        find: jest.fn(),
-        findOne: jest.fn(),
-        create: jest.fn(),
-        save: jest.fn(),
-        createQueryBuilder: jest.fn(() => ({
-            where: jest.fn().mockReturnThis(),
-            andWhere: jest.fn().mockReturnThis(),
-            getMany: jest.fn(),
-        })),
-    };
+const create = (service: BulkExportService, filters: object, options: object) =>
+  service.createExportJob(
+    filters as never,
+    { format: "csv", fields: ["email"], ...options } as never,
+    "tenant-a",
+  );
 
-    const mockQueue = {
-        add: jest.fn(),
-    };
+describe("BulkExportService query and validation", () => {
+  it("filters by tenant and uses Postgres json overlap for groups and segments", async () => {
+    const { service, qb } = setup();
+    await service.buildSubscriberQuery({
+      tenantId: "tenant-a",
+      groupIds: ["g1", "g2"],
+      segmentIds: ["s1"],
+    } as never);
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      "subscriber.tenantId = :tenantId",
+      { tenantId: "tenant-a" },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      "subscriber.groups::jsonb ?| ARRAY[:...groupIds]::text[]",
+      { groupIds: ["g1", "g2"] },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      "subscriber.segments::jsonb ?| ARRAY[:...segmentIds]::text[]",
+      { segmentIds: ["s1"] },
+    );
+    expect(JSON.stringify(qb.andWhere.mock.calls)).not.toContain(
+      "JSON_OVERLAPS",
+    );
+  });
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                BulkExportService,
-                {
-                    provide: getRepositoryToken(Subscriber),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getRepositoryToken(BulkExportJob),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: getQueueToken('bulk-export'),
-                    useValue: mockQueue,
-                },
-            ],
-        }).compile();
+  it.each([
+    ["an unknown format", {}, { format: "pdf" }],
+    ["no fields", {}, { fields: [] }],
+    ["an unknown field", {}, { fields: ["password"] }],
+    ["a batch size out of range", {}, { batchSize: 50 }],
+    [
+      "a reversed date range",
+      {
+        dateRange: {
+          start: new Date("2026-10-02"),
+          end: new Date("2026-10-01"),
+        },
+      },
+      {},
+    ],
+  ])("rejects %s", async (_label, filters, options) => {
+    const { service, queue } = setup();
+    await expect(create(service, filters, options)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(queue.add).not.toHaveBeenCalled();
+  });
 
-        service = module.get<BulkExportService>(BulkExportService);
-        subscriberRepository = module.get(getRepositoryToken(Subscriber));
-        jobRepository = module.get(getRepositoryToken(BulkExportJob));
-        exportQueue = module.get(getQueueToken('bulk-export'));
-
-        jest.clearAllMocks();
+  it("accepts only groups of the requesting tenant", async () => {
+    const { service, groups } = setup({ groups: [{ id: "g1" }] });
+    await expect(
+      create(service, { groupIds: ["g1", "foreign"] }, {}),
+    ).rejects.toThrow("One or more group IDs do not exist");
+    expect(groups.findBy).toHaveBeenCalledWith({
+      id: In(["g1", "foreign"]),
+      tenantId: "tenant-a",
     });
+  });
 
-    describe('startExport', () => {
-        it('should create export job and add to queue', async () => {
-            const mockJob = { id: 'job-123', status: 'pending' };
-            mockRepository.create.mockReturnValue(mockJob);
-            mockRepository.save.mockResolvedValue(mockJob);
-            mockQueue.add.mockResolvedValue({ id: 'queue-job-123' });
-
-            const result = await service.startExport({ format: 'csv' });
-
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(mockQueue.add).toHaveBeenCalled();
-            expect(result).toEqual(mockJob);
-        });
+  it("reads job status inside the tenant only", async () => {
+    const { service, jobs } = setup();
+    await expect(service.getExportStatus("job-x")).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(jobs.findOne).toHaveBeenCalledWith({
+      where: { id: "job-x", tenantId: "tenant-a" },
     });
-
-    describe('exportToCSV', () => {
-        it('should export subscribers to CSV format', async () => {
-            const subscribers = [
-                { email: 'test1@example.com', name: 'User 1' },
-                { email: 'test2@example.com', name: 'User 2' },
-            ];
-            mockRepository.find.mockResolvedValue(subscribers);
-
-            const result = await service.exportToCSV();
-
-            expect(result).toContain('email,name');
-            expect(result).toContain('test1@example.com');
-        });
-    });
-
-    describe('exportToExcel', () => {
-        it('should export subscribers to Excel format', async () => {
-            const subscribers = [{ email: 'test@example.com' }];
-            mockRepository.find.mockResolvedValue(subscribers);
-
-            const result = await service.exportToExcel();
-
-            expect(result).toBeInstanceOf(Buffer);
-        });
-    });
-
-    describe('getJobStatus', () => {
-        it('should return export job status', async () => {
-            const mockJob = { id: 'job-123', status: 'completed', downloadUrl: 'https://example.com/file.csv' };
-            mockRepository.findOne.mockResolvedValue(mockJob);
-
-            const result = await service.getJobStatus('job-123');
-
-            expect(result).toEqual(mockJob);
-        });
-    });
+    await expect(
+      setup({ tenant: null }).service.getExportStatus("job-x"),
+    ).rejects.toThrow(UnauthorizedException);
+  });
 });
