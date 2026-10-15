@@ -419,3 +419,12 @@ Açık: e-posta şablon builder'ı (F3.6), otomasyon kaydet/etkinleştir ve kamp
 - **Kabul testleri:** `scripts/acceptance/cms-workbench.cjs` (`CMS_ACCEPTANCE_ISOLATED=1`, isteğe bağlı `FAIL_SCREENSHOT=`), `tenant-routes.cjs` varsayılan olarak tüm kümeleri (e-posta, destek, CMS) koşar. Ortak fikstür `scripts/acceptance/lib/tenant-fixture.cjs`. Tarayıcıda yıkıcı onaylarda Escape'ten önce odağın "Vazgeç"e yerleşmesini bekleyin.
 
 Açık: kiracı CMS sayfalarının ziyaretçiye sunumu (slug uç noktası JWT korumalı), sayfa+bileşen kaydının tek işlemde olmaması, sayfasız bileşen oluşturma.
+
+## UI/UX F3.7 — eski /admin ağacı — 2026-10-15
+
+- **Yönlendirme:** `middleware.ts` oturum doğrulandıktan sonra kiracı öneki olmayan `/admin/…` isteğini `legacyAdminTarget(path, tokenTenant(token))` ile çalışma alanına taşır (307). Kural tablosu `lib/auth/legacy-admin-redirect.ts`'te. Kiracı ağacına yeni rota eklerken aynı yol otomatik eşlenir; yol şekli farklıysa `PATH_RULES`'a ekleyin.
+- **Kalanlar:** giriş akışı, `settings/billing`, `events/email-templates`, `users/email-templates` (`NO_WORKSPACE_EQUIVALENT`). Bunlara kiracı karşılığı yazıldığında listeden çıkarın.
+- **Rol hedefleri:** `getDefaultRedirectForRole` yalnız kiracı ağacında var olan yolları döndürmeli (`tenantAwareAdminFallback` öneki ekler).
+- **Kabul testi:** `scripts/acceptance/legacy-admin.cjs` (`LEGACY_ACCEPTANCE_ISOLATED=1`).
+
+Açık: billing ve sistem e-posta katalogları için kiracı sayfası; kiracısız personel için platform paneli.

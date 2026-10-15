@@ -4,6 +4,10 @@ import type { NextRequest } from "next/server";
 import { protectedLoginPath } from "./lib/auth/admin-login-routing";
 import { isReservedTenantSlug } from "@affexai/shared-types";
 import { createSessionValidationCache } from "./lib/auth/session-validation-cache";
+import {
+  legacyAdminTarget,
+  tokenTenant,
+} from "./lib/auth/legacy-admin-redirect";
 
 /**
  * Middleware for authentication, authorization, and optimizations
@@ -153,6 +157,18 @@ export async function middleware(request: NextRequest) {
       return createLoginRedirect();
     }
     if (authResult === "unavailable") return createAuthUnavailableResponse();
+
+    // F3.7: the legacy /admin tree is retired for users with a workspace. 307, not
+    // 308: the target depends on who is signed in, so browsers must not cache it.
+    if (isAdminRoute && !isTenantRoute) {
+      const target = legacyAdminTarget(path, tokenTenant(authToken));
+      if (target) {
+        return NextResponse.redirect(
+          new URL(`${target}${request.nextUrl.search}`, request.url),
+          307,
+        );
+      }
+    }
 
     console.log(`✅ Middleware: Session authenticated for ${path}`);
   }

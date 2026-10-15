@@ -11,33 +11,33 @@
 
 export enum UserRole {
   // System Administration
-  SUPER_ADMIN = 'super_admin',
-  ADMIN = 'admin',
-  ORGANIZATION_OWNER = 'organization_owner',
-  ORGANIZATION_ADMIN = 'organization_admin',
+  SUPER_ADMIN = "super_admin",
+  ADMIN = "admin",
+  ORGANIZATION_OWNER = "organization_owner",
+  ORGANIZATION_ADMIN = "organization_admin",
 
   // Content Team
-  CONTENT_EDITOR = 'content_editor',
+  CONTENT_EDITOR = "content_editor",
 
   // Marketing Team
-  MARKETING_MANAGER = 'marketing_manager',
-  SOCIAL_MEDIA_MANAGER = 'social_media_manager',
+  MARKETING_MANAGER = "marketing_manager",
+  SOCIAL_MEDIA_MANAGER = "social_media_manager",
 
   // Operations Team
-  EVENT_COORDINATOR = 'event_coordinator',
+  EVENT_COORDINATOR = "event_coordinator",
 
   // Support Team
-  SUPPORT_MANAGER = 'support_manager',
-  SUPPORT_AGENT = 'support_agent',
+  SUPPORT_MANAGER = "support_manager",
+  SUPPORT_AGENT = "support_agent",
 
   // End Users
-  CUSTOMER = 'customer',
-  STUDENT = 'student',
-  SUBSCRIBER = 'subscriber',
-  VIEWER = 'viewer',
+  CUSTOMER = "customer",
+  STUDENT = "student",
+  SUBSCRIBER = "subscriber",
+  VIEWER = "viewer",
 
   // Legacy (Deprecated - will be removed in future)
-  EDITOR = 'editor', // Use CONTENT_EDITOR instead
+  EDITOR = "editor", // Use CONTENT_EDITOR instead
 }
 
 // ============================================================================
@@ -50,92 +50,92 @@ export enum UserRole {
  */
 export enum Permission {
   // User Management
-  USERS_VIEW = 'users.view',
-  USERS_CREATE = 'users.create',
-  USERS_EDIT = 'users.edit',
-  USERS_DELETE = 'users.delete',
-  USERS_MANAGE_ROLES = 'users.manage_roles',
+  USERS_VIEW = "users.view",
+  USERS_CREATE = "users.create",
+  USERS_EDIT = "users.edit",
+  USERS_DELETE = "users.delete",
+  USERS_MANAGE_ROLES = "users.manage_roles",
 
   // Role Management
-  ROLES_VIEW = 'roles.view',
-  ROLES_CREATE = 'roles.create',
-  ROLES_EDIT = 'roles.edit',
-  ROLES_DELETE = 'roles.delete',
+  ROLES_VIEW = "roles.view",
+  ROLES_CREATE = "roles.create",
+  ROLES_EDIT = "roles.edit",
+  ROLES_DELETE = "roles.delete",
 
   // CMS Management
-  CMS_VIEW = 'cms.view',
-  CMS_CREATE = 'cms.create',
-  CMS_EDIT = 'cms.edit',
-  CMS_DELETE = 'cms.delete',
-  CMS_PUBLISH = 'cms.publish',
+  CMS_VIEW = "cms.view",
+  CMS_CREATE = "cms.create",
+  CMS_EDIT = "cms.edit",
+  CMS_DELETE = "cms.delete",
+  CMS_PUBLISH = "cms.publish",
 
   // Support Tickets
-  TICKETS_VIEW_ALL = 'tickets.view_all', // View all tickets
-  TICKETS_VIEW_OWN = 'tickets.view_own', // View only own tickets
-  TICKETS_CREATE = 'tickets.create',
-  TICKETS_EDIT = 'tickets.edit',
-  TICKETS_DELETE = 'tickets.delete',
-  TICKETS_ASSIGN = 'tickets.assign',
-  TICKETS_CLOSE = 'tickets.close',
+  TICKETS_VIEW_ALL = "tickets.view_all", // View all tickets
+  TICKETS_VIEW_OWN = "tickets.view_own", // View only own tickets
+  TICKETS_CREATE = "tickets.create",
+  TICKETS_EDIT = "tickets.edit",
+  TICKETS_DELETE = "tickets.delete",
+  TICKETS_ASSIGN = "tickets.assign",
+  TICKETS_CLOSE = "tickets.close",
 
   // Email Marketing
-  EMAIL_VIEW = 'email.view',
-  EMAIL_CREATE = 'email.create',
-  EMAIL_EDIT = 'email.edit',
-  EMAIL_DELETE = 'email.delete',
-  EMAIL_SEND = 'email.send',
+  EMAIL_VIEW = "email.view",
+  EMAIL_CREATE = "email.create",
+  EMAIL_EDIT = "email.edit",
+  EMAIL_DELETE = "email.delete",
+  EMAIL_SEND = "email.send",
 
   // Events Management
-  EVENTS_VIEW = 'events.view',
-  EVENTS_CREATE = 'events.create',
-  EVENTS_EDIT = 'events.edit',
-  EVENTS_DELETE = 'events.delete',
+  EVENTS_VIEW = "events.view",
+  EVENTS_CREATE = "events.create",
+  EVENTS_EDIT = "events.edit",
+  EVENTS_DELETE = "events.delete",
 
   // Certificates Management
-  CERTIFICATES_VIEW = 'certificates.view',
-  CERTIFICATES_CREATE = 'certificates.create',
-  CERTIFICATES_EDIT = 'certificates.edit',
-  CERTIFICATES_DELETE = 'certificates.delete',
+  CERTIFICATES_VIEW = "certificates.view",
+  CERTIFICATES_CREATE = "certificates.create",
+  CERTIFICATES_EDIT = "certificates.edit",
+  CERTIFICATES_DELETE = "certificates.delete",
 
   // Social Media Management
-  SOCIAL_MEDIA_VIEW = 'social.view',
-  SOCIAL_MEDIA_CREATE = 'social.create',
-  SOCIAL_MEDIA_EDIT = 'social.edit',
-  SOCIAL_MEDIA_DELETE = 'social.delete',
+  SOCIAL_MEDIA_VIEW = "social.view",
+  SOCIAL_MEDIA_CREATE = "social.create",
+  SOCIAL_MEDIA_EDIT = "social.edit",
+  SOCIAL_MEDIA_DELETE = "social.delete",
 
   // CRM
-  CRM_VIEW = 'crm.view',
-  CRM_MANAGE = 'crm.manage',
-  CRM_DELETE = 'crm.delete',
+  CRM_VIEW = "crm.view",
+  CRM_MANAGE = "crm.manage",
+  CRM_DELETE = "crm.delete",
 
   // Forms
-  FORMS_VIEW = 'forms.view',
-  FORMS_MANAGE = 'forms.manage',
-  FORMS_SUBMISSIONS_VIEW = 'forms.submissions.view',
+  FORMS_VIEW = "forms.view",
+  FORMS_MANAGE = "forms.manage",
+  FORMS_SUBMISSIONS_VIEW = "forms.submissions.view",
 
   // Notifications
-  NOTIFICATIONS_VIEW = 'notifications.view',
-  NOTIFICATIONS_CREATE = 'notifications.create',
-  NOTIFICATIONS_EDIT = 'notifications.edit',
-  NOTIFICATIONS_DELETE = 'notifications.delete',
+  NOTIFICATIONS_VIEW = "notifications.view",
+  NOTIFICATIONS_CREATE = "notifications.create",
+  NOTIFICATIONS_EDIT = "notifications.edit",
+  NOTIFICATIONS_DELETE = "notifications.delete",
 
   // Activity Logs
-  LOGS_VIEW = 'logs.view',
+  LOGS_VIEW = "logs.view",
 
   // Design System
-  DESIGN_VIEW = 'design.view',
-  DESIGN_EDIT = 'design.edit',
+  DESIGN_VIEW = "design.view",
+  DESIGN_EDIT = "design.edit",
 
   // Analytics & Reports
-  ANALYTICS_VIEW = 'analytics.view',
-  ANALYTICS_EXPORT = 'analytics.export',
+  ANALYTICS_VIEW = "analytics.view",
+  ANALYTICS_EXPORT = "analytics.export",
 
   // Settings
-  SETTINGS_VIEW = 'settings.view',
-  SETTINGS_EDIT = 'settings.edit',
+  SETTINGS_VIEW = "settings.view",
+  SETTINGS_EDIT = "settings.edit",
 
   // System Administration
-  SYSTEM_ADMIN = 'system.admin', // Full system access
+  SYSTEM_ADMIN = "system.admin", // Full system access
 }
 
 // ============================================================================
@@ -147,22 +147,60 @@ export enum Permission {
  * This defines what each role can do in the system
  */
 const TENANT_ADMIN_FALLBACK_PERMISSIONS: Permission[] = [
-  Permission.USERS_VIEW, Permission.USERS_CREATE, Permission.USERS_EDIT,
-  Permission.USERS_DELETE, Permission.USERS_MANAGE_ROLES,
-  Permission.ROLES_VIEW, Permission.ROLES_CREATE, Permission.ROLES_EDIT, Permission.ROLES_DELETE,
-  Permission.CMS_VIEW, Permission.CMS_CREATE, Permission.CMS_EDIT, Permission.CMS_DELETE, Permission.CMS_PUBLISH,
-  Permission.TICKETS_VIEW_ALL, Permission.TICKETS_CREATE, Permission.TICKETS_EDIT,
-  Permission.TICKETS_DELETE, Permission.TICKETS_ASSIGN, Permission.TICKETS_CLOSE,
-  Permission.EMAIL_VIEW, Permission.EMAIL_CREATE, Permission.EMAIL_EDIT, Permission.EMAIL_DELETE, Permission.EMAIL_SEND,
-  Permission.EVENTS_VIEW, Permission.EVENTS_CREATE, Permission.EVENTS_EDIT, Permission.EVENTS_DELETE,
-  Permission.CERTIFICATES_VIEW, Permission.CERTIFICATES_CREATE, Permission.CERTIFICATES_EDIT, Permission.CERTIFICATES_DELETE,
-  Permission.SOCIAL_MEDIA_VIEW, Permission.SOCIAL_MEDIA_CREATE, Permission.SOCIAL_MEDIA_EDIT, Permission.SOCIAL_MEDIA_DELETE,
-  Permission.CRM_VIEW, Permission.CRM_MANAGE, Permission.CRM_DELETE,
-  Permission.FORMS_VIEW, Permission.FORMS_MANAGE, Permission.FORMS_SUBMISSIONS_VIEW,
-  Permission.NOTIFICATIONS_VIEW, Permission.NOTIFICATIONS_CREATE, Permission.NOTIFICATIONS_EDIT, Permission.NOTIFICATIONS_DELETE,
-  Permission.LOGS_VIEW, Permission.DESIGN_VIEW, Permission.DESIGN_EDIT,
-  Permission.ANALYTICS_VIEW, Permission.ANALYTICS_EXPORT,
-  Permission.SETTINGS_VIEW, Permission.SETTINGS_EDIT,
+  Permission.USERS_VIEW,
+  Permission.USERS_CREATE,
+  Permission.USERS_EDIT,
+  Permission.USERS_DELETE,
+  Permission.USERS_MANAGE_ROLES,
+  Permission.ROLES_VIEW,
+  Permission.ROLES_CREATE,
+  Permission.ROLES_EDIT,
+  Permission.ROLES_DELETE,
+  Permission.CMS_VIEW,
+  Permission.CMS_CREATE,
+  Permission.CMS_EDIT,
+  Permission.CMS_DELETE,
+  Permission.CMS_PUBLISH,
+  Permission.TICKETS_VIEW_ALL,
+  Permission.TICKETS_CREATE,
+  Permission.TICKETS_EDIT,
+  Permission.TICKETS_DELETE,
+  Permission.TICKETS_ASSIGN,
+  Permission.TICKETS_CLOSE,
+  Permission.EMAIL_VIEW,
+  Permission.EMAIL_CREATE,
+  Permission.EMAIL_EDIT,
+  Permission.EMAIL_DELETE,
+  Permission.EMAIL_SEND,
+  Permission.EVENTS_VIEW,
+  Permission.EVENTS_CREATE,
+  Permission.EVENTS_EDIT,
+  Permission.EVENTS_DELETE,
+  Permission.CERTIFICATES_VIEW,
+  Permission.CERTIFICATES_CREATE,
+  Permission.CERTIFICATES_EDIT,
+  Permission.CERTIFICATES_DELETE,
+  Permission.SOCIAL_MEDIA_VIEW,
+  Permission.SOCIAL_MEDIA_CREATE,
+  Permission.SOCIAL_MEDIA_EDIT,
+  Permission.SOCIAL_MEDIA_DELETE,
+  Permission.CRM_VIEW,
+  Permission.CRM_MANAGE,
+  Permission.CRM_DELETE,
+  Permission.FORMS_VIEW,
+  Permission.FORMS_MANAGE,
+  Permission.FORMS_SUBMISSIONS_VIEW,
+  Permission.NOTIFICATIONS_VIEW,
+  Permission.NOTIFICATIONS_CREATE,
+  Permission.NOTIFICATIONS_EDIT,
+  Permission.NOTIFICATIONS_DELETE,
+  Permission.LOGS_VIEW,
+  Permission.DESIGN_VIEW,
+  Permission.DESIGN_EDIT,
+  Permission.ANALYTICS_VIEW,
+  Permission.ANALYTICS_EXPORT,
+  Permission.SETTINGS_VIEW,
+  Permission.SETTINGS_EDIT,
 ];
 
 export const ROLE_PERMISSIONS: Partial<Record<UserRole, Permission[]>> = {
@@ -523,51 +561,60 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Permission[]>> = {
  */
 export const ROUTE_PERMISSIONS: Record<string, Permission[]> = {
   // Admin Dashboard
-  '/admin': [Permission.SYSTEM_ADMIN, Permission.CMS_VIEW, Permission.EMAIL_VIEW, Permission.TICKETS_VIEW_ALL, Permission.ANALYTICS_VIEW],
+  "/admin": [
+    Permission.SYSTEM_ADMIN,
+    Permission.CMS_VIEW,
+    Permission.EMAIL_VIEW,
+    Permission.TICKETS_VIEW_ALL,
+    Permission.ANALYTICS_VIEW,
+  ],
 
   // User Management
-  '/admin/users': [Permission.USERS_VIEW],
-  '/admin/users/new': [Permission.USERS_CREATE],
-  '/admin/users/roles': [Permission.ROLES_VIEW],
+  "/admin/users": [Permission.USERS_VIEW],
+  "/admin/users/new": [Permission.USERS_CREATE],
+  "/admin/users/roles": [Permission.ROLES_VIEW],
 
   // CMS
-  '/admin/cms': [Permission.CMS_VIEW],
-  '/admin/cms/new': [Permission.CMS_CREATE],
-  '/admin/cms/editor': [Permission.CMS_EDIT],
+  "/admin/cms": [Permission.CMS_VIEW],
+  "/admin/cms/new": [Permission.CMS_CREATE],
+  "/admin/cms/editor": [Permission.CMS_EDIT],
 
   // Support
-  '/admin/support': [Permission.TICKETS_VIEW_ALL],
-  '/admin/support/new': [Permission.TICKETS_CREATE],
-  '/admin/support/ai-insights': [Permission.TICKETS_VIEW_ALL, Permission.ANALYTICS_VIEW],
-  '/admin/support/knowledge-base': [Permission.TICKETS_VIEW_ALL],
-  '/admin/support/macros': [Permission.TICKETS_VIEW_ALL],
+  "/admin/support": [Permission.TICKETS_VIEW_ALL],
+  "/admin/support/new": [Permission.TICKETS_CREATE],
+  "/admin/support/ai-insights": [
+    Permission.TICKETS_VIEW_ALL,
+    Permission.ANALYTICS_VIEW,
+  ],
+  "/admin/support/knowledge-base": [Permission.TICKETS_VIEW_ALL],
+  "/admin/support/macros": [Permission.TICKETS_VIEW_ALL],
 
   // Email Marketing
-  '/admin/email-marketing': [Permission.EMAIL_VIEW],
-  '/admin/email-marketing/campaigns': [Permission.EMAIL_VIEW],
-  '/admin/email-marketing/templates': [Permission.EMAIL_VIEW],
-  '/admin/email-marketing/subscribers': [Permission.EMAIL_VIEW],
+  "/admin/email-marketing": [Permission.EMAIL_VIEW],
+  "/admin/email-marketing/campaigns": [Permission.EMAIL_VIEW],
+  "/admin/email-marketing/templates": [Permission.EMAIL_VIEW],
+  "/admin/email-marketing/subscribers": [Permission.EMAIL_VIEW],
 
   // Analytics
-  '/admin/analytics': [Permission.ANALYTICS_VIEW],
+  "/admin/analytics": [Permission.ANALYTICS_VIEW],
 
   // Settings
-  '/admin/settings': [Permission.SETTINGS_VIEW],
+  "/admin/settings": [Permission.SETTINGS_VIEW],
 
   // Portal (Customer area)
-  '/portal': [Permission.TICKETS_VIEW_OWN],
-  '/portal/support': [Permission.TICKETS_VIEW_OWN],
-  '/portal/support/new': [Permission.TICKETS_CREATE],
+  "/portal": [Permission.TICKETS_VIEW_OWN],
+  "/portal/support": [Permission.TICKETS_VIEW_OWN],
+  "/portal/support/new": [Permission.TICKETS_CREATE],
 };
 
 /**
  * Routes that require ANY of the permissions (OR logic)
  * Most routes use this - user needs at least one permission
  */
-export const ROUTE_PERMISSION_MODE: Record<string, 'any' | 'all'> = {
-  '/admin': 'any', // Any admin permission grants dashboard access
-  '/admin/users': 'any',
-  '/admin/support': 'any',
+export const ROUTE_PERMISSION_MODE: Record<string, "any" | "all"> = {
+  "/admin": "any", // Any admin permission grants dashboard access
+  "/admin/users": "any",
+  "/admin/support": "any",
 };
 
 // ============================================================================
@@ -584,15 +631,24 @@ export function getRolePermissions(role: UserRole): Permission[] {
 /**
  * Check if role has specific permission
  */
-export function roleHasPermission(role: UserRole, permission: Permission): boolean {
+export function roleHasPermission(
+  role: UserRole,
+  permission: Permission,
+): boolean {
   const permissions = ROLE_PERMISSIONS[role] || [];
-  return permissions.includes(permission) || permissions.includes(Permission.SYSTEM_ADMIN);
+  return (
+    permissions.includes(permission) ||
+    permissions.includes(Permission.SYSTEM_ADMIN)
+  );
 }
 
 /**
  * Check if role has ANY of the permissions
  */
-export function roleHasAnyPermission(role: UserRole, permissions: Permission[]): boolean {
+export function roleHasAnyPermission(
+  role: UserRole,
+  permissions: Permission[],
+): boolean {
   const rolePermissions = ROLE_PERMISSIONS[role] || [];
 
   // System admin has all permissions
@@ -600,13 +656,16 @@ export function roleHasAnyPermission(role: UserRole, permissions: Permission[]):
     return true;
   }
 
-  return permissions.some(permission => rolePermissions.includes(permission));
+  return permissions.some((permission) => rolePermissions.includes(permission));
 }
 
 /**
  * Check if role has ALL of the permissions
  */
-export function roleHasAllPermissions(role: UserRole, permissions: Permission[]): boolean {
+export function roleHasAllPermissions(
+  role: UserRole,
+  permissions: Permission[],
+): boolean {
   const rolePermissions = ROLE_PERMISSIONS[role] || [];
 
   // System admin has all permissions
@@ -614,7 +673,9 @@ export function roleHasAllPermissions(role: UserRole, permissions: Permission[])
     return true;
   }
 
-  return permissions.every(permission => rolePermissions.includes(permission));
+  return permissions.every((permission) =>
+    rolePermissions.includes(permission),
+  );
 }
 
 /**
@@ -622,7 +683,7 @@ export function roleHasAllPermissions(role: UserRole, permissions: Permission[])
  */
 export function canAccessRoute(role: UserRole, route: string): boolean {
   // Block non-staff roles from accessing admin panel
-  if (route.startsWith('/admin')) {
+  if (route.startsWith("/admin")) {
     // All staff roles can access admin panel (permissions determine what they see)
     const allowedAdminRoles = [
       // System Administration
@@ -650,15 +711,17 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
     ];
 
     if (!allowedAdminRoles.includes(role)) {
-      console.log(`🚫 Role ${role} blocked from admin panel - redirecting to portal`);
+      console.log(
+        `🚫 Role ${role} blocked from admin panel - redirecting to portal`,
+      );
       return false;
     }
   }
 
   // Find matching route pattern
-  const routePattern = Object.keys(ROUTE_PERMISSIONS).find(pattern => {
+  const routePattern = Object.keys(ROUTE_PERMISSIONS).find((pattern) => {
     if (pattern === route) return true;
-    if (route.startsWith(pattern + '/')) return true;
+    if (route.startsWith(pattern + "/")) return true;
     return false;
   });
 
@@ -668,9 +731,9 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
   }
 
   const requiredPermissions = ROUTE_PERMISSIONS[routePattern];
-  const mode = ROUTE_PERMISSION_MODE[routePattern] || 'any';
+  const mode = ROUTE_PERMISSION_MODE[routePattern] || "any";
 
-  if (mode === 'any') {
+  if (mode === "any") {
     return roleHasAnyPermission(role, requiredPermissions);
   } else {
     return roleHasAllPermissions(role, requiredPermissions);
@@ -682,27 +745,27 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
  */
 export function isStaffRole(roleName: string): boolean {
   const staffRoles = [
-    'superadmin',
-    'super_admin',
-    'admin',
-    'organization_owner',
-    'organization_admin',
-    'editor', // Legacy
-    'content editor',
-    'content_editor',
-    'marketing manager',
-    'marketing_manager',
-    'social media manager',
-    'social_media_manager',
-    'event coordinator',
-    'event_coordinator',
-    'support manager',
-    'support_manager',
-    'support agent',
-    'support_agent',
-    'support',
-    'support team',
-    'support_team',
+    "superadmin",
+    "super_admin",
+    "admin",
+    "organization_owner",
+    "organization_admin",
+    "editor", // Legacy
+    "content editor",
+    "content_editor",
+    "marketing manager",
+    "marketing_manager",
+    "social media manager",
+    "social_media_manager",
+    "event coordinator",
+    "event_coordinator",
+    "support manager",
+    "support_manager",
+    "support agent",
+    "support_agent",
+    "support",
+    "support team",
+    "support_team",
   ];
 
   return staffRoles.includes(roleName.toLowerCase());
@@ -712,7 +775,7 @@ export function isStaffRole(roleName: string): boolean {
  * Check if a role is a portal role (customer/student/subscriber)
  */
 export function isPortalRole(roleName: string): boolean {
-  const portalRoles = ['customer', 'student', 'subscriber', 'viewer'];
+  const portalRoles = ["customer", "student", "subscriber", "viewer"];
   return portalRoles.includes(roleName.toLowerCase());
 }
 
@@ -727,9 +790,9 @@ export function getRoleDisplayName(role: UserRole): string {
  * Get user-friendly permission name
  */
 export function getPermissionDisplayName(permission: Permission): string {
-  const parts = permission.split('.');
+  const parts = permission.split(".");
   const resource = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-  const action = parts[1].replace(/_/g, ' ');
+  const action = parts[1].replace(/_/g, " ");
   return `${resource}: ${action}`;
 }
 
@@ -741,39 +804,39 @@ export function getDefaultRedirectForRole(role: UserRole): string {
   switch (role) {
     case UserRole.SUPER_ADMIN:
     case UserRole.ADMIN:
-      return '/admin';
+      return "/admin";
 
     // Content Team
     case UserRole.CONTENT_EDITOR:
-      return '/admin/cms';
+      return "/admin/cms";
 
     // Marketing Team
     case UserRole.MARKETING_MANAGER:
-      return '/admin/email-marketing';
+      return "/admin/email";
     case UserRole.SOCIAL_MEDIA_MANAGER:
-      return '/admin/social-media';
+      return "/admin/social";
 
     // Operations Team
     case UserRole.EVENT_COORDINATOR:
-      return '/admin/events';
+      return "/admin/events";
 
     // Support Team
     case UserRole.SUPPORT_MANAGER:
     case UserRole.SUPPORT_AGENT:
-      return '/admin/support';
+      return "/admin/support";
 
     // End Users
     case UserRole.CUSTOMER:
     case UserRole.STUDENT:
     case UserRole.SUBSCRIBER:
     case UserRole.VIEWER:
-      return '/portal';
+      return "/portal";
 
     // Legacy
     case UserRole.EDITOR:
-      return '/admin/cms'; // Redirect to CMS (legacy behavior)
+      return "/admin/cms"; // Redirect to CMS (legacy behavior)
 
     default:
-      return '/portal';
+      return "/portal";
   }
 }
