@@ -1,13 +1,31 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { EmailAutomation, AutomationStatus } from '../entities/email-automation.entity';
-import { AutomationExecution, ExecutionStatus } from '../entities/automation-execution.entity';
-import { AutomationTrigger, TriggerStatus } from '../entities/automation-trigger.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import { CreateAutomationDto, UpdateAutomationDto, GetExecutionsQueryDto } from '../dto/automation.dto';
-import { TriggerEvaluatorService } from './trigger-evaluator.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import {
+  EmailAutomation,
+  AutomationStatus,
+} from "../entities/email-automation.entity";
+import {
+  AutomationExecution,
+  ExecutionStatus,
+} from "../entities/automation-execution.entity";
+import {
+  AutomationTrigger,
+  TriggerStatus,
+} from "../entities/automation-trigger.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import {
+  CreateAutomationDto,
+  UpdateAutomationDto,
+  GetExecutionsQueryDto,
+} from "../dto/automation.dto";
+import { TriggerEvaluatorService } from "./trigger-evaluator.service";
 
 /**
  * Automation Service
@@ -28,7 +46,7 @@ export class AutomationService {
     private subscriberRepo: Repository<Subscriber>,
     private readonly triggerEvaluator: TriggerEvaluatorService,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
@@ -41,7 +59,10 @@ export class AutomationService {
   /**
    * Create automation
    */
-  async create(dto: CreateAutomationDto, tenantId: string): Promise<EmailAutomation> {
+  async create(
+    dto: CreateAutomationDto,
+    tenantId: string,
+  ): Promise<EmailAutomation> {
     // Validate workflow steps
     this.validateWorkflowSteps(dto.workflowSteps);
 
@@ -67,7 +88,7 @@ export class AutomationService {
   async findAll(tenantId: string): Promise<EmailAutomation[]> {
     return this.automationRepo.find({
       where: { tenantId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -77,7 +98,7 @@ export class AutomationService {
   async findOne(id: string, tenantId: string): Promise<EmailAutomation> {
     const automation = await this.automationRepo.findOne({
       where: { id, tenantId },
-      relations: ['segment'],
+      relations: ["segment"],
     });
 
     if (!automation) {
@@ -90,12 +111,18 @@ export class AutomationService {
   /**
    * Update automation
    */
-  async update(id: string, dto: UpdateAutomationDto, tenantId: string): Promise<EmailAutomation> {
+  async update(
+    id: string,
+    dto: UpdateAutomationDto,
+    tenantId: string,
+  ): Promise<EmailAutomation> {
     const automation = await this.findOne(id, tenantId);
 
     // Prevent editing active automations
     if (automation.isActive && dto.workflowSteps) {
-      throw new BadRequestException('Cannot modify workflow of active automation');
+      throw new BadRequestException(
+        "Cannot modify workflow of active automation",
+      );
     }
 
     // Validate workflow steps if provided
@@ -116,7 +143,9 @@ export class AutomationService {
     const automation = await this.findOne(id, tenantId);
 
     if (automation.isActive) {
-      throw new BadRequestException('Cannot delete active automation. Pause it first.');
+      throw new BadRequestException(
+        "Cannot delete active automation. Pause it first.",
+      );
     }
 
     await this.automationRepo.softRemove(automation);
@@ -126,11 +155,17 @@ export class AutomationService {
   /**
    * Activate automation
    */
-  async activate(id: string, tenantId: string, registerExisting: boolean = false): Promise<EmailAutomation> {
+  async activate(
+    id: string,
+    tenantId: string,
+    registerExisting: boolean = false,
+  ): Promise<EmailAutomation> {
     const automation = await this.findOne(id, tenantId);
 
     if (!automation.canBeActivated()) {
-      throw new BadRequestException('Automation cannot be activated. Check workflow steps.');
+      throw new BadRequestException(
+        "Automation cannot be activated. Check workflow steps.",
+      );
     }
 
     automation.activate();
@@ -148,7 +183,11 @@ export class AutomationService {
   /**
    * Pause automation
    */
-  async pause(id: string, tenantId: string, cancelPending: boolean = false): Promise<EmailAutomation> {
+  async pause(
+    id: string,
+    tenantId: string,
+    cancelPending: boolean = false,
+  ): Promise<EmailAutomation> {
     const automation = await this.findOne(id, tenantId);
 
     automation.pause();
@@ -173,7 +212,10 @@ export class AutomationService {
   /**
    * Get executions with pagination
    */
-  async getExecutions(query: GetExecutionsQueryDto, tenantId: string): Promise<{
+  async getExecutions(
+    query: GetExecutionsQueryDto,
+    tenantId: string,
+  ): Promise<{
     executions: AutomationExecution[];
     total: number;
     page: number;
@@ -183,27 +225,27 @@ export class AutomationService {
     const { automationId, subscriberId, status, page = 1, limit = 20 } = query;
 
     const qb = this.executionRepo
-      .createQueryBuilder('execution')
-      .leftJoinAndSelect('execution.automation', 'automation')
-      .leftJoinAndSelect('execution.subscriber', 'subscriber');
+      .createQueryBuilder("execution")
+      .leftJoinAndSelect("execution.automation", "automation")
+      .leftJoinAndSelect("execution.subscriber", "subscriber");
 
     if (automationId) {
-      qb.andWhere('execution.automationId = :automationId', { automationId });
+      qb.andWhere("execution.automationId = :automationId", { automationId });
     }
 
     if (subscriberId) {
-      qb.andWhere('execution.subscriberId = :subscriberId', { subscriberId });
+      qb.andWhere("execution.subscriberId = :subscriberId", { subscriberId });
     }
 
     if (status) {
-      qb.andWhere('execution.status = :status', { status });
+      qb.andWhere("execution.status = :status", { status });
     }
 
-    qb.andWhere('execution.tenantId = :tenantId', { tenantId });
+    qb.andWhere("execution.tenantId = :tenantId", { tenantId });
 
     const total = await qb.getCount();
     const executions = await qb
-      .orderBy('execution.createdAt', 'DESC')
+      .orderBy("execution.createdAt", "DESC")
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
@@ -229,15 +271,16 @@ export class AutomationService {
     const automation = await this.findOne(automationId, tenantId);
 
     const qb = this.executionRepo
-      .createQueryBuilder('execution')
-      .where('execution.automationId = :automationId', { automationId });
+      .createQueryBuilder("execution")
+      .where("execution.automationId = :automationId", { automationId })
+      .andWhere("execution.tenantId = :tenantId", { tenantId });
 
     if (startDate) {
-      qb.andWhere('execution.createdAt >= :startDate', { startDate });
+      qb.andWhere("execution.createdAt >= :startDate", { startDate });
     }
 
     if (endDate) {
-      qb.andWhere('execution.createdAt <= :endDate', { endDate });
+      qb.andWhere("execution.createdAt <= :endDate", { endDate });
     }
 
     const executions = await qb.getMany();
@@ -256,7 +299,7 @@ export class AutomationService {
     const avgExecutionTime =
       executions.length > 0
         ? executions.reduce((sum, e) => sum + (e.executionTime || 0), 0) /
-        executions.length
+          executions.length
         : 0;
 
     // Step performance
@@ -277,7 +320,10 @@ export class AutomationService {
       successRate: Math.round(successRate * 100) / 100,
       avgExecutionTime: Math.round(avgExecutionTime),
       totalSubscribers: automation.subscriberCount,
-      activeSubscribers: await this.getActiveSubscriberCount(automationId),
+      activeSubscribers: await this.getActiveSubscriberCount(
+        automationId,
+        tenantId,
+      ),
       stepPerformance,
       timeline,
     };
@@ -316,14 +362,15 @@ export class AutomationService {
           id: step.id,
           type: step.type,
           config: step.config,
-          status: 'simulated',
+          status: "simulated",
         })),
-        message: 'Test simulation completed successfully',
+        message: "Test simulation completed successfully",
       };
     }
 
     const execution = this.executionRepo.create({
       automationId,
+      subscriberId: subscriber.id,
       status: ExecutionStatus.PENDING,
       tenantId,
     });
@@ -332,7 +379,7 @@ export class AutomationService {
 
     return {
       executionId: execution.id,
-      message: 'Test execution created',
+      message: "Test execution created",
     };
   }
 
@@ -341,14 +388,14 @@ export class AutomationService {
    */
   private validateWorkflowSteps(steps: any[]): void {
     if (!steps || steps.length === 0) {
-      throw new BadRequestException('Workflow must have at least one step');
+      throw new BadRequestException("Workflow must have at least one step");
     }
 
     // Check unique step IDs
     const stepIds = steps.map((s) => s.id);
     const uniqueIds = new Set(stepIds);
     if (stepIds.length !== uniqueIds.size) {
-      throw new BadRequestException('Workflow steps must have unique IDs');
+      throw new BadRequestException("Workflow steps must have unique IDs");
     }
 
     // Validate step references
@@ -379,7 +426,7 @@ export class AutomationService {
    */
   private validateStepConfig(step: any): void {
     switch (step.type) {
-      case 'send_email':
+      case "send_email":
         if (!step.config.templateId && !step.config.subject) {
           throw new BadRequestException(
             `send_email step ${step.id} requires templateId or subject`,
@@ -387,15 +434,15 @@ export class AutomationService {
         }
         break;
 
-      case 'delay':
-        if (!step.config.duration || typeof step.config.duration !== 'number') {
+      case "delay":
+        if (!step.config.duration || typeof step.config.duration !== "number") {
           throw new BadRequestException(
             `delay step ${step.id} requires duration (number in minutes)`,
           );
         }
         break;
 
-      case 'condition':
+      case "condition":
         if (!step.config.condition || !step.conditionalPaths) {
           throw new BadRequestException(
             `condition step ${step.id} requires condition and conditionalPaths`,
@@ -403,7 +450,7 @@ export class AutomationService {
         }
         break;
 
-      case 'split':
+      case "split":
         if (!step.conditionalPaths || step.conditionalPaths.length < 2) {
           throw new BadRequestException(
             `split step ${step.id} requires at least 2 conditional paths`,
@@ -411,7 +458,7 @@ export class AutomationService {
         }
         break;
 
-      case 'exit':
+      case "exit":
         // No specific validation for exit step
         break;
 
@@ -430,16 +477,18 @@ export class AutomationService {
 
     if (automation.segmentId) {
       subscribers = await this.subscriberRepo
-        .createQueryBuilder('subscriber')
-        .where('subscriber.status = :status', { status: 'active' })
-        .andWhere('subscriber.tenantId = :tenantId', { tenantId: automation.tenantId })
-        .andWhere(':segmentId = ANY(subscriber.segments)', {
+        .createQueryBuilder("subscriber")
+        .where("subscriber.status = :status", { status: "active" })
+        .andWhere("subscriber.tenantId = :tenantId", {
+          tenantId: automation.tenantId,
+        })
+        .andWhere(":segmentId = ANY(subscriber.segments)", {
           segmentId: automation.segmentId,
         })
         .getMany();
     } else {
       subscribers = await this.subscriberRepo.find({
-        where: { status: 'active', tenantId: automation.tenantId },
+        where: { status: "active", tenantId: automation.tenantId },
       });
     }
 
@@ -457,7 +506,7 @@ export class AutomationService {
           automationId: automation.id,
           subscriberId: subscriber.id,
           triggerType: automation.triggerType,
-          triggerData: { source: 'existing_subscribers' },
+          triggerData: { source: "existing_subscribers" },
           status: TriggerStatus.PENDING,
           tenantId: automation.tenantId,
         });
@@ -496,9 +545,9 @@ export class AutomationService {
         const stats = stepStats.get(result.stepId);
         if (stats) {
           stats.totalExecutions++;
-          if (result.status === 'completed') {
+          if (result.status === "completed") {
             stats.successfulExecutions++;
-          } else if (result.status === 'failed') {
+          } else if (result.status === "failed") {
             stats.failedExecutions++;
           }
           stats.totalTime += result.executionTime || 0;
@@ -522,7 +571,7 @@ export class AutomationService {
     const timeline = new Map();
 
     for (const execution of executions) {
-      const date = execution.createdAt.toISOString().split('T')[0];
+      const date = execution.createdAt.toISOString().split("T")[0];
       const stats = timeline.get(date) || {
         date,
         executions: 0,
@@ -548,10 +597,14 @@ export class AutomationService {
   /**
    * Private: Get active subscriber count
    */
-  private async getActiveSubscriberCount(automationId: string): Promise<number> {
+  private async getActiveSubscriberCount(
+    automationId: string,
+    tenantId: string,
+  ): Promise<number> {
     return this.executionRepo.count({
       where: {
         automationId,
+        tenantId,
         status: In([ExecutionStatus.PENDING, ExecutionStatus.RUNNING]),
       },
     });

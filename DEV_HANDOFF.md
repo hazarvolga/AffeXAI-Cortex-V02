@@ -473,3 +473,11 @@ Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mev
 - **Not:** `file-type` yalnız ESM; Node 24 çalışma zamanında sorun yok, Jest için spec'te sanal mock var.
 - Certificates `certificate-email` spec'i `path` modülünü tümden mock'luyordu (`path.dirname` yok hatası); mock kaldırıldı.
 - Sıradaki parti: email-marketing controller/service DI, automation, workflow-executor, trigger-evaluator, send-time-optimization, predictive-analytics, ab-test, bulk import/export, ip-reputation, subscriber, template, tracking.
+
+### Sprint 1 P1 — email-marketing spec'leri, 2. parti (2026-10-15)
+
+- **Güvenlik:** yıldönümü tetikleyicisi otomasyonun JSON ayarındaki `dateField`ı doğrudan SQL'e yazıyordu (`EXTRACT(MONTH FROM subscriber.${dateField})`). Artık yalnız beyaz listedeki sütunlar (`subscribedAt`, `createdAt` → `subscribedAt`, `optInDate`); bilinmeyen alan uyarıyla atlanır.
+- **Kiracı sınırı:** olay tetikleyicisi, segment ya da koşul yoksa abonenin kiracıya ait olup olmadığına bakmadan tetik oluşturuyordu; abone önce kiracı içinde doğrulanıyor. Otomasyon analitiği ve aktif abone sayımı da `tenantId` ile sınırlı. Gerçek test yürütmesi aboneye bağlanıyor (`subscriberId` eksikti).
+- **Kırık cron'lar:** "pasif abone" sorgusu olmayan `email_logs.subscriberId` sütununa bağlanıyordu (her saat SQL hatası) ve aynı aboneyi her saat yeniden kuyruğa alırdı; `recipient_email` üzerinden `NOT EXISTS` ile yazıldı, bekleyen tetik varsa atlanır. Doğum günü tetikleyicisi olmayan `birthday` sütununu okuyordu; sütun gelene kadar uyarıyla atlanıyor (S3'te karar).
+- **Koşullar:** olay verisindeki `0`/`false`/`''` değerleri abone alanına düşüyordu; artık olay değeri önce gelir.
+- **Kuyruk durumu:** `getQueueStatus` tüm tamamlanmış işleri belleğe çekip sayıyordu; `getJobCounts` kullanılıyor.

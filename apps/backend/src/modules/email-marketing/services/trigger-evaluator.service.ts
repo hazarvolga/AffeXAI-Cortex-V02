@@ -1,29 +1,43 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { EmailAutomation, TriggerType, AutomationStatus } from '../entities/email-automation.entity';
-import { AutomationTrigger, TriggerStatus } from '../entities/automation-trigger.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { Segment } from '../entities/segment.entity';
-import { AutomationQueueService } from './automation-queue.service';
-import { AutomationJobPriority } from '../queues/automation.queue';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import { Organization } from '../../organizations/entities/organization.entity';
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import {
+  EmailAutomation,
+  TriggerType,
+  AutomationStatus,
+} from "../entities/email-automation.entity";
+import {
+  AutomationTrigger,
+  TriggerStatus,
+} from "../entities/automation-trigger.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { Segment } from "../entities/segment.entity";
+import { AutomationQueueService } from "./automation-queue.service";
+import { AutomationJobPriority } from "../queues/automation.queue";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { Organization } from "../../organizations/entities/organization.entity";
+
+/** Subscriber date columns an anniversary trigger may read; config values never reach SQL. */
+const ANNIVERSARY_DATE_FIELDS: Readonly<Record<string, string>> = {
+  subscribedAt: "subscribedAt",
+  createdAt: "subscribedAt",
+  optInDate: "optInDate",
+};
 
 /**
  * Trigger Event Types
  */
 export enum TriggerEvent {
-  SUBSCRIBER_CREATED = 'subscriber.created',
-  SUBSCRIBER_UPDATED = 'subscriber.updated',
-  SUBSCRIBER_SEGMENT_ADDED = 'subscriber.segment_added',
-  SUBSCRIBER_SEGMENT_REMOVED = 'subscriber.segment_removed',
-  EMAIL_OPENED = 'email.opened',
-  EMAIL_CLICKED = 'email.clicked',
-  PURCHASE_MADE = 'purchase.made',
-  CART_ABANDONED = 'cart.abandoned',
-  PRODUCT_VIEWED = 'product.viewed',
+  SUBSCRIBER_CREATED = "subscriber.created",
+  SUBSCRIBER_UPDATED = "subscriber.updated",
+  SUBSCRIBER_SEGMENT_ADDED = "subscriber.segment_added",
+  SUBSCRIBER_SEGMENT_REMOVED = "subscriber.segment_removed",
+  EMAIL_OPENED = "email.opened",
+  EMAIL_CLICKED = "email.clicked",
+  PURCHASE_MADE = "purchase.made",
+  CART_ABANDONED = "cart.abandoned",
+  PRODUCT_VIEWED = "product.viewed",
 }
 
 /**
@@ -33,19 +47,20 @@ interface EventTriggerConfig {
   events: TriggerEvent[];
   conditions?: {
     field: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
+    operator:
+      "equals" | "not_equals" | "contains" | "greater_than" | "less_than";
     value: any;
   }[];
 }
 
 interface BehaviorTriggerConfig {
-  behaviorType: 'cart_abandonment' | 'inactive_subscriber' | 'browsing_pattern';
+  behaviorType: "cart_abandonment" | "inactive_subscriber" | "browsing_pattern";
   timeWindow: number; // minutes
   conditions?: Record<string, any>;
 }
 
 interface TimeBasedTriggerConfig {
-  schedule: 'daily' | 'weekly' | 'monthly' | 'anniversary' | 'birthday';
+  schedule: "daily" | "weekly" | "monthly" | "anniversary" | "birthday";
   time?: string; // HH:mm format
   dayOfWeek?: number; // 0-6 (Sunday-Saturday)
   dayOfMonth?: number; // 1-31
@@ -57,7 +72,7 @@ interface AttributeTriggerConfig {
   attribute: string; // subscriber field name
   oldValue?: any;
   newValue?: any;
-  changeType: 'any' | 'specific' | 'increased' | 'decreased';
+  changeType: "any" | "specific" | "increased" | "decreased";
 }
 
 /**
@@ -81,14 +96,16 @@ export class TriggerEvaluatorService {
     private organizationRepo: Repository<Organization>,
     private queueService: AutomationQueueService,
     private tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
    * @private
    */
   private getActiveTenantId(): string {
-    return this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   /**
@@ -99,9 +116,22 @@ export class TriggerEvaluatorService {
     subscriberId: string,
     eventData: Record<string, any> = {},
   ): Promise<void> {
-    this.logger.log(`Evaluating event trigger: ${event} for subscriber ${subscriberId}`);
+    this.logger.log(
+      `Evaluating event trigger: ${event} for subscriber ${subscriberId}`,
+    );
 
     const tenantId = this.getActiveTenantId();
+    // Only subscribers of this tenant can enter its automations.
+    const subscriber = await this.subscriberRepo.findOne({
+      where: { id: subscriberId, tenantId },
+    });
+    if (!subscriber) {
+      this.logger.warn(
+        `Ignoring ${event}: subscriber ${subscriberId} is not in tenant ${tenantId}`,
+      );
+      return;
+    }
+
     // Find active automations with this event trigger for this tenant
     const automations = await this.automationRepo.find({
       where: {
@@ -121,20 +151,18 @@ export class TriggerEvaluatorService {
       }
 
       // Check segment targeting
-      if (automation.segmentId) {
-        const subscriber = await this.subscriberRepo.findOne({
-          where: { id: subscriberId, tenantId },
-        });
-        if (!subscriber || !subscriber.segments?.includes(automation.segmentId)) {
-          continue;
-        }
+      if (
+        automation.segmentId &&
+        !subscriber.segments?.includes(automation.segmentId)
+      ) {
+        continue;
       }
 
       // Evaluate conditions
       if (config.conditions && config.conditions.length > 0) {
-        const conditionsMet = await this.evaluateConditions(
+        const conditionsMet = this.evaluateConditions(
           config.conditions,
-          subscriberId,
+          subscriber,
           eventData,
         );
         if (!conditionsMet) {
@@ -153,12 +181,20 @@ export class TriggerEvaluatorService {
       });
 
       if (existingTrigger) {
-        this.logger.debug(`Trigger already exists for automation ${automation.id}`);
+        this.logger.debug(
+          `Trigger already exists for automation ${automation.id}`,
+        );
         continue;
       }
 
       // Create trigger
-      await this.createTrigger(automation.id, subscriberId, event, tenantId, eventData);
+      await this.createTrigger(
+        automation.id,
+        subscriberId,
+        event,
+        tenantId,
+        eventData,
+      );
     }
   }
 
@@ -167,37 +203,42 @@ export class TriggerEvaluatorService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async evaluateBehaviorTriggers(): Promise<void> {
-    this.logger.log('Evaluating behavior triggers...');
+    this.logger.log("Evaluating behavior triggers...");
 
-    const activeOrganizations = await this.organizationRepo.find({ where: { isActive: true } });
+    const activeOrganizations = await this.organizationRepo.find({
+      where: { isActive: true },
+    });
 
     for (const org of activeOrganizations) {
-      await this.tenantService.runWithTenant({ tenantId: org.slug, source: 'system' }, async () => {
-        const automations = await this.automationRepo.find({
-          where: {
-            status: AutomationStatus.ACTIVE,
-            isActive: true,
-            triggerType: TriggerType.BEHAVIOR,
-            tenantId: org.slug,
-          },
-        });
+      await this.tenantService.runWithTenant(
+        { tenantId: org.slug, source: "system" },
+        async () => {
+          const automations = await this.automationRepo.find({
+            where: {
+              status: AutomationStatus.ACTIVE,
+              isActive: true,
+              triggerType: TriggerType.BEHAVIOR,
+              tenantId: org.slug,
+            },
+          });
 
-        for (const automation of automations) {
-          const config = automation.triggerConfig as BehaviorTriggerConfig;
+          for (const automation of automations) {
+            const config = automation.triggerConfig as BehaviorTriggerConfig;
 
-          switch (config.behaviorType) {
-            case 'cart_abandonment':
-              await this.evaluateCartAbandonment(automation, config);
-              break;
-            case 'inactive_subscriber':
-              await this.evaluateInactiveSubscribers(automation, config);
-              break;
-            case 'browsing_pattern':
-              await this.evaluateBrowsingPattern(automation, config);
-              break;
+            switch (config.behaviorType) {
+              case "cart_abandonment":
+                await this.evaluateCartAbandonment(automation, config);
+                break;
+              case "inactive_subscriber":
+                await this.evaluateInactiveSubscribers(automation, config);
+                break;
+              case "browsing_pattern":
+                await this.evaluateBrowsingPattern(automation, config);
+                break;
+            }
           }
-        }
-      });
+        },
+      );
     }
   }
 
@@ -206,43 +247,48 @@ export class TriggerEvaluatorService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async evaluateTimeBasedTriggers(): Promise<void> {
-    this.logger.log('Evaluating time-based triggers...');
+    this.logger.log("Evaluating time-based triggers...");
 
-    const activeOrganizations = await this.organizationRepo.find({ where: { isActive: true } });
+    const activeOrganizations = await this.organizationRepo.find({
+      where: { isActive: true },
+    });
 
     for (const org of activeOrganizations) {
-      await this.tenantService.runWithTenant({ tenantId: org.slug, source: 'system' }, async () => {
-        const automations = await this.automationRepo.find({
-          where: {
-            status: AutomationStatus.ACTIVE,
-            isActive: true,
-            triggerType: TriggerType.TIME_BASED,
-            tenantId: org.slug,
-          },
-        });
+      await this.tenantService.runWithTenant(
+        { tenantId: org.slug, source: "system" },
+        async () => {
+          const automations = await this.automationRepo.find({
+            where: {
+              status: AutomationStatus.ACTIVE,
+              isActive: true,
+              triggerType: TriggerType.TIME_BASED,
+              tenantId: org.slug,
+            },
+          });
 
-        for (const automation of automations) {
-          const config = automation.triggerConfig as TimeBasedTriggerConfig;
+          for (const automation of automations) {
+            const config = automation.triggerConfig as TimeBasedTriggerConfig;
 
-          switch (config.schedule) {
-            case 'daily':
-              await this.evaluateDailyTriggers(automation, config);
-              break;
-            case 'weekly':
-              await this.evaluateWeeklyTriggers(automation, config);
-              break;
-            case 'monthly':
-              await this.evaluateMonthlyTriggers(automation, config);
-              break;
-            case 'birthday':
-              await this.evaluateBirthdayTriggers(automation, config);
-              break;
-            case 'anniversary':
-              await this.evaluateAnniversaryTriggers(automation, config);
-              break;
+            switch (config.schedule) {
+              case "daily":
+                await this.evaluateDailyTriggers(automation, config);
+                break;
+              case "weekly":
+                await this.evaluateWeeklyTriggers(automation, config);
+                break;
+              case "monthly":
+                await this.evaluateMonthlyTriggers(automation, config);
+                break;
+              case "birthday":
+                await this.evaluateBirthdayTriggers(automation, config);
+                break;
+              case "anniversary":
+                await this.evaluateAnniversaryTriggers(automation, config);
+                break;
+            }
           }
-        }
-      });
+        },
+      );
     }
   }
 
@@ -280,23 +326,23 @@ export class TriggerEvaluatorService {
       // Check change type
       let triggered = false;
       switch (config.changeType) {
-        case 'any':
+        case "any":
           triggered = oldValue !== newValue;
           break;
-        case 'specific':
+        case "specific":
           triggered =
             oldValue === config.oldValue && newValue === config.newValue;
           break;
-        case 'increased':
+        case "increased":
           triggered =
-            typeof oldValue === 'number' &&
-            typeof newValue === 'number' &&
+            typeof oldValue === "number" &&
+            typeof newValue === "number" &&
             newValue > oldValue;
           break;
-        case 'decreased':
+        case "decreased":
           triggered =
-            typeof oldValue === 'number' &&
-            typeof newValue === 'number' &&
+            typeof oldValue === "number" &&
+            typeof newValue === "number" &&
             newValue < oldValue;
           break;
       }
@@ -306,11 +352,17 @@ export class TriggerEvaluatorService {
       }
 
       // Create trigger
-      await this.createTrigger(automation.id, subscriberId, TriggerType.ATTRIBUTE, tenantId, {
-        attribute,
-        oldValue,
-        newValue,
-      });
+      await this.createTrigger(
+        automation.id,
+        subscriberId,
+        TriggerType.ATTRIBUTE,
+        tenantId,
+        {
+          attribute,
+          oldValue,
+          newValue,
+        },
+      );
     }
   }
 
@@ -334,7 +386,9 @@ export class TriggerEvaluatorService {
     });
 
     const saved = await this.triggerRepo.save(trigger);
-    this.logger.log(`Created trigger ${saved.id} for automation ${automationId}`);
+    this.logger.log(
+      `Created trigger ${saved.id} for automation ${automationId}`,
+    );
 
     // Add to queue for processing
     await this.queueService.addProcessTriggerJob(
@@ -355,43 +409,37 @@ export class TriggerEvaluatorService {
   /**
    * Private: Evaluate conditions
    */
-  private async evaluateConditions(
+  private evaluateConditions(
     conditions: any[],
-    subscriberId: string,
+    subscriber: Subscriber,
     eventData: Record<string, any>,
-  ): Promise<boolean> {
-    const tenantId = this.getActiveTenantId();
-    const subscriber = await this.subscriberRepo.findOne({
-      where: { id: subscriberId, tenantId },
-    });
-
-    if (!subscriber) return false;
-
+  ): boolean {
     for (const condition of conditions) {
-      const value = eventData[condition.field] || subscriber[condition.field];
+      // An event value wins even when it is falsy (0, false, '').
+      const value =
+        condition.field in eventData
+          ? eventData[condition.field]
+          : subscriber[condition.field];
 
       switch (condition.operator) {
-        case 'equals':
+        case "equals":
           if (value !== condition.value) return false;
           break;
-        case 'not_equals':
+        case "not_equals":
           if (value === condition.value) return false;
           break;
-        case 'contains':
-          if (
-            typeof value !== 'string' ||
-            !value.includes(condition.value)
-          ) {
+        case "contains":
+          if (typeof value !== "string" || !value.includes(condition.value)) {
             return false;
           }
           break;
-        case 'greater_than':
-          if (typeof value !== 'number' || value <= condition.value) {
+        case "greater_than":
+          if (typeof value !== "number" || value <= condition.value) {
             return false;
           }
           break;
-        case 'less_than':
-          if (typeof value !== 'number' || value >= condition.value) {
+        case "less_than":
+          if (typeof value !== "number" || value >= condition.value) {
             return false;
           }
           break;
@@ -425,23 +473,41 @@ export class TriggerEvaluatorService {
     const cutoffDate = new Date();
     cutoffDate.setMinutes(cutoffDate.getMinutes() - config.timeWindow);
 
-    // Find subscribers who haven't opened emails in timeWindow
+    // Active subscribers with no open inside the window (logs are keyed by recipient email).
     const subscribers = await this.subscriberRepo
-      .createQueryBuilder('subscriber')
-      .leftJoin('email_logs', 'log', 'log.subscriberId = subscriber.id')
-      .where('subscriber.status = :status', { status: 'active' })
-      .andWhere('subscriber.tenantId = :tenantId', { tenantId: automation.tenantId })
+      .createQueryBuilder("subscriber")
+      .where("subscriber.status = :status", { status: "active" })
+      .andWhere("subscriber.tenantId = :tenantId", {
+        tenantId: automation.tenantId,
+      })
       .andWhere(
-        '(log.openedAt IS NULL OR log.openedAt < :cutoffDate)',
+        `NOT EXISTS (SELECT 1 FROM email_logs log WHERE log.recipient_email = subscriber.email
+          AND log.tenant_id = :tenantId AND log.opened_at >= :cutoffDate)`,
         { cutoffDate },
       )
       .getMany();
 
     for (const subscriber of subscribers) {
-      await this.createTrigger(automation.id, subscriber.id, TriggerType.BEHAVIOR, automation.tenantId, {
-        behaviorType: 'inactive_subscriber',
-        inactiveDays: Math.floor(config.timeWindow / (60 * 24)),
+      // The cron runs hourly; one pending trigger per subscriber is enough.
+      const pending = await this.triggerRepo.findOne({
+        where: {
+          automationId: automation.id,
+          subscriberId: subscriber.id,
+          status: TriggerStatus.PENDING,
+          tenantId: automation.tenantId,
+        },
       });
+      if (pending) continue;
+      await this.createTrigger(
+        automation.id,
+        subscriber.id,
+        TriggerType.BEHAVIOR,
+        automation.tenantId,
+        {
+          behaviorType: "inactive_subscriber",
+          inactiveDays: Math.floor(config.timeWindow / (60 * 24)),
+        },
+      );
     }
   }
 
@@ -468,8 +534,13 @@ export class TriggerEvaluatorService {
     const subscribers = await this.getTargetSubscribers(automation);
 
     for (const subscriber of subscribers) {
-      const scheduledFor = this.calculateScheduleTime(config.time || '09:00');
-      await this.createScheduledTrigger(automation.id, subscriber.id, scheduledFor, automation.tenantId);
+      const scheduledFor = this.calculateScheduleTime(config.time || "09:00");
+      await this.createScheduledTrigger(
+        automation.id,
+        subscriber.id,
+        scheduledFor,
+        automation.tenantId,
+      );
     }
   }
 
@@ -489,8 +560,13 @@ export class TriggerEvaluatorService {
     const subscribers = await this.getTargetSubscribers(automation);
 
     for (const subscriber of subscribers) {
-      const scheduledFor = this.calculateScheduleTime(config.time || '09:00');
-      await this.createScheduledTrigger(automation.id, subscriber.id, scheduledFor, automation.tenantId);
+      const scheduledFor = this.calculateScheduleTime(config.time || "09:00");
+      await this.createScheduledTrigger(
+        automation.id,
+        subscriber.id,
+        scheduledFor,
+        automation.tenantId,
+      );
     }
   }
 
@@ -510,8 +586,13 @@ export class TriggerEvaluatorService {
     const subscribers = await this.getTargetSubscribers(automation);
 
     for (const subscriber of subscribers) {
-      const scheduledFor = this.calculateScheduleTime(config.time || '09:00');
-      await this.createScheduledTrigger(automation.id, subscriber.id, scheduledFor, automation.tenantId);
+      const scheduledFor = this.calculateScheduleTime(config.time || "09:00");
+      await this.createScheduledTrigger(
+        automation.id,
+        subscriber.id,
+        scheduledFor,
+        automation.tenantId,
+      );
     }
   }
 
@@ -522,25 +603,10 @@ export class TriggerEvaluatorService {
     automation: EmailAutomation,
     config: TimeBasedTriggerConfig,
   ): Promise<void> {
-    const today = new Date();
-    const targetDate = new Date(today);
-    targetDate.setDate(targetDate.getDate() + (config.offsetDays || 0));
-
-    const subscribers = await this.subscriberRepo
-      .createQueryBuilder('subscriber')
-      .where('subscriber.tenantId = :tenantId', { tenantId: automation.tenantId })
-      .andWhere('EXTRACT(MONTH FROM subscriber.birthday) = :month', {
-        month: targetDate.getMonth() + 1,
-      })
-      .andWhere('EXTRACT(DAY FROM subscriber.birthday) = :day', {
-        day: targetDate.getDate(),
-      })
-      .getMany();
-
-    for (const subscriber of subscribers) {
-      const scheduledFor = this.calculateScheduleTime(config.time || '09:00');
-      await this.createScheduledTrigger(automation.id, subscriber.id, scheduledFor, automation.tenantId);
-    }
+    // Subscribers have no birthday column yet; querying one fails every night.
+    this.logger.warn(
+      `Birthday automation ${automation.id} skipped: subscribers do not store a birthday`,
+    );
   }
 
   /**
@@ -550,43 +616,64 @@ export class TriggerEvaluatorService {
     automation: EmailAutomation,
     config: TimeBasedTriggerConfig,
   ): Promise<void> {
+    const column = ANNIVERSARY_DATE_FIELDS[config.dateField];
+    if (!column) {
+      this.logger.warn(
+        `Anniversary automation ${automation.id} skipped: unsupported date field "${config.dateField}"`,
+      );
+      return;
+    }
+
     const today = new Date();
     const targetDate = new Date(today);
     targetDate.setDate(targetDate.getDate() + (config.offsetDays || 0));
 
     const subscribers = await this.subscriberRepo
-      .createQueryBuilder('subscriber')
-      .where('subscriber.tenantId = :tenantId', { tenantId: automation.tenantId })
-      .andWhere(`EXTRACT(MONTH FROM subscriber.${config.dateField}) = :month`, {
+      .createQueryBuilder("subscriber")
+      .where("subscriber.tenantId = :tenantId", {
+        tenantId: automation.tenantId,
+      })
+      .andWhere(`EXTRACT(MONTH FROM subscriber.${column}) = :month`, {
         month: targetDate.getMonth() + 1,
       })
-      .andWhere(`EXTRACT(DAY FROM subscriber.${config.dateField}) = :day`, {
+      .andWhere(`EXTRACT(DAY FROM subscriber.${column}) = :day`, {
         day: targetDate.getDate(),
       })
       .getMany();
 
     for (const subscriber of subscribers) {
-      const scheduledFor = this.calculateScheduleTime(config.time || '09:00');
-      await this.createScheduledTrigger(automation.id, subscriber.id, scheduledFor, automation.tenantId);
+      const scheduledFor = this.calculateScheduleTime(config.time || "09:00");
+      await this.createScheduledTrigger(
+        automation.id,
+        subscriber.id,
+        scheduledFor,
+        automation.tenantId,
+      );
     }
   }
 
   /**
    * Private: Get target subscribers for automation
    */
-  private async getTargetSubscribers(automation: EmailAutomation): Promise<Subscriber[]> {
+  private async getTargetSubscribers(
+    automation: EmailAutomation,
+  ): Promise<Subscriber[]> {
     if (automation.segmentId) {
       return this.subscriberRepo
-        .createQueryBuilder('subscriber')
-        .where('subscriber.status = :status', { status: 'active' })
-        .andWhere('subscriber.tenantId = :tenantId', { tenantId: automation.tenantId })
-        .andWhere(':segmentId = ANY(subscriber.segments)', {
+        .createQueryBuilder("subscriber")
+        .where("subscriber.status = :status", { status: "active" })
+        .andWhere("subscriber.tenantId = :tenantId", {
+          tenantId: automation.tenantId,
+        })
+        .andWhere(":segmentId = ANY(subscriber.segments)", {
           segmentId: automation.segmentId,
         })
         .getMany();
     }
 
-    return this.subscriberRepo.find({ where: { status: 'active', tenantId: automation.tenantId } });
+    return this.subscriberRepo.find({
+      where: { status: "active", tenantId: automation.tenantId },
+    });
   }
 
   /**
@@ -629,7 +716,7 @@ export class TriggerEvaluatorService {
    * Private: Calculate schedule time
    */
   private calculateScheduleTime(time: string): Date {
-    const [hours, minutes] = time.split(':').map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
     const scheduledFor = new Date();
     scheduledFor.setHours(hours, minutes, 0, 0);
     return scheduledFor;
