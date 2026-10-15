@@ -110,3 +110,10 @@ analytics, insight-engine, neural-grid/crawler (SSRF), system-logs redaksiyonu, 
 - [ ] Tarayıcı kabul betiği (`scripts/acceptance/*`) 375/768/1280 ve iki kiracıyla yeşil; sahte değer yok veya "Önizleme" rozetli
 - [ ] Kabul matrisinde modül satırı ve kanıt kaydı güncel; DEV_HANDOFF bölümü yazıldı
 - [ ] Commit, pre-commit hook atlanmadan; push/deploy yok
+
+## İlerleme kaydı
+
+| Tarih | Sprint / iş | Commit | Kanıt |
+|---|---|---|---|
+| 2026-10-15 | S1 P0 — test kimliği organizasyon üyeliği taşıyor (`withMembership`), 16 HTTP spec'i | `0706180` | 16 spec, 213 test, her biri tek worker'la yeşil |
+| 2026-10-15 | S1 P0 — 8 eksik tablo migration'ı (`MissingModuleTables1791453600000`), `data-source` entity listesi, kalıcı entity ↔ migration kapsam spec'i; sosyal etkileşim penceresi parametre hatası | bu commit | İzole DB'de migration koştu, 8 tablo + 8 FK var; `bcc-honesty` 8/8, backend logunda kaynak hatası 0 |

@@ -4,7 +4,7 @@ describe("migration discovery", () => {
   it("loads the complete active history without cwd or NODE_ENV globs", () => {
     const migrations = AppDataSource.options.migrations;
     expect(Array.isArray(migrations)).toBe(true);
-    expect(migrations).toHaveLength(27);
+    expect(migrations).toHaveLength(28);
     expect(
       (migrations as Array<{ name: string }>).map(
         (migration) => migration.name,
@@ -37,6 +37,7 @@ describe("migration discovery", () => {
       "AutomationActionLeaseToken1791442800000",
       "EventPermissionNormalization1791446400000",
       "FaqPipelineState1791450000000",
+      "MissingModuleTables1791453600000",
     ]);
   });
 });
