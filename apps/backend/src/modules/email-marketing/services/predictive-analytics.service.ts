@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailCampaign } from '../entities/email-campaign.entity';
-import { EmailLog } from '../entities/email-log.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { EmailOpenHistory } from '../entities/email-open-history.entity';
-import { TenantService } from '../../../core/tenant/tenant.service';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EmailCampaign } from "../entities/email-campaign.entity";
+import { EmailLog } from "../entities/email-log.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { EmailOpenHistory } from "../entities/email-open-history.entity";
+import { TenantService } from "../../../core/tenant/tenant.service";
 
 export interface CampaignPrediction {
   expectedOpenRate: number;
@@ -15,12 +15,14 @@ export interface CampaignPrediction {
   riskFactors: string[];
   recommendations: string[];
   performanceScore: number; // 0-100
+  /** Sent campaigns the rates come from; 0 means the rates are neutral defaults. */
+  basedOnCampaigns: number;
 }
 
 export interface EngagementScore {
   subscriberId: string;
   score: number; // 0-100
-  category: 'highly-engaged' | 'moderately-engaged' | 'at-risk' | 'inactive';
+  category: "highly-engaged" | "moderately-engaged" | "at-risk" | "inactive";
   lastEngagement: Date | null;
   totalInteractions: number;
 }
@@ -28,17 +30,17 @@ export interface EngagementScore {
 export interface ChurnRisk {
   subscriberId: string;
   riskScore: number; // 0-100
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  riskLevel: "low" | "medium" | "high" | "critical";
   daysInactive: number;
   predictedChurnDate: Date;
   retentionActions: string[];
 }
 
 export interface AIInsight {
-  type: 'trend' | 'anomaly' | 'opportunity' | 'warning';
+  type: "trend" | "anomaly" | "opportunity" | "warning";
   title: string;
   description: string;
-  impact: 'low' | 'medium' | 'high';
+  impact: "low" | "medium" | "high";
   actionable: boolean;
   suggestedAction?: string;
 }
@@ -55,10 +57,12 @@ export class PredictiveAnalyticsService {
     @InjectRepository(EmailOpenHistory)
     private readonly openHistoryRepository: Repository<EmailOpenHistory>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private getTenantId(): string {
-    return this.tenantService.getTenantId() || 'default';
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   /**
@@ -71,8 +75,8 @@ export class PredictiveAnalyticsService {
     const tenantId = this.getTenantId();
     // Geçmiş kampanya performanslarını al
     const historicalCampaigns = await this.campaignRepository.find({
-      where: { status: 'sent', tenantId },
-      order: { createdAt: 'DESC' },
+      where: { status: "sent", tenantId },
+      order: { createdAt: "DESC" },
       take: 20,
     });
 
@@ -89,47 +93,64 @@ export class PredictiveAnalyticsService {
       }
     }
 
-    const avgOpenRate = campaignCount > 0 ? totalOpenRate / campaignCount : 0.25;
-    const avgClickRate = campaignCount > 0 ? totalClickRate / campaignCount : 0.05;
+    const avgOpenRate =
+      campaignCount > 0 ? totalOpenRate / campaignCount : 0.25;
+    const avgClickRate =
+      campaignCount > 0 ? totalClickRate / campaignCount : 0.05;
 
     // Abone engagement skorlarını hesapla
     const engagementScores = await Promise.all(
-      subscriberIds.slice(0, 100).map(id => this.calculateEngagementScore(id))
+      subscriberIds
+        .slice(0, 100)
+        .map((id) => this.calculateEngagementScore(id)),
     );
 
-    const avgEngagement = engagementScores.reduce((acc, s) => acc + s.score, 0) / engagementScores.length;
+    // Without recipients the engagement is unknown; stay at the baseline instead of NaN.
+    const avgEngagement =
+      engagementScores.length > 0
+        ? engagementScores.reduce((acc, s) => acc + s.score, 0) /
+          engagementScores.length
+        : 50;
 
     // Tahminleri hesapla
     const engagementMultiplier = avgEngagement / 50; // 50 is baseline
     const expectedOpenRate = Math.min(avgOpenRate * engagementMultiplier, 0.6);
-    const expectedClickRate = Math.min(avgClickRate * engagementMultiplier, 0.2);
+    const expectedClickRate = Math.min(
+      avgClickRate * engagementMultiplier,
+      0.2,
+    );
     const expectedConversionRate = expectedClickRate * 0.15; // %15 conversion from clicks
 
     // Risk faktörleri
     const riskFactors: string[] = [];
     if (avgEngagement < 30) {
-      riskFactors.push('Düşük abone etkileşimi');
+      riskFactors.push("Düşük abone etkileşimi");
     }
     if (subscriberIds.length > 10000) {
-      riskFactors.push('Büyük gönderim listesi - spam riski');
+      riskFactors.push("Büyük gönderim listesi - spam riski");
     }
     if (campaignCount < 5) {
-      riskFactors.push('Yetersiz geçmiş veri');
+      riskFactors.push("Yetersiz geçmiş veri");
     }
 
     // Öneriler
     const recommendations: string[] = [];
     if (expectedOpenRate < 0.2) {
-      recommendations.push('Konu satırını A/B test ile optimize edin');
+      recommendations.push("Konu satırını A/B test ile optimize edin");
     }
     if (avgEngagement < 40) {
-      recommendations.push('İnaktif aboneleri segmentleyip özel kampanya gönderin');
+      recommendations.push(
+        "İnaktif aboneleri segmentleyip özel kampanya gönderin",
+      );
     }
-    recommendations.push('En optimal gönderim zamanını kullanın');
+    recommendations.push("En optimal gönderim zamanını kullanın");
 
     // Performans skoru
     const performanceScore = Math.round(
-      (expectedOpenRate * 40 + expectedClickRate * 40 + expectedConversionRate * 20) * 100
+      (expectedOpenRate * 40 +
+        expectedClickRate * 40 +
+        expectedConversionRate * 20) *
+        100,
     );
 
     // Güven skoru
@@ -143,13 +164,16 @@ export class PredictiveAnalyticsService {
       riskFactors,
       recommendations,
       performanceScore,
+      basedOnCampaigns: campaignCount,
     };
   }
 
   /**
    * Abone engagement skorunu hesapla
    */
-  async calculateEngagementScore(subscriberId: string): Promise<EngagementScore> {
+  async calculateEngagementScore(
+    subscriberId: string,
+  ): Promise<EngagementScore> {
     const tenantId = this.getTenantId();
     const subscriber = await this.subscriberRepository.findOne({
       where: { id: subscriberId, tenantId },
@@ -159,7 +183,7 @@ export class PredictiveAnalyticsService {
       return {
         subscriberId,
         score: 0,
-        category: 'inactive',
+        category: "inactive",
         lastEngagement: null,
         totalInteractions: 0,
       };
@@ -168,14 +192,14 @@ export class PredictiveAnalyticsService {
     // Email loglarını al
     const logs = await this.emailLogRepository.find({
       where: { recipientEmail: subscriber.email, tenantId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
       take: 20,
     });
 
     // Metrikleri hesapla
     const totalOpens = subscriber.opens || 0;
     const totalClicks = subscriber.clicks || 0;
-    const lastOpenedLog = logs.find(log => log.openedAt);
+    const lastOpenedLog = logs.find((log) => log.openedAt);
     const lastEngagement = lastOpenedLog ? lastOpenedLog.openedAt : null;
 
     // Skor hesapla (0-100)
@@ -196,7 +220,7 @@ export class PredictiveAnalyticsService {
     // Son aktivite (max 20 puan)
     if (lastEngagement) {
       const daysSinceEngagement = Math.floor(
-        (Date.now() - lastEngagement.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - lastEngagement.getTime()) / (1000 * 60 * 60 * 24),
       );
       if (daysSinceEngagement < 7) score += 20;
       else if (daysSinceEngagement < 30) score += 15;
@@ -205,11 +229,11 @@ export class PredictiveAnalyticsService {
     }
 
     // Kategori belirleme
-    let category: EngagementScore['category'];
-    if (score >= 70) category = 'highly-engaged';
-    else if (score >= 40) category = 'moderately-engaged';
-    else if (score >= 20) category = 'at-risk';
-    else category = 'inactive';
+    let category: EngagementScore["category"];
+    if (score >= 70) category = "highly-engaged";
+    else if (score >= 40) category = "moderately-engaged";
+    else if (score >= 20) category = "at-risk";
+    else category = "inactive";
 
     return {
       subscriberId,
@@ -228,7 +252,10 @@ export class PredictiveAnalyticsService {
 
     // İnaktif gün sayısını hesapla
     const daysInactive = engagement.lastEngagement
-      ? Math.floor((Date.now() - engagement.lastEngagement.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (Date.now() - engagement.lastEngagement.getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
       : 365;
 
     // Risk skoru hesapla (0-100)
@@ -244,11 +271,11 @@ export class PredictiveAnalyticsService {
     riskScore += Math.max(0, 50 - engagement.score);
 
     // Risk seviyesi
-    let riskLevel: ChurnRisk['riskLevel'];
-    if (riskScore >= 80) riskLevel = 'critical';
-    else if (riskScore >= 60) riskLevel = 'high';
-    else if (riskScore >= 40) riskLevel = 'medium';
-    else riskLevel = 'low';
+    let riskLevel: ChurnRisk["riskLevel"];
+    if (riskScore >= 80) riskLevel = "critical";
+    else if (riskScore >= 60) riskLevel = "high";
+    else if (riskScore >= 40) riskLevel = "medium";
+    else riskLevel = "low";
 
     // Tahmini kayıp tarihi
     const daysUntilChurn = Math.max(7, 120 - daysInactive);
@@ -257,17 +284,17 @@ export class PredictiveAnalyticsService {
 
     // Retention aksiyonları
     const retentionActions: string[] = [];
-    if (riskLevel === 'critical') {
-      retentionActions.push('Acil win-back kampanyası gönderin');
-      retentionActions.push('%50 indirim kuponu sunun');
-    } else if (riskLevel === 'high') {
-      retentionActions.push('Kişiselleştirilmiş re-engagement emaili gönderin');
-      retentionActions.push('Anket ile geri bildirim isteyin');
-    } else if (riskLevel === 'medium') {
-      retentionActions.push('Özel içerik veya teklif gönderin');
-      retentionActions.push('Email sıklığını optimize edin');
+    if (riskLevel === "critical") {
+      retentionActions.push("Acil win-back kampanyası gönderin");
+      retentionActions.push("%50 indirim kuponu sunun");
+    } else if (riskLevel === "high") {
+      retentionActions.push("Kişiselleştirilmiş re-engagement emaili gönderin");
+      retentionActions.push("Anket ile geri bildirim isteyin");
+    } else if (riskLevel === "medium") {
+      retentionActions.push("Özel içerik veya teklif gönderin");
+      retentionActions.push("Email sıklığını optimize edin");
     } else {
-      retentionActions.push('Mevcut engagement stratejisini sürdürün');
+      retentionActions.push("Mevcut engagement stratejisini sürdürün");
     }
 
     return {
@@ -289,81 +316,85 @@ export class PredictiveAnalyticsService {
 
     // Son 30 günün performans trendleri
     const recentCampaigns = await this.campaignRepository.find({
-      where: { status: 'sent', tenantId },
-      order: { createdAt: 'DESC' },
+      where: { status: "sent", tenantId },
+      order: { createdAt: "DESC" },
       take: 10,
     });
 
     if (recentCampaigns.length >= 3) {
       // Açılma oranı trendi
-      const openRates = recentCampaigns.map(c =>
-        c.sentCount > 0 ? (c.openedCount || 0) / c.sentCount : 0
+      const openRates = recentCampaigns.map((c) =>
+        c.sentCount > 0 ? (c.openedCount || 0) / c.sentCount : 0,
       );
 
-      const avgOpenRate = openRates.reduce((a, b) => a + b, 0) / openRates.length;
+      const avgOpenRate =
+        openRates.reduce((a, b) => a + b, 0) / openRates.length;
       const recentOpenRate = openRates[0];
 
       if (recentOpenRate > avgOpenRate * 1.2) {
         insights.push({
-          type: 'trend',
-          title: 'Açılma Oranları Artışta',
+          type: "trend",
+          title: "Açılma Oranları Artışta",
           description: `Son kampanyanız ortalamadan %${Math.round((recentOpenRate / avgOpenRate - 1) * 100)} daha iyi performans gösterdi.`,
-          impact: 'high',
+          impact: "high",
           actionable: true,
-          suggestedAction: 'Bu başarılı stratejiyi devam ettirin ve A/B test ile optimize edin.',
+          suggestedAction:
+            "Bu başarılı stratejiyi devam ettirin ve A/B test ile optimize edin.",
         });
       } else if (recentOpenRate < avgOpenRate * 0.8) {
         insights.push({
-          type: 'warning',
-          title: 'Açılma Oranları Düşüşte',
+          type: "warning",
+          title: "Açılma Oranları Düşüşte",
           description: `Son kampanyanız ortalamadan %${Math.round((1 - recentOpenRate / avgOpenRate) * 100)} düşük performans gösterdi.`,
-          impact: 'high',
+          impact: "high",
           actionable: true,
-          suggestedAction: 'Konu satırlarını gözden geçirin ve gönderim zamanını optimize edin.',
+          suggestedAction:
+            "Konu satırlarını gözden geçirin ve gönderim zamanını optimize edin.",
         });
       }
     }
 
     // Segment fırsatları
     const totalSubscribers = await this.subscriberRepository.count({
-      where: { tenantId }
+      where: { tenantId },
     });
     const activeSubscribers = await this.subscriberRepository.count({
-      where: { status: 'active', tenantId },
+      where: { status: "active", tenantId },
     });
 
     if (activeSubscribers < totalSubscribers * 0.7) {
       insights.push({
-        type: 'opportunity',
-        title: 'İnaktif Abone Fırsatı',
+        type: "opportunity",
+        title: "İnaktif Abone Fırsatı",
         description: `Abonelerinizin %${Math.round((1 - activeSubscribers / totalSubscribers) * 100)}'ü inaktif durumda.`,
-        impact: 'medium',
+        impact: "medium",
         actionable: true,
-        suggestedAction: 'Re-engagement kampanyası başlatarak inaktif aboneleri geri kazanın.',
+        suggestedAction:
+          "Re-engagement kampanyası başlatarak inaktif aboneleri geri kazanın.",
       });
     }
 
     // En iyi gönderim zamanı
     const openHistory = await this.openHistoryRepository
-      .createQueryBuilder('history')
-      .select('history.hourOfDay', 'hour')
-      .addSelect('COUNT(*)', 'count')
-      .where('history.tenantId = :tenantId', { tenantId })
-      .andWhere('history.hourOfDay IS NOT NULL')
-      .groupBy('history.hourOfDay')
-      .orderBy('count', 'DESC')
+      .createQueryBuilder("history")
+      .select("history.hourOfDay", "hour")
+      .addSelect("COUNT(*)", "count")
+      .where("history.tenantId = :tenantId", { tenantId })
+      .andWhere("history.hourOfDay IS NOT NULL")
+      .groupBy("history.hourOfDay")
+      .orderBy("count", "DESC")
       .limit(3)
       .getRawMany();
 
     if (openHistory.length > 0) {
-      const bestHours = openHistory.map(h => `${h.hour}:00`).join(', ');
+      const bestHours = openHistory.map((h) => `${h.hour}:00`).join(", ");
       insights.push({
-        type: 'opportunity',
-        title: 'Optimal Gönderim Zamanları',
+        type: "opportunity",
+        title: "Optimal Gönderim Zamanları",
         description: `Aboneleriniz en çok şu saatlerde email açıyor: ${bestHours}`,
-        impact: 'medium',
+        impact: "medium",
         actionable: true,
-        suggestedAction: 'Kampanyalarınızı bu saatlerde planlayın.',
+        suggestedAction: "Kampanyalarınızı bu saatlerde planlayın.",
       });
     }
 
@@ -374,12 +405,13 @@ export class PredictiveAnalyticsService {
         const bounceRate = lastCampaign.bounceCount / lastCampaign.sentCount;
         if (bounceRate > 0.05) {
           insights.push({
-            type: 'anomaly',
-            title: 'Yüksek Bounce Oranı Tespit Edildi',
+            type: "anomaly",
+            title: "Yüksek Bounce Oranı Tespit Edildi",
             description: `Son kampanyanızda %${Math.round(bounceRate * 100)} bounce oranı görüldü.`,
-            impact: 'high',
+            impact: "high",
             actionable: true,
-            suggestedAction: 'Email listesini temizleyin ve email validation kullanın.',
+            suggestedAction:
+              "Email listesini temizleyin ve email validation kullanın.",
           });
         }
       }
@@ -394,40 +426,39 @@ export class PredictiveAnalyticsService {
   async getDashboardMetrics(): Promise<{
     averageEngagementScore: number;
     atRiskSubscribers: number;
-    predictedMonthlyGrowth: number;
+    predictedMonthlyGrowth: number | null;
     topPerformingSegments: Array<{ name: string; score: number }>;
+    sampledSubscribers: number;
     insights: AIInsight[];
   }> {
     const tenantId = this.getTenantId();
     // Rastgele 100 abonenin engagement skorunu hesapla
     const sampleSubscribers = await this.subscriberRepository.find({
-      where: { status: 'active', tenantId },
+      where: { status: "active", tenantId },
       take: 100,
     });
 
     const engagementScores = await Promise.all(
-      sampleSubscribers.map(s => this.calculateEngagementScore(s.id))
+      sampleSubscribers.map((s) => this.calculateEngagementScore(s.id)),
     );
 
-    const averageEngagementScore = Math.round(
-      engagementScores.reduce((acc, s) => acc + s.score, 0) / engagementScores.length
-    );
+    const sampled = engagementScores.length;
+    const averageEngagementScore =
+      sampled > 0
+        ? Math.round(
+            engagementScores.reduce((acc, s) => acc + s.score, 0) / sampled,
+          )
+        : 0;
 
-    const atRiskCount = engagementScores.filter(s => s.category === 'at-risk').length;
-    const atRiskSubscribers = Math.round((atRiskCount / engagementScores.length) * 100);
+    const atRiskCount = engagementScores.filter(
+      (s) => s.category === "at-risk",
+    ).length;
+    const atRiskSubscribers =
+      sampled > 0 ? Math.round((atRiskCount / sampled) * 100) : 0;
 
-    // Büyüme tahmini (basit linear projection)
-    const currentMonth = await this.subscriberRepository.count({
-      where: { status: 'active', tenantId },
-    });
-    const predictedMonthlyGrowth = Math.round(currentMonth * 0.05); // %5 büyüme tahmini
-
-    // Top performing segments (simulated)
-    const topPerformingSegments = [
-      { name: 'VIP Müşteriler', score: 85 },
-      { name: 'Yeni Kayıtlar', score: 72 },
-      { name: 'Aktif Alıcılar', score: 68 },
-    ];
+    // No growth model and no per-segment scoring exist yet; report nothing rather than invent it.
+    const predictedMonthlyGrowth: number | null = null;
+    const topPerformingSegments: Array<{ name: string; score: number }> = [];
 
     // AI insights
     const insights = await this.generateAIInsights();
@@ -437,6 +468,7 @@ export class PredictiveAnalyticsService {
       atRiskSubscribers,
       predictedMonthlyGrowth,
       topPerformingSegments,
+      sampledSubscribers: sampled,
       insights: insights.slice(0, 5), // Top 5 insights
     };
   }

@@ -10,32 +10,32 @@ import {
   BeforeInsert,
   BeforeUpdate,
   Relation,
-} from 'typeorm';
-import { BaseEntity } from '../../../core/database/entities/base.entity';
-import { Segment } from './segment.entity';
-import { AutomationTrigger } from './automation-trigger.entity';
-import { AutomationExecution } from './automation-execution.entity';
-import { AutomationSchedule } from './automation-schedule.entity';
+} from "typeorm";
+import { BaseEntity } from "../../../core/database/entities/base.entity";
+import { Segment } from "./segment.entity";
+import { AutomationTrigger } from "./automation-trigger.entity";
+import { AutomationExecution } from "./automation-execution.entity";
+import { AutomationSchedule } from "./automation-schedule.entity";
 
 /**
  * Automation Status
  */
 export enum AutomationStatus {
-  DRAFT = 'draft',
-  ACTIVE = 'active',
-  PAUSED = 'paused',
-  COMPLETED = 'completed',
-  ARCHIVED = 'archived',
+  DRAFT = "draft",
+  ACTIVE = "active",
+  PAUSED = "paused",
+  COMPLETED = "completed",
+  ARCHIVED = "archived",
 }
 
 /**
  * Trigger Types
  */
 export enum TriggerType {
-  EVENT = 'event', // User event (subscribe, purchase, etc.)
-  BEHAVIOR = 'behavior', // User behavior (cart_abandonment, browsing, etc.)
-  TIME_BASED = 'time_based', // Scheduled (birthday, anniversary, etc.)
-  ATTRIBUTE = 'attribute', // User attribute change (status, tags, etc.)
+  EVENT = "event", // User event (subscribe, purchase, etc.)
+  BEHAVIOR = "behavior", // User behavior (cart_abandonment, browsing, etc.)
+  TIME_BASED = "time_based", // Scheduled (birthday, anniversary, etc.)
+  ATTRIBUTE = "attribute", // User attribute change (status, tags, etc.)
 }
 
 /**
@@ -43,7 +43,7 @@ export enum TriggerType {
  */
 export interface WorkflowStep {
   id: string;
-  type: 'send_email' | 'delay' | 'condition' | 'split' | 'exit';
+  type: "send_email" | "delay" | "condition" | "split" | "exit";
   config: Record<string, any>;
   nextStepId?: string;
   conditionalPaths?: {
@@ -56,55 +56,55 @@ export interface WorkflowStep {
  * Email Automation Entity
  * Manages automated email workflows with triggers and multi-step flows
  */
-@Entity('email_automations')
+@Entity("email_automations")
 export class EmailAutomation extends BaseEntity {
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   description?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 50,
     default: AutomationStatus.DRAFT,
   })
   status: AutomationStatus;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: "varchar", length: 50 })
   triggerType: TriggerType;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: "jsonb", default: {} })
   triggerConfig: Record<string, any>;
 
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: "jsonb", default: [] })
   workflowSteps: WorkflowStep[];
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: "boolean", default: false })
   isActive: boolean;
 
   // Segment relation (optional - can target all subscribers)
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: "uuid", nullable: true })
   segmentId?: string;
 
-  @ManyToOne(() => Segment, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'segmentId' })
+  @ManyToOne(() => Segment, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "segmentId" })
   segment?: Relation<Segment>;
 
   // Statistics
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   subscriberCount: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   executionCount: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 0 })
   successRate: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: "int", default: 0 })
   avgExecutionTime: number; // milliseconds
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   lastExecutedAt?: Date;
 
   // Relations
@@ -136,7 +136,7 @@ export class EmailAutomation extends BaseEntity {
       const stepIds = this.workflowSteps.map((step) => step.id);
       const uniqueIds = new Set(stepIds);
       if (stepIds.length !== uniqueIds.size) {
-        throw new Error('Workflow steps must have unique IDs');
+        throw new Error("Workflow steps must have unique IDs");
       }
 
       // Validate nextStepId references exist
@@ -147,7 +147,9 @@ export class EmailAutomation extends BaseEntity {
         if (step.conditionalPaths) {
           for (const path of step.conditionalPaths) {
             if (!stepIds.includes(path.nextStepId)) {
-              throw new Error(`Invalid conditional path nextStepId: ${path.nextStepId}`);
+              throw new Error(
+                `Invalid conditional path nextStepId: ${path.nextStepId}`,
+              );
             }
           }
         }
@@ -162,10 +164,10 @@ export class EmailAutomation extends BaseEntity {
 
   canBeActivated(): boolean {
     return (
-      this.status === AutomationStatus.DRAFT ||
-      this.status === AutomationStatus.PAUSED
-    ) &&
-      this.workflowSteps.length > 0;
+      (this.status === AutomationStatus.DRAFT ||
+        this.status === AutomationStatus.PAUSED) &&
+      this.workflowSteps.length > 0
+    );
   }
 
   pause() {
@@ -187,21 +189,20 @@ export class EmailAutomation extends BaseEntity {
     this.isActive = false;
   }
 
+  /** Running totals from the finished execution; the executions relation is not loaded here. */
   updateStatistics(execution: AutomationExecution) {
-    this.executionCount++;
+    const previousCount = this.executionCount || 0;
+    this.executionCount = previousCount + 1;
     this.lastExecutedAt = new Date();
 
-    // Calculate success rate
-    const successfulExecutions = this.executions.filter(
-      (e) => e.status === 'completed'
-    ).length;
-    this.successRate = (successfulExecutions / this.executionCount) * 100;
+    const succeeded = execution.status === "completed" ? 100 : 0;
+    this.successRate =
+      (Number(this.successRate || 0) * previousCount + succeeded) /
+      this.executionCount;
 
-    // Calculate average execution time
-    const totalTime = this.executions.reduce(
-      (sum, e) => sum + (e.executionTime || 0),
-      0
-    );
+    const totalTime =
+      Number(this.avgExecutionTime || 0) * previousCount +
+      (execution.executionTime || 0);
     this.avgExecutionTime = Math.round(totalTime / this.executionCount);
   }
 
@@ -213,19 +214,24 @@ export class EmailAutomation extends BaseEntity {
     return this.workflowSteps.find((step) => step.id === stepId) || null;
   }
 
-  getNextStep(currentStepId: string, conditionResult?: boolean): WorkflowStep | null {
+  getNextStep(
+    currentStepId: string,
+    conditionResult?: boolean,
+  ): WorkflowStep | null {
     const currentStep = this.getStepById(currentStepId);
     if (!currentStep) return null;
 
     // Handle conditional paths
-    if (currentStep.type === 'condition' && currentStep.conditionalPaths) {
+    if (currentStep.type === "condition" && currentStep.conditionalPaths) {
       const path = currentStep.conditionalPaths.find(
-        (p) => p.condition === (conditionResult ? 'true' : 'false')
+        (p) => p.condition === (conditionResult ? "true" : "false"),
       );
       return path ? this.getStepById(path.nextStepId) : null;
     }
 
     // Handle regular next step
-    return currentStep.nextStepId ? this.getStepById(currentStep.nextStepId) : null;
+    return currentStep.nextStepId
+      ? this.getStepById(currentStep.nextStepId)
+      : null;
   }
 }

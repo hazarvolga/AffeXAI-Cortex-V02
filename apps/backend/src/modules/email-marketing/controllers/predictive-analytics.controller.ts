@@ -1,22 +1,28 @@
-import { PermissionsGuard } from '../../../core/auth/guards/permissions.guard';
-import { RequirePermissions } from '../../../core/auth/decorators/permissions.decorator';
-import { Controller, Get, Post, Param, Body, UseGuards, Query } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../core/auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
-import { PredictiveAnalyticsService } from '../services/predictive-analytics.service';
+import { PermissionsGuard } from "../../../core/auth/guards/permissions.guard";
+import { RequirePermissions } from "../../../core/auth/decorators/permissions.decorator";
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Query,
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../../../core/auth/guards/jwt-auth.guard";
+import { CurrentUser } from "../../../core/auth/decorators/current-user.decorator";
+import { PredictiveAnalyticsService } from "../services/predictive-analytics.service";
 
-@Controller('email-marketing/analytics')
+@Controller("email-marketing/analytics")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequirePermissions('marketing.manage')
+@RequirePermissions("marketing.manage")
 export class PredictiveAnalyticsController {
-  constructor(
-    private readonly analyticsService: PredictiveAnalyticsService,
-  ) { }
+  constructor(private readonly analyticsService: PredictiveAnalyticsService) {}
 
   /**
    * Get campaign performance prediction
    */
-  @Post('predict/campaign')
+  @Post("predict/campaign")
   async predictCampaignPerformance(
     @Body() body: { campaignId: string; subscriberIds: string[] },
   ) {
@@ -29,8 +35,12 @@ export class PredictiveAnalyticsController {
       prediction,
       summary: {
         expectedReach: body.subscriberIds.length,
-        expectedOpens: Math.round(body.subscriberIds.length * prediction.expectedOpenRate),
-        expectedClicks: Math.round(body.subscriberIds.length * prediction.expectedClickRate),
+        expectedOpens: Math.round(
+          body.subscriberIds.length * prediction.expectedOpenRate,
+        ),
+        expectedClicks: Math.round(
+          body.subscriberIds.length * prediction.expectedClickRate,
+        ),
         performanceLevel: this.getPerformanceLevel(prediction.performanceScore),
       },
       visualization: {
@@ -49,9 +59,10 @@ export class PredictiveAnalyticsController {
   /**
    * Get subscriber engagement score
    */
-  @Get('engagement/subscriber/:subscriberId')
-  async getSubscriberEngagement(@Param('subscriberId') subscriberId: string) {
-    const engagement = await this.analyticsService.calculateEngagementScore(subscriberId);
+  @Get("engagement/subscriber/:subscriberId")
+  async getSubscriberEngagement(@Param("subscriberId") subscriberId: string) {
+    const engagement =
+      await this.analyticsService.calculateEngagementScore(subscriberId);
 
     return {
       ...engagement,
@@ -67,8 +78,8 @@ export class PredictiveAnalyticsController {
   /**
    * Get churn risk analysis
    */
-  @Get('churn-risk/subscriber/:subscriberId')
-  async getChurnRisk(@Param('subscriberId') subscriberId: string) {
+  @Get("churn-risk/subscriber/:subscriberId")
+  async getChurnRisk(@Param("subscriberId") subscriberId: string) {
     const risk = await this.analyticsService.calculateChurnRisk(subscriberId);
 
     return {
@@ -76,7 +87,8 @@ export class PredictiveAnalyticsController {
       visual: {
         riskColor: this.getRiskColor(risk.riskLevel),
         daysUntilChurn: Math.round(
-          (risk.predictedChurnDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+          (risk.predictedChurnDate.getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
         ),
       },
       urgency: this.getUrgencyLevel(risk.riskLevel),
@@ -86,22 +98,22 @@ export class PredictiveAnalyticsController {
   /**
    * Get AI-powered insights
    */
-  @Get('insights')
-  async getAIInsights(@Query('campaignId') campaignId?: string) {
+  @Get("insights")
+  async getAIInsights(@Query("campaignId") campaignId?: string) {
     const insights = await this.analyticsService.generateAIInsights(campaignId);
 
     return {
       insights,
       summary: {
         totalInsights: insights.length,
-        actionableInsights: insights.filter(i => i.actionable).length,
-        highImpactInsights: insights.filter(i => i.impact === 'high').length,
+        actionableInsights: insights.filter((i) => i.actionable).length,
+        highImpactInsights: insights.filter((i) => i.impact === "high").length,
       },
       categories: {
-        trends: insights.filter(i => i.type === 'trend'),
-        warnings: insights.filter(i => i.type === 'warning'),
-        opportunities: insights.filter(i => i.type === 'opportunity'),
-        anomalies: insights.filter(i => i.type === 'anomaly'),
+        trends: insights.filter((i) => i.type === "trend"),
+        warnings: insights.filter((i) => i.type === "warning"),
+        opportunities: insights.filter((i) => i.type === "opportunity"),
+        anomalies: insights.filter((i) => i.type === "anomaly"),
       },
     };
   }
@@ -109,7 +121,7 @@ export class PredictiveAnalyticsController {
   /**
    * Get dashboard metrics
    */
-  @Get('dashboard')
+  @Get("dashboard")
   async getDashboardMetrics() {
     const metrics = await this.analyticsService.getDashboardMetrics();
 
@@ -124,13 +136,10 @@ export class PredictiveAnalyticsController {
         riskAlert: {
           show: metrics.atRiskSubscribers > 20,
           message: `%${metrics.atRiskSubscribers} abone risk altında`,
-          severity: metrics.atRiskSubscribers > 30 ? 'high' : 'medium',
+          severity: metrics.atRiskSubscribers > 30 ? "high" : "medium",
         },
-        growthIndicator: {
-          value: metrics.predictedMonthlyGrowth,
-          isPositive: metrics.predictedMonthlyGrowth > 0,
-          percentage: Math.round((metrics.predictedMonthlyGrowth / 1000) * 100),
-        },
+        // No growth forecast is computed yet.
+        growthIndicator: null,
       },
       recommendations: this.getDashboardRecommendations(metrics),
     };
@@ -140,65 +149,65 @@ export class PredictiveAnalyticsController {
    * Helper methods
    */
   private getPerformanceLevel(score: number): string {
-    if (score >= 80) return 'Mükemmel';
-    if (score >= 60) return 'İyi';
-    if (score >= 40) return 'Orta';
-    if (score >= 20) return 'Düşük';
-    return 'Kritik';
+    if (score >= 80) return "Mükemmel";
+    if (score >= 60) return "İyi";
+    if (score >= 40) return "Orta";
+    if (score >= 20) return "Düşük";
+    return "Kritik";
   }
 
   private getScoreColor(score: number): string {
-    if (score >= 70) return '#10b981'; // Green
-    if (score >= 40) return '#f59e0b'; // Yellow
-    return '#ef4444'; // Red
+    if (score >= 70) return "#10b981"; // Green
+    if (score >= 40) return "#f59e0b"; // Yellow
+    return "#ef4444"; // Red
   }
 
   private getCategoryIcon(category: string): string {
     switch (category) {
-      case 'highly-engaged':
-        return '🌟';
-      case 'moderately-engaged':
-        return '✨';
-      case 'at-risk':
-        return '⚠️';
-      case 'inactive':
-        return '😴';
+      case "highly-engaged":
+        return "🌟";
+      case "moderately-engaged":
+        return "✨";
+      case "at-risk":
+        return "⚠️";
+      case "inactive":
+        return "😴";
       default:
-        return '📊';
+        return "📊";
     }
   }
 
   private getEngagementTrend(score: number): string {
-    if (score >= 70) return 'trending_up';
-    if (score >= 40) return 'trending_flat';
-    return 'trending_down';
+    if (score >= 70) return "trending_up";
+    if (score >= 40) return "trending_flat";
+    return "trending_down";
   }
 
   private getEngagementRecommendations(category: string): string[] {
     switch (category) {
-      case 'highly-engaged':
+      case "highly-engaged":
         return [
-          'VIP programına dahil edin',
-          'Özel içerik ve teklifler gönderin',
-          'Referans programına davet edin',
+          "VIP programına dahil edin",
+          "Özel içerik ve teklifler gönderin",
+          "Referans programına davet edin",
         ];
-      case 'moderately-engaged':
+      case "moderately-engaged":
         return [
-          'Engagement artırıcı içerik gönderin',
-          'Anket ile geri bildirim toplayın',
-          'Kişiselleştirilmiş öneriler sunun',
+          "Engagement artırıcı içerik gönderin",
+          "Anket ile geri bildirim toplayın",
+          "Kişiselleştirilmiş öneriler sunun",
         ];
-      case 'at-risk':
+      case "at-risk":
         return [
-          'Re-engagement kampanyası başlatın',
-          'Email sıklığını azaltın',
-          'Tercih merkezi sunun',
+          "Re-engagement kampanyası başlatın",
+          "Email sıklığını azaltın",
+          "Tercih merkezi sunun",
         ];
-      case 'inactive':
+      case "inactive":
         return [
-          'Win-back kampanyası gönderin',
-          'Son bir şans emaili gönderin',
-          'Listeden çıkarmayı düşünün',
+          "Win-back kampanyası gönderin",
+          "Son bir şans emaili gönderin",
+          "Listeden çıkarmayı düşünün",
         ];
       default:
         return [];
@@ -207,54 +216,52 @@ export class PredictiveAnalyticsController {
 
   private getRiskColor(riskLevel: string): string {
     switch (riskLevel) {
-      case 'critical':
-        return '#dc2626'; // Dark red
-      case 'high':
-        return '#ef4444'; // Red
-      case 'medium':
-        return '#f59e0b'; // Yellow
-      case 'low':
-        return '#10b981'; // Green
+      case "critical":
+        return "#dc2626"; // Dark red
+      case "high":
+        return "#ef4444"; // Red
+      case "medium":
+        return "#f59e0b"; // Yellow
+      case "low":
+        return "#10b981"; // Green
       default:
-        return '#6b7280'; // Gray
+        return "#6b7280"; // Gray
     }
   }
 
   private getUrgencyLevel(riskLevel: string): string {
     switch (riskLevel) {
-      case 'critical':
-        return 'Acil Aksiyon Gerekli';
-      case 'high':
-        return 'Yüksek Öncelik';
-      case 'medium':
-        return 'Orta Öncelik';
-      case 'low':
-        return 'Düşük Öncelik';
+      case "critical":
+        return "Acil Aksiyon Gerekli";
+      case "high":
+        return "Yüksek Öncelik";
+      case "medium":
+        return "Orta Öncelik";
+      case "low":
+        return "Düşük Öncelik";
       default:
-        return 'Belirsiz';
+        return "Belirsiz";
     }
   }
 
   private getEngagementLabel(score: number): string {
-    if (score >= 70) return 'Mükemmel Etkileşim';
-    if (score >= 50) return 'İyi Etkileşim';
-    if (score >= 30) return 'Orta Etkileşim';
-    return 'Düşük Etkileşim';
+    if (score >= 70) return "Mükemmel Etkileşim";
+    if (score >= 50) return "İyi Etkileşim";
+    if (score >= 30) return "Orta Etkileşim";
+    return "Düşük Etkileşim";
   }
 
   private getDashboardRecommendations(metrics: any): string[] {
     const recommendations: string[] = [];
 
     if (metrics.averageEngagementScore < 50) {
-      recommendations.push('Genel engagement stratejinizi gözden geçirin');
+      recommendations.push("Genel engagement stratejinizi gözden geçirin");
     }
 
     if (metrics.atRiskSubscribers > 20) {
-      recommendations.push('Risk altındaki aboneler için özel kampanya başlatın');
-    }
-
-    if (metrics.predictedMonthlyGrowth < 100) {
-      recommendations.push('Yeni abone kazanım stratejileri geliştirin');
+      recommendations.push(
+        "Risk altındaki aboneler için özel kampanya başlatın",
+      );
     }
 
     metrics.insights.forEach((insight: any) => {

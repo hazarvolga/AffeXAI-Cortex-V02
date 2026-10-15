@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailOpenHistory } from '../entities/email-open-history.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { TenantService } from '../../../core/tenant/tenant.service';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EmailOpenHistory } from "../entities/email-open-history.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { TenantService } from "../../../core/tenant/tenant.service";
 
 interface OptimalTimeResult {
   subscriberId: string;
@@ -17,7 +17,9 @@ interface OptimalTimeResult {
 interface GlobalOptimalTime {
   hour: number;
   dayOfWeek: number;
-  averageOpenRate: number;
+  /** Opens are recorded, sends per slot are not, so no open rate can be measured yet. */
+  averageOpenRate: number | null;
+  basedOnOpens: number;
 }
 
 @Injectable()
@@ -28,10 +30,12 @@ export class SendTimeOptimizationService {
     @InjectRepository(Subscriber)
     private readonly subscriberRepository: Repository<Subscriber>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private getTenantId(): string {
-    return this.tenantService.getTenantId() || 'default';
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
   }
 
   /**
@@ -45,7 +49,7 @@ export class SendTimeOptimizationService {
     // Abonenin email açma geçmişini al
     const history = await this.openHistoryRepository.find({
       where: { subscriberId, tenantId },
-      order: { openedAt: 'DESC' },
+      order: { openedAt: "DESC" },
       take: 100, // Son 100 açılmayı al
     });
 
@@ -57,7 +61,7 @@ export class SendTimeOptimizationService {
         optimalHour: globalOptimal.hour,
         optimalDayOfWeek: globalOptimal.dayOfWeek,
         confidence: 0.3, // Düşük güven skoru
-        timezone: 'UTC',
+        timezone: "UTC",
         basedOnDataPoints: history.length,
       };
     }
@@ -65,7 +69,7 @@ export class SendTimeOptimizationService {
     // Saat bazlı açılma dağılımı
     const hourDistribution: Record<number, number> = {};
     const dayDistribution: Record<number, number> = {};
-    let mostCommonTimezone = 'UTC';
+    let mostCommonTimezone = "UTC";
 
     history.forEach((record) => {
       if (record.hourOfDay !== null) {
@@ -109,7 +113,8 @@ export class SendTimeOptimizationService {
 
     // Her abone için optimal zamanı hesapla
     for (const subscriberId of subscriberIds) {
-      const optimalTime = await this.calculateOptimalTimeForSubscriber(subscriberId);
+      const optimalTime =
+        await this.calculateOptimalTimeForSubscriber(subscriberId);
       allOptimalTimes.push(optimalTime);
 
       // Bireysel optimal zamanı hesapla
@@ -137,39 +142,32 @@ export class SendTimeOptimizationService {
   async calculateGlobalOptimalTime(): Promise<GlobalOptimalTime> {
     const tenantId = this.getTenantId();
     const result = await this.openHistoryRepository
-      .createQueryBuilder('history')
-      .select('history.hourOfDay', 'hour')
-      .addSelect('history.dayOfWeek', 'day')
-      .addSelect('COUNT(*)', 'count')
-      .where('history.tenantId = :tenantId', { tenantId })
-      .andWhere('history.hourOfDay IS NOT NULL')
-      .andWhere('history.dayOfWeek IS NOT NULL')
-      .groupBy('history.hourOfDay')
-      .addGroupBy('history.dayOfWeek')
-      .orderBy('count', 'DESC')
+      .createQueryBuilder("history")
+      .select("history.hourOfDay", "hour")
+      .addSelect("history.dayOfWeek", "day")
+      .addSelect("COUNT(*)", "count")
+      .where("history.tenantId = :tenantId", { tenantId })
+      .andWhere("history.hourOfDay IS NOT NULL")
+      .andWhere("history.dayOfWeek IS NOT NULL")
+      .groupBy("history.hourOfDay")
+      .addGroupBy("history.dayOfWeek")
+      .orderBy("count", "DESC")
       .limit(1)
       .getRawOne();
 
     if (!result) {
-      // Varsayılan: Salı sabah 10:00
-      return {
-        hour: 10,
-        dayOfWeek: 2,
-        averageOpenRate: 0.25,
-      };
+      // No opens yet: Tuesday 10:00 as a neutral default, marked as based on nothing.
+      return { hour: 10, dayOfWeek: 2, averageOpenRate: null, basedOnOpens: 0 };
     }
 
-    // Calculate real average open rate from history count vs total emails
     const totalOpens = await this.openHistoryRepository.count({
-      where: { tenantId }
+      where: { tenantId },
     });
-    // Estimate average open rate based on typical industry standards and data available
-    const estimatedOpenRate = totalOpens > 0 ? Math.min(totalOpens / (totalOpens * 4), 0.35) : 0.25;
-
     return {
-      hour: parseInt(result.hour),
-      dayOfWeek: parseInt(result.day),
-      averageOpenRate: Math.round(estimatedOpenRate * 100) / 100,
+      hour: parseInt(result.hour, 10),
+      dayOfWeek: parseInt(result.day, 10),
+      averageOpenRate: null,
+      basedOnOpens: totalOpens,
     };
   }
 
@@ -210,31 +208,31 @@ export class SendTimeOptimizationService {
    * Belirli bir segment için optimal gönderim zamanı önerileri
    */
   async getSegmentOptimalTimes(segmentId: string): Promise<{
+    segmentId: string;
+    scope: "tenant";
+    basedOnOpens: number;
     recommendations: Array<{
       time: string;
-      expectedOpenRate: number;
+      expectedOpenRate: number | null;
       reason: string;
     }>;
   }> {
-    // NOTE: Segment-based analysis planned for future when Segment entity is fully integrated
+    // Segment-level analysis does not exist yet; recommend from the tenant's opens and say so.
     const globalOptimal = await this.calculateGlobalOptimalTime();
+    const reason =
+      globalOptimal.basedOnOpens > 0
+        ? `Kiracının ${globalOptimal.basedOnOpens} açılmasına göre; segment bazında analiz henüz yok`
+        : "Henüz açılma verisi yok; varsayılan zaman";
 
     return {
+      segmentId,
+      scope: "tenant",
+      basedOnOpens: globalOptimal.basedOnOpens,
       recommendations: [
         {
           time: `${this.getDayName(globalOptimal.dayOfWeek)} ${globalOptimal.hour}:00`,
-          expectedOpenRate: 0.28,
-          reason: 'Segmentinizin en aktif olduğu zaman',
-        },
-        {
-          time: `${this.getDayName((globalOptimal.dayOfWeek + 1) % 7)} ${globalOptimal.hour}:00`,
-          expectedOpenRate: 0.24,
-          reason: 'İkinci en iyi alternatif',
-        },
-        {
-          time: `${this.getDayName(globalOptimal.dayOfWeek)} ${(globalOptimal.hour + 2) % 24}:00`,
-          expectedOpenRate: 0.22,
-          reason: 'Farklı zaman dilimindeki aboneler için',
+          expectedOpenRate: null,
+          reason,
         },
       ],
     };
@@ -260,9 +258,10 @@ export class SendTimeOptimizationService {
   /**
    * Ağırlıklı ortalama hesaplar
    */
-  private calculateWeightedAverage(
-    times: OptimalTimeResult[],
-  ): { hour: number; dayOfWeek: number } {
+  private calculateWeightedAverage(times: OptimalTimeResult[]): {
+    hour: number;
+    dayOfWeek: number;
+  } {
     let totalWeight = 0;
     let weightedHour = 0;
     let weightedDay = 0;
@@ -311,7 +310,15 @@ export class SendTimeOptimizationService {
    * Gün numarasından gün adını döndürür
    */
   private getDayName(dayNumber: number): string {
-    const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    const days = [
+      "Pazar",
+      "Pazartesi",
+      "Salı",
+      "Çarşamba",
+      "Perşembe",
+      "Cuma",
+      "Cumartesi",
+    ];
     return days[dayNumber];
   }
 }

@@ -1,14 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailAutomation, WorkflowStep } from '../entities/email-automation.entity';
-import { AutomationExecution, ExecutionStatus, StepResult } from '../entities/automation-execution.entity';
-import { AutomationSchedule, ScheduleStatus } from '../entities/automation-schedule.entity';
-import { Subscriber } from '../entities/subscriber.entity';
-import { EmailCampaignService } from '../email-campaign.service';
-import { TenantService } from '../../../core/tenant/tenant.service';
-import { Organization } from '../../organizations/entities/organization.entity';
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import {
+  EmailAutomation,
+  WorkflowStep,
+} from "../entities/email-automation.entity";
+import {
+  AutomationExecution,
+  ExecutionStatus,
+  StepResult,
+} from "../entities/automation-execution.entity";
+import {
+  AutomationSchedule,
+  ScheduleStatus,
+} from "../entities/automation-schedule.entity";
+import { Subscriber } from "../entities/subscriber.entity";
+import { EmailCampaignService } from "../email-campaign.service";
+import { TenantService } from "../../../core/tenant/tenant.service";
+import { Organization } from "../../organizations/entities/organization.entity";
 
 /**
  * Workflow Executor Service
@@ -31,14 +41,26 @@ export class WorkflowExecutorService {
     private organizationRepo: Repository<Organization>,
     private emailCampaignService: EmailCampaignService,
     private tenantService: TenantService,
-  ) { }
+  ) {}
 
   /**
    * Get current tenant ID from TenantService
    * @private
    */
   private getActiveTenantId(): string {
-    return this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
+    return tenantId;
+  }
+
+  /** First step to run: the start of the workflow, or the step after the last recorded one. */
+  private resumeStep(
+    automation: EmailAutomation,
+    execution: AutomationExecution,
+  ): WorkflowStep | null {
+    const last = execution.getLastStepResult();
+    if (!last) return automation.getFirstStep();
+    return automation.getNextStep(last.stepId, last.data?.conditionResult);
   }
 
   /**
@@ -50,7 +72,9 @@ export class WorkflowExecutorService {
     triggerId?: string,
   ): Promise<AutomationExecution> {
     const tenantId = this.getActiveTenantId();
-    this.logger.log(`Starting workflow execution for automation ${automationId}, subscriber ${subscriberId} for tenant ${tenantId}`);
+    this.logger.log(
+      `Starting workflow execution for automation ${automationId}, subscriber ${subscriberId} for tenant ${tenantId}`,
+    );
 
     const automation = await this.automationRepo.findOne({
       where: { id: automationId, tenantId },
@@ -83,7 +107,10 @@ export class WorkflowExecutorService {
 
     // Start execution asynchronously
     this.processExecution(savedExecution.id).catch((error) => {
-      this.logger.error(`Failed to process execution ${savedExecution.id}:`, error);
+      this.logger.error(
+        `Failed to process execution ${savedExecution.id}:`,
+        error,
+      );
     });
 
     return savedExecution;
@@ -96,7 +123,7 @@ export class WorkflowExecutorService {
     const tenantId = this.getActiveTenantId();
     const execution = await this.executionRepo.findOne({
       where: { id: executionId, tenantId },
-      relations: ['automation', 'subscriber'],
+      relations: ["automation", "subscriber"],
     });
 
     if (!execution) {
@@ -110,11 +137,13 @@ export class WorkflowExecutorService {
       execution.start();
       await this.executionRepo.save(execution);
 
-      let currentStep = automation.getFirstStep();
-      let stepIndex = 0;
+      let currentStep = this.resumeStep(automation, execution);
+      let stepIndex = execution.stepResults.length;
 
       while (currentStep) {
-        this.logger.debug(`Executing step ${currentStep.id} (${currentStep.type})`);
+        this.logger.debug(
+          `Executing step ${currentStep.id} (${currentStep.type})`,
+        );
 
         const stepResult = await this.executeStep(
           currentStep,
@@ -127,15 +156,23 @@ export class WorkflowExecutorService {
         await this.executionRepo.save(execution);
 
         // Check if step failed
-        if (stepResult.status === 'failed') {
-          execution.fail(stepResult.error || 'Step execution failed');
+        if (stepResult.status === "failed") {
+          execution.fail(stepResult.error || "Step execution failed");
           await this.executionRepo.save(execution);
           break;
         }
 
         // Check for exit step
-        if (currentStep.type === 'exit') {
+        if (currentStep.type === "exit") {
           break;
+        }
+
+        // A delay parks the execution; the scheduler resumes it after the delay.
+        if (currentStep.type === "delay") {
+          this.logger.debug(
+            `Execution ${executionId} waits after step ${currentStep.id}`,
+          );
+          return;
         }
 
         // Get next step
@@ -145,7 +182,7 @@ export class WorkflowExecutorService {
 
         // Safety check for infinite loops
         if (stepIndex > 100) {
-          execution.fail('Maximum step limit reached (100 steps)');
+          execution.fail("Maximum step limit reached (100 steps)");
           await this.executionRepo.save(execution);
           break;
         }
@@ -158,12 +195,17 @@ export class WorkflowExecutorService {
         this.logger.log(`Execution ${executionId} completed successfully`);
       }
 
-      // Update automation statistics
-      automation.updateStatistics(execution);
-      await this.automationRepo.save(automation);
+      // Update automation statistics once the execution has finished
+      if (
+        execution.status === ExecutionStatus.COMPLETED ||
+        execution.status === ExecutionStatus.FAILED
+      ) {
+        automation.updateStatistics(execution);
+        await this.automationRepo.save(automation);
+      }
     } catch (error) {
       this.logger.error(`Error processing execution ${executionId}:`, error);
-      execution.fail(error.message || 'Unknown error');
+      execution.fail(error.message || "Unknown error");
       await this.executionRepo.save(execution);
     }
   }
@@ -183,24 +225,29 @@ export class WorkflowExecutorService {
       let result: any = {};
 
       switch (step.type) {
-        case 'send_email':
+        case "send_email":
           result = await this.executeSendEmail(step, subscriber);
           break;
 
-        case 'delay':
-          result = await this.executeDelay(step, automation, subscriber, execution);
+        case "delay":
+          result = await this.executeDelay(
+            step,
+            automation,
+            subscriber,
+            execution,
+          );
           break;
 
-        case 'condition':
+        case "condition":
           result = await this.executeCondition(step, subscriber);
           break;
 
-        case 'split':
+        case "split":
           result = await this.executeSplit(step, subscriber);
           break;
 
-        case 'exit':
-          result = { message: 'Workflow exit' };
+        case "exit":
+          result = { message: "Workflow exit" };
           break;
 
         default:
@@ -213,7 +260,7 @@ export class WorkflowExecutorService {
       return {
         stepId: step.id,
         stepType: step.type,
-        status: 'completed',
+        status: "completed",
         startedAt,
         completedAt,
         executionTime,
@@ -226,11 +273,11 @@ export class WorkflowExecutorService {
       return {
         stepId: step.id,
         stepType: step.type,
-        status: 'failed',
+        status: "failed",
         startedAt,
         completedAt,
         executionTime,
-        error: error.message || 'Step execution failed',
+        error: error.message || "Step execution failed",
       };
     }
   }
@@ -242,21 +289,18 @@ export class WorkflowExecutorService {
     step: WorkflowStep,
     subscriber: Subscriber,
   ): Promise<any> {
-    const { templateId, subject, content, fromName } = step.config;
+    const { templateId, subject } = step.config;
 
-    // Send email using EmailCampaignService
-    // This is simplified - you'd integrate with your actual email sending logic
-    this.logger.debug(`Sending email to ${subscriber.email}: ${subject || 'from template'}`);
-
-    // Simulate email sending
-    const emailId = `email-${Date.now()}`;
+    // Delivery is not wired to the mail queue yet; the result says so instead of claiming a send.
+    this.logger.warn(
+      `Automation email to ${subscriber.email} not delivered: automation sending is not connected`,
+    );
 
     return {
-      emailId,
+      simulated: true,
       recipient: subscriber.email,
       subject,
       templateId,
-      sentAt: new Date(),
     };
   }
 
@@ -272,7 +316,7 @@ export class WorkflowExecutorService {
     const { duration } = step.config; // duration in minutes
 
     if (!duration || duration <= 0) {
-      throw new Error('Invalid delay duration');
+      throw new Error("Invalid delay duration");
     }
 
     const scheduledFor = new Date();
@@ -313,13 +357,15 @@ export class WorkflowExecutorService {
     const { condition } = step.config;
 
     if (!condition) {
-      throw new Error('Condition not specified');
+      throw new Error("Condition not specified");
     }
 
     // Evaluate condition
     const conditionResult = this.evaluateCondition(condition, subscriber);
 
-    this.logger.debug(`Condition "${condition}" evaluated to: ${conditionResult}`);
+    this.logger.debug(
+      `Condition "${condition}" evaluated to: ${conditionResult}`,
+    );
 
     return {
       condition,
@@ -337,7 +383,7 @@ export class WorkflowExecutorService {
     const { splitPercentages } = step.config;
 
     if (!splitPercentages || !Array.isArray(splitPercentages)) {
-      throw new Error('Split percentages not configured');
+      throw new Error("Split percentages not configured");
     }
 
     // Random variant selection based on percentages
@@ -365,28 +411,34 @@ export class WorkflowExecutorService {
   /**
    * Evaluate condition expression
    */
-  private evaluateCondition(condition: string, subscriber: Subscriber): boolean {
+  private evaluateCondition(
+    condition: string,
+    subscriber: Subscriber,
+  ): boolean {
     try {
       // Simple condition evaluation
       // Format: "field operator value" (e.g., "status equals active")
-      const parts = condition.split(' ');
+      const parts = condition.split(" ");
       if (parts.length !== 3) {
-        throw new Error('Invalid condition format');
+        throw new Error("Invalid condition format");
       }
 
       const [field, operator, value] = parts;
       const subscriberValue = subscriber[field];
 
       switch (operator) {
-        case 'equals':
+        case "equals":
           return subscriberValue === value;
-        case 'not_equals':
+        case "not_equals":
           return subscriberValue !== value;
-        case 'contains':
-          return typeof subscriberValue === 'string' && subscriberValue.includes(value);
-        case 'greater_than':
+        case "contains":
+          return (
+            typeof subscriberValue === "string" &&
+            subscriberValue.includes(value)
+          );
+        case "greater_than":
           return Number(subscriberValue) > Number(value);
-        case 'less_than':
+        case "less_than":
           return Number(subscriberValue) < Number(value);
         default:
           throw new Error(`Unknown operator: ${operator}`);
@@ -426,7 +478,7 @@ export class WorkflowExecutorService {
       });
 
       if (!execution) {
-        throw new Error('Execution not found');
+        throw new Error("Execution not found");
       }
 
       // Resume processing
@@ -438,7 +490,10 @@ export class WorkflowExecutorService {
       schedule.markAsCompleted();
       await this.scheduleRepo.save(schedule);
     } catch (error) {
-      this.logger.error(`Failed to resume execution from schedule ${scheduleId}:`, error);
+      this.logger.error(
+        `Failed to resume execution from schedule ${scheduleId}:`,
+        error,
+      );
       schedule.markAsFailed(error.message);
       await this.scheduleRepo.save(schedule);
     }
@@ -449,27 +504,36 @@ export class WorkflowExecutorService {
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async processPendingSchedules(): Promise<void> {
-    this.logger.log('Processing pending schedules...');
+    this.logger.log("Processing pending schedules...");
 
-    const activeOrganizations = await this.organizationRepo.find({ where: { isActive: true } });
+    const activeOrganizations = await this.organizationRepo.find({
+      where: { isActive: true },
+    });
 
     for (const org of activeOrganizations) {
-      await this.tenantService.runWithTenant({ tenantId: org.slug, source: 'system' }, async () => {
-        const pendingSchedules = await this.scheduleRepo
-          .createQueryBuilder('schedule')
-          .where('schedule.status = :status', { status: ScheduleStatus.PENDING })
-          .andWhere('schedule.tenantId = :tenantId', { tenantId: org.slug })
-          .andWhere('schedule.scheduledFor <= :now', { now: new Date() })
-          .limit(100)
-          .getMany();
+      await this.tenantService.runWithTenant(
+        { tenantId: org.slug, source: "system" },
+        async () => {
+          const pendingSchedules = await this.scheduleRepo
+            .createQueryBuilder("schedule")
+            .where("schedule.status = :status", {
+              status: ScheduleStatus.PENDING,
+            })
+            .andWhere("schedule.tenantId = :tenantId", { tenantId: org.slug })
+            .andWhere("schedule.scheduledFor <= :now", { now: new Date() })
+            .limit(100)
+            .getMany();
 
-        if (pendingSchedules.length > 0) {
-          this.logger.log(`Processing ${pendingSchedules.length} pending schedules for tenant ${org.slug}`);
-          for (const schedule of pendingSchedules) {
-            await this.resumeExecution(schedule.id);
+          if (pendingSchedules.length > 0) {
+            this.logger.log(
+              `Processing ${pendingSchedules.length} pending schedules for tenant ${org.slug}`,
+            );
+            for (const schedule of pendingSchedules) {
+              await this.resumeExecution(schedule.id);
+            }
           }
-        }
-      });
+        },
+      );
     }
   }
 }

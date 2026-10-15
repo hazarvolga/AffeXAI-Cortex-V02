@@ -481,3 +481,11 @@ Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mev
 - **Kırık cron'lar:** "pasif abone" sorgusu olmayan `email_logs.subscriberId` sütununa bağlanıyordu (her saat SQL hatası) ve aynı aboneyi her saat yeniden kuyruğa alırdı; `recipient_email` üzerinden `NOT EXISTS` ile yazıldı, bekleyen tetik varsa atlanır. Doğum günü tetikleyicisi olmayan `birthday` sütununu okuyordu; sütun gelene kadar uyarıyla atlanıyor (S3'te karar).
 - **Koşullar:** olay verisindeki `0`/`false`/`''` değerleri abone alanına düşüyordu; artık olay değeri önce gelir.
 - **Kuyruk durumu:** `getQueueStatus` tüm tamamlanmış işleri belleğe çekip sayıyordu; `getJobCounts` kullanılıyor.
+
+### Sprint 1 P1 — email-marketing spec'leri, 3. parti (2026-10-15)
+
+- **Otomasyon akışı:** `delay` adımı yürütmeyi durdurmuyordu; sonraki adımlar hemen çalışıyor, zamanlayıcı sonra akışı baştan yeniden başlatıp yeni gecikme kuruyordu (tekrarlanan e-posta + sonsuz döngü). Artık gecikmede durur, devam ederken son kaydedilen adımdan sonrakinden sürer. `updateStatistics` yüklenmemiş `executions` ilişkisini okuyup başarılı yürütmeyi FAILED'a çeviriyordu; istatistik artık koşu değerleriyle ve yalnız bitmiş yürütmede güncelleniyor.
+- **Dürüst veri:** otomasyon `send_email` adımı gerçekte göndermiyor (posta kuyruğuna bağlı değil) ama "gönderildi" diyordu; sonuç `simulated: true`. Bağlantı S3 işi. Gönderim zamanı servisinde `averageOpenRate` her zaman 0.25 çıkan bir formüldü, segment önerileri sabit oranlar ve "segmentinizin en aktif zamanı" iddiası taşıyordu; tahmin panosu sabit "VIP Müşteriler 85" segmentleri ve %5 büyüme uyduruyordu. Hepsi `null`/boş ve kapsamı söyleyen metinle değişti; "otomatik saat dilimi ayarı", `aiPowered: true` gibi doğru olmayan ifadeler kaldırıldı.
+- **Kiracı:** gönderim zamanı ve tahmin servisleri bağlam yoksa `'default'` kiracısına düşüyordu; artık 401.
+- **S3 için not:** kampanya oluşturma sihirbazındaki "AI optimal zaman önerisi" istemci tarafında simüle ediliyor (`campaigns/new/page.tsx`).
+- **Bellek gözlemi:** ts-jest tam tip denetimi yaptığı için tek worker'lı 4 spec'lik koşu ~4,7 GB RSS'e çıktı. `isolatedModules` (yalnız transpile) belleği belirgin düşürür ama spec'lerin tip denetimini ayrı bir `tsc` adımına taşımayı gerektirir; karar bekliyor.
