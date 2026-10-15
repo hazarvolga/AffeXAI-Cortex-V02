@@ -53,7 +53,9 @@ services:
       PORT: 9006
       NODE_ENV: production
       CORS_ORIGINS: https://${FRONTEND_HOST}
-      TRUST_PROXY_HOPS: 1
+      # Trust the private Docker network (Traefik, Next.js rewrite) so req.ip is the browser's
+      # address on both the direct and the /api-through-Next path. Override if a CDN fronts Traefik.
+      TRUST_PROXY_SUBNETS: ${TRUST_PROXY_SUBNETS:-loopback,linklocal,uniquelocal}
 
     labels:
       - "traefik.enable=true"

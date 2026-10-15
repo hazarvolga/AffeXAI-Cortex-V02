@@ -445,3 +445,11 @@ Açık: backend başıboş Next.js kopyası; eski oturum anahtarlarının kaldı
 - **Kabul testi:** `scripts/acceptance/bcc-honesty.cjs` (`BCC_ACCEPTANCE_ISOLATED=1`); konsol adımı izole stack'te `PLATFORM_ADMIN_USER_IDS`'teki kimlikle fikstür kullanıcısı oluşturur. `tenant-routes.cjs` artık `brand` kümesini de kapsar.
 
 Açık: G4 sonrası gerçek öneri ve onay akışı; sosyal medya migration'ı; `/editorial-console` sunucu tarafı koruma.
+
+## İstemci IP'si ve hız sınırı (TRUST_PROXY) — 2026-10-15
+
+- **Sorun:** production'da `TRUST_PROXY_HOPS=1`. `/api` istekleri tarayıcı → Traefik → Next.js rewrite → backend yolundan geldiğinde Express yalnız Next'e güveniyor, `req.ip` Traefik'in iç adresi oluyordu; tüm kullanıcılar tek kovada 60/dk sınırını paylaşıyordu. Sabit hop sayısı aynı anda hem doğrudan (Traefik → backend) hem Next üzerinden gelen yolda doğru olamaz.
+- **Çözüm:** `TRUST_PROXY_SUBNETS` (önerilen; production ve apps compose'da varsayılan `loopback,linklocal,uniquelocal`). Express proxy'lerin bulunduğu özel ağa güvenir ve `X-Forwarded-For`'daki ilk genel adresi istemci sayar; hop sayısından bağımsızdır. `TRUST_PROXY_HOPS` geriye dönük olarak duruyor; ikisi birden verilirse backend açılmaz. Geçersiz ağ (`0.0.0.0/0`, `/33`, bilinmeyen kelime) reddedilir. Kod: `apps/backend/src/core/http/proxy-policy.ts`, `main.ts`.
+- **Doğrulama:** gerçek Express + supertest ile 15 test (eski ayarın hatayı yeniden ürettiği, iki yolda da doğru istemci, istemcinin kendi `X-Forwarded-For` değeriyle sahtecilik yapamadığı); izole stack'te Next üzerinden: A istemcisi 60 istekten sonra 429, B ayrı kovada, A'nın "B, A" sahte başlığı yine A sayıldı.
+- **Dikkat:** Traefik'in önünde CDN (Cloudflare vb.) varsa CDN'in IP aralıklarını `TRUST_PROXY_SUBNETS`'e eklemek gerekir; aksi halde CDN adresi istemci sayılır. Traefik `forwardedHeaders.trustedIPs` ayarı da yalnız bu kaynaklara güvenmeli.
+- **Ek:** `tenant-http.spec` üyelik kuralı (`hasUsableMembership`) sonradan eklendiği için kırıktı; mock kimlikler organizasyon üyeliği taşıyor, üyeliksiz hesap artık 401 bekliyor. Core suite'leri 278/278.

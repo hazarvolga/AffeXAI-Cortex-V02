@@ -52,6 +52,7 @@ services:
       JWT_SECRET: isolated-local-acceptance-secret-never-for-deployment
       CORTEX_SERVICE_SECRET: isolated-cortex-service-secret-never-for-deployment
       PLATFORM_ADMIN_USER_IDS: 7f9b2f7c-5ec4-4a67-8424-f0d20e89a693
+      TRUST_PROXY_SUBNETS: loopback,linklocal,uniquelocal
       CORTEX_URL: http://cortex-test:8000
       QDRANT_URL: http://qdrant-test:6333
       FRONTEND_URL: http://127.0.0.1:19003

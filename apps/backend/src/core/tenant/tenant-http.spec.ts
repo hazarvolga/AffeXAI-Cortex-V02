@@ -109,6 +109,17 @@ describe("HTTP tenant authorization boundary", () => {
                     isActive: true,
                     tokenVersion: 2,
                     roles: identity.roleNames.map((name) => ({ name })),
+                    // Sessions require membership of the active organisation owning the tenant.
+                    ...(identity.tenantId
+                      ? {
+                          organizationId: `org-${identity.tenantId}`,
+                          organization: {
+                            id: `org-${identity.tenantId}`,
+                            slug: identity.tenantId,
+                            isActive: true,
+                          },
+                        }
+                      : {}),
                     ...identity,
                   }
                 : null;
@@ -132,7 +143,13 @@ describe("HTTP tenant authorization boundary", () => {
   });
 
   const tokenFor = (sub: string, extra: Record<string, unknown> = {}) =>
-    jwt.sign({ sub, type: "access", tokenVersion: 2, tenantId: "untrusted-claim", ...extra });
+    jwt.sign({
+      sub,
+      type: "access",
+      tokenVersion: 2,
+      tenantId: "untrusted-claim",
+      ...extra,
+    });
 
   it("uses fresh identity without trusting the JWT tenant claim", async () => {
     const response = await request(app.getHttpServer())
@@ -243,7 +260,8 @@ describe("HTTP tenant authorization boundary", () => {
     await request(app.getHttpServer())
       .get("/tenant-proof/private")
       .auth(tokenFor("unassigned"), { type: "bearer" })
-      .expect(403);
+      // No organisation membership: the session itself is not accepted (session-eligibility).
+      .expect(401);
   });
 
   it("does not leak tenant context after asynchronous handler failure", async () => {
