@@ -8,6 +8,7 @@ import {
   legacyAdminTarget,
   tokenTenant,
 } from "./lib/auth/legacy-admin-redirect";
+import { readAccessToken } from "./lib/auth/session-keys";
 
 /**
  * Middleware for authentication, authorization, and optimizations
@@ -139,8 +140,7 @@ export async function middleware(request: NextRequest) {
   if (requiresAuth) {
     // Get auth token from cookies or headers
     const authToken =
-      request.cookies.get("auth_token")?.value ||
-      request.cookies.get("aluplan_access_token")?.value ||
+      readAccessToken((name) => request.cookies.get(name)?.value) ||
       request.headers.get("authorization")?.replace("Bearer ", "");
 
     // No token = redirect to login

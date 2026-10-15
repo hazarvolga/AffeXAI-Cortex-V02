@@ -1,8 +1,8 @@
-import { tenantFromPath } from '../auth/tenant-selection';
-import { API_CONFIG } from '@/config/api.config';
+import { tenantFromPath } from "../auth/tenant-selection";
+import { API_CONFIG } from "@/config/api.config";
 /**
  * Unified Type-Safe HTTP Client
- * 
+ *
  * Modern HTTP client with:
  * - Full TypeScript type safety using shared types
  * - Automatic authentication token injection
@@ -18,16 +18,27 @@ import axios, {
   AxiosError,
   AxiosResponse,
   InternalAxiosRequestConfig,
-} from 'axios';
-import type { ApiResponse } from '@affexai/shared-types';
+} from "axios";
+import type { ApiResponse } from "@affexai/shared-types";
+import {
+  ACCESS_TOKEN_KEY,
+  ACCESS_TOKEN_KEYS,
+  SESSION_STORAGE_KEYS,
+  readAccessToken,
+} from "../auth/session-keys";
 
 export function requiresAuthenticatedRoute(pathname: string): boolean {
-  const segments = pathname.split('/').filter(Boolean);
-  const section = segments[0] === 'admin' || segments[0] === 'portal' ? segments[0] : segments[1];
-  if (section === 'portal') return true;
-  if (section !== 'admin') return false;
-  const leaf = segments[0] === 'admin' ? segments[1] : segments[2];
-  return !['login', 'signup', 'forgot-password', 'unauthorized'].includes(leaf || '');
+  const segments = pathname.split("/").filter(Boolean);
+  const section =
+    segments[0] === "admin" || segments[0] === "portal"
+      ? segments[0]
+      : segments[1];
+  if (section === "portal") return true;
+  if (section !== "admin") return false;
+  const leaf = segments[0] === "admin" ? segments[1] : segments[2];
+  return !["login", "signup", "forgot-password", "unauthorized"].includes(
+    leaf || "",
+  );
 }
 
 // ============================================================================
@@ -62,14 +73,14 @@ export class ApiError extends Error {
   constructor(
     message: string,
     status: number = 0,
-    statusText: string = '',
+    statusText: string = "",
     data?: any,
     isNetworkError: boolean = false,
     isTimeoutError: boolean = false,
-    code?: string
+    code?: string,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.status = status;
     this.statusCode = status;
     this.statusText = statusText;
@@ -88,7 +99,7 @@ export class ApiError extends Error {
    * Extract error code from response data
    */
   private extractErrorCode(data: any): string | undefined {
-    if (data && typeof data === 'object') {
+    if (data && typeof data === "object") {
       return data.code || data.errorCode || data.error?.code;
     }
     return undefined;
@@ -100,7 +111,7 @@ export class ApiError extends Error {
   getUserMessage(): string {
     // Dynamic import to avoid circular dependency
     try {
-      const { getErrorMessage } = require('../errors/error-messages');
+      const { getErrorMessage } = require("../errors/error-messages");
       return getErrorMessage(this.code, this.status);
     } catch {
       // Fallback to basic messages if error-messages module not available
@@ -113,34 +124,34 @@ export class ApiError extends Error {
    */
   private getBasicMessage(): string {
     if (this.isNetworkError) {
-      return 'Network error. Please check your internet connection.';
+      return "Network error. Please check your internet connection.";
     }
 
     if (this.isTimeoutError) {
-      return 'Request timeout. The server is taking too long to respond.';
+      return "Request timeout. The server is taking too long to respond.";
     }
 
     if (this.status === 401) {
-      return 'Authentication required. Please log in.';
+      return "Authentication required. Please log in.";
     }
 
     if (this.status === 403) {
-      return 'Access denied. You do not have permission to perform this action.';
+      return "Access denied. You do not have permission to perform this action.";
     }
 
     if (this.status === 404) {
-      return 'Resource not found.';
+      return "Resource not found.";
     }
 
     if (this.status === 422) {
-      return 'Validation error. Please check your input.';
+      return "Validation error. Please check your input.";
     }
 
     if (this.status >= 500) {
-      return 'Server error. Please try again later.';
+      return "Server error. Please try again later.";
     }
 
-    return this.message || 'An unexpected error occurred.';
+    return this.message || "An unexpected error occurred.";
   }
 }
 
@@ -176,21 +187,25 @@ export class HttpClient {
       timeout: config?.timeout || 30000, // 30 seconds
       headers: config?.headers || {},
       withCredentials: config?.withCredentials ?? true,
-      enableLogging: config?.enableLogging ?? process.env.NODE_ENV === 'development',
+      enableLogging:
+        config?.enableLogging ?? process.env.NODE_ENV === "development",
       retryAttempts: config?.retryAttempts || 3,
       retryDelay: config?.retryDelay || 1000,
     };
 
     // DEBUG: Log the baseURL being used
-    console.log('🔧 HTTP Client initialized with baseURL:', this.config.baseURL);
-    console.log('🔧 Environment API URL:', process.env.NEXT_PUBLIC_API_URL);
+    console.log(
+      "🔧 HTTP Client initialized with baseURL:",
+      this.config.baseURL,
+    );
+    console.log("🔧 Environment API URL:", process.env.NEXT_PUBLIC_API_URL);
 
     // Create axios instance
     this.instance = axios.create({
       baseURL: this.config.baseURL,
       timeout: this.config.timeout,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...this.config.headers,
       },
       withCredentials: this.config.withCredentials,
@@ -206,8 +221,8 @@ export class HttpClient {
     this.setupResponseInterceptor();
 
     // Load auth token from localStorage (client-side only)
-    if (typeof window !== 'undefined') {
-      const storedToken = localStorage.getItem('auth_token');
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("auth_token");
       if (storedToken) {
         this.authToken = storedToken;
       }
@@ -220,14 +235,26 @@ export class HttpClient {
 
   private createDefaultLogger(): RequestLogger {
     const safePath = (url?: string) => {
-      const path = (url ?? '').split(/[?#]/, 1)[0];
-      if (/(?:^|\/)(?:auth|verify-email|reset-password|survey)(?:\/|$)/.test(path)) return '/auth/[redacted]';
+      const path = (url ?? "").split(/[?#]/, 1)[0];
+      if (
+        /(?:^|\/)(?:auth|verify-email|reset-password|survey)(?:\/|$)/.test(path)
+      )
+        return "/auth/[redacted]";
       return path;
     };
     return {
-      logRequest: config => console.log(`[HTTP] → ${config.method?.toUpperCase()} ${safePath(config.url)}`),
-      logResponse: response => console.log(`[HTTP] ← ${response.config.method?.toUpperCase()} ${safePath(response.config.url)} - ${response.status}`),
-      logError: error => console.error(`[HTTP] ✗ ${error.config?.method?.toUpperCase()} ${safePath(error.config?.url)} - ${error.response?.status ?? 'network'}`),
+      logRequest: (config) =>
+        console.log(
+          `[HTTP] → ${config.method?.toUpperCase()} ${safePath(config.url)}`,
+        ),
+      logResponse: (response) =>
+        console.log(
+          `[HTTP] ← ${response.config.method?.toUpperCase()} ${safePath(response.config.url)} - ${response.status}`,
+        ),
+      logError: (error) =>
+        console.error(
+          `[HTTP] ✗ ${error.config?.method?.toUpperCase()} ${safePath(error.config?.url)} - ${error.response?.status ?? "network"}`,
+        ),
     };
   }
 
@@ -243,34 +270,39 @@ export class HttpClient {
 
         // If no manual token, try multiple sources
         if (!token) {
-          if (typeof window !== 'undefined') {
+          if (typeof window !== "undefined") {
             // == Client-side Logic (localStorage) ==
             // Try localStorage first (primary source)
-            token = localStorage.getItem('auth_token');
-            console.log('🔐 HTTP Client: Token from localStorage:', !!token);
+            token = localStorage.getItem("auth_token");
+            console.log("🔐 HTTP Client: Token from localStorage:", !!token);
 
             // If still no token, try tokenStorage
             if (!token) {
               try {
-                const tokenStorageModule = require('../auth/token-storage');
-                const tokenStorage = tokenStorageModule.tokenStorage || tokenStorageModule.default;
+                const tokenStorageModule = require("../auth/token-storage");
+                const tokenStorage =
+                  tokenStorageModule.tokenStorage || tokenStorageModule.default;
                 token = tokenStorage?.getAccessToken();
-                console.log('🔐 HTTP Client: Token from tokenStorage:', !!token);
+                console.log(
+                  "🔐 HTTP Client: Token from tokenStorage:",
+                  !!token,
+                );
               } catch (error) {
-                console.log('🔐 HTTP Client: TokenStorage not available');
+                console.log("🔐 HTTP Client: TokenStorage not available");
               }
             }
           } else {
             // == Server-side Logic (Cookies) ==
             // Using dynamic import to avoid breaking client-side bundles
             try {
-              const { cookies } = require('next/headers');
+              const { cookies } = require("next/headers");
               const cookieStore = await cookies();
-              token = cookieStore.get('auth_token')?.value ||
-                cookieStore.get('aluplan_access_token')?.value;
+              token = readAccessToken((name) => cookieStore.get(name)?.value);
 
               if (token) {
-                console.log('🔐 HttpClient (Server): Authentication header initialized from cookies');
+                console.log(
+                  "🔐 HttpClient (Server): Authentication header initialized from cookies",
+                );
               }
             } catch (error) {
               // Silently fail if cookies() is called outside of supported server context
@@ -285,18 +317,21 @@ export class HttpClient {
 
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log('🔐 HTTP Client: Added Authorization header');
+          console.log("🔐 HTTP Client: Added Authorization header");
         } else {
-          console.log('🔐 HTTP Client: No token available for request');
-          if (typeof window !== 'undefined') {
-            console.log('🔐 HTTP Client: Debug - localStorage keys:', Object.keys(localStorage));
+          console.log("🔐 HTTP Client: No token available for request");
+          if (typeof window !== "undefined") {
+            console.log(
+              "🔐 HTTP Client: Debug - localStorage keys:",
+              Object.keys(localStorage),
+            );
           }
         }
 
         // Preserve an explicit selector; only known tenant-prefixed routes infer a hint.
-        if (typeof window !== 'undefined' && !config.headers['x-tenant-id']) {
+        if (typeof window !== "undefined" && !config.headers["x-tenant-id"]) {
           const tenant = tenantFromPath(window.location.pathname);
-          if (tenant) config.headers['x-tenant-id'] = tenant;
+          if (tenant) config.headers["x-tenant-id"] = tenant;
         }
 
         // Log request
@@ -311,7 +346,7 @@ export class HttpClient {
           this.logger.logError(error);
         }
         return Promise.reject(this.handleError(error));
-      }
+      },
     );
   }
 
@@ -342,20 +377,25 @@ export class HttpClient {
         return response;
       },
       async (error: AxiosError) => {
-        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+        const originalRequest = error.config as InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        };
 
         // If 401 error and not already retried, attempt token refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
           // Check if this is the refresh endpoint itself or the identity endpoint (avoid infinite loop)
-          if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/me')) {
-            console.error('🔄 Auth/Refresh endpoint failed, logging out');
+          if (
+            originalRequest.url?.includes("/auth/refresh") ||
+            originalRequest.url?.includes("/auth/me")
+          ) {
+            console.error("🔄 Auth/Refresh endpoint failed, logging out");
             await this.handleRefreshFailure();
             return Promise.reject(this.handleError(error));
           }
 
           // If already refreshing, wait for the refresh to complete
           if (this.isRefreshing) {
-            console.log('🔄 Token refresh in progress, queuing request');
+            console.log("🔄 Token refresh in progress, queuing request");
             return new Promise((resolve) => {
               this.addRefreshSubscriber((newToken: string) => {
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -368,32 +408,33 @@ export class HttpClient {
           this.isRefreshing = true;
 
           try {
-            console.log('🔄 Token expired, attempting refresh...');
+            console.log("🔄 Token expired, attempting refresh...");
 
             // Get refresh token from storage
             let refreshToken: string | null = null;
-            if (typeof window !== 'undefined') {
+            if (typeof window !== "undefined") {
               try {
-                const tokenStorageModule = require('../auth/token-storage');
-                const tokenStorage = tokenStorageModule.tokenStorage || tokenStorageModule.default;
+                const tokenStorageModule = require("../auth/token-storage");
+                const tokenStorage =
+                  tokenStorageModule.tokenStorage || tokenStorageModule.default;
                 refreshToken = tokenStorage?.getRefreshToken();
-                console.log('🔄 Refresh token found:', !!refreshToken);
+                console.log("🔄 Refresh token found:", !!refreshToken);
               } catch (error) {
-                console.error('Error accessing tokenStorage');
+                console.error("Error accessing tokenStorage");
               }
             }
 
-            if (!refreshToken && typeof window !== 'undefined') {
-              throw new Error('No refresh token available');
+            if (!refreshToken && typeof window !== "undefined") {
+              throw new Error("No refresh token available");
             }
 
             // If on server and no refresh token, we just fail gracefully (let client handle it)
             if (!refreshToken) {
-              throw new Error('No refresh token available on server context');
+              throw new Error("No refresh token available on server context");
             }
 
             // Call refresh endpoint
-            const response = await this.instance.post('/auth/refresh', {
+            const response = await this.instance.post("/auth/refresh", {
               refresh_token: refreshToken,
             });
 
@@ -401,29 +442,31 @@ export class HttpClient {
             const { access_token, refresh_token: newRefreshToken } = data;
 
             if (!access_token) {
-              throw new Error('No access token in refresh response');
+              throw new Error("No access token in refresh response");
             }
 
             // Update tokens in storage
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('auth_token', access_token);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("auth_token", access_token);
 
               try {
-                const tokenStorageModule = require('../auth/token-storage');
-                const tokenStorage = tokenStorageModule.tokenStorage || tokenStorageModule.default;
+                const tokenStorageModule = require("../auth/token-storage");
+                const tokenStorage =
+                  tokenStorageModule.tokenStorage || tokenStorageModule.default;
                 tokenStorage?.setAccessToken(access_token);
 
                 if (newRefreshToken) {
                   tokenStorage?.setRefreshToken(newRefreshToken);
                 }
               } catch (error) {
-                console.error('Error storing refreshed tokens');
+                console.error("Error storing refreshed tokens");
               }
             }
 
             // Update instance default header
             this.authToken = access_token;
-            this.instance.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+            this.instance.defaults.headers.common["Authorization"] =
+              `Bearer ${access_token}`;
 
             // Update the failed request with new token
             originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -432,7 +475,7 @@ export class HttpClient {
             this.onTokenRefreshed(access_token);
             this.isRefreshing = false;
 
-            console.log('✅ Token refreshed successfully');
+            console.log("✅ Token refreshed successfully");
 
             // Retry the original request
             return this.instance(originalRequest);
@@ -440,7 +483,7 @@ export class HttpClient {
             this.isRefreshing = false;
             this.refreshSubscribers = [];
 
-            console.error('❌ Token refresh failed');
+            console.error("❌ Token refresh failed");
             await this.handleRefreshFailure();
 
             return Promise.reject(this.handleError(error));
@@ -454,26 +497,26 @@ export class HttpClient {
 
         // Handle error
         return Promise.reject(this.handleError(error));
-      }
+      },
     );
   }
 
   private async handleRefreshFailure(): Promise<void> {
     // Clear all tokens
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const tokenStorageModule = require('../auth/token-storage');
-        const tokenStorage = tokenStorageModule.tokenStorage || tokenStorageModule.default;
+        const tokenStorageModule = require("../auth/token-storage");
+        const tokenStorage =
+          tokenStorageModule.tokenStorage || tokenStorageModule.default;
         tokenStorage?.clear();
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('aluplan_access_token');
+        SESSION_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
       } catch (error) {
-        console.error('Error clearing tokens');
+        console.error("Error clearing tokens");
       }
 
       if (requiresAuthenticatedRoute(window.location.pathname)) {
         const tenantId = tenantFromPath(window.location.pathname);
-        window.location.href = tenantId ? `/${tenantId}/login` : '/login';
+        window.location.href = tenantId ? `/${tenantId}/login` : "/login";
       }
     }
   }
@@ -485,16 +528,17 @@ export class HttpClient {
   private handleError(error: AxiosError): ApiError {
     // Network error (no response from server)
     if (!error.response) {
-      const isTimeoutError = error.code === 'ECONNABORTED';
-      const isNetworkError = error.code === 'ERR_NETWORK' || error.message.includes('Network Error');
+      const isTimeoutError = error.code === "ECONNABORTED";
+      const isNetworkError =
+        error.code === "ERR_NETWORK" || error.message.includes("Network Error");
 
       return new ApiError(
-        error.message || 'Network error occurred',
+        error.message || "Network error occurred",
         0,
-        '',
+        "",
         undefined,
         isNetworkError,
-        isTimeoutError
+        isTimeoutError,
       );
     }
 
@@ -509,42 +553,45 @@ export class HttpClient {
       response.statusText,
       response.data,
       false,
-      false
+      false,
     );
   }
 
   private extractErrorMessage(data: any): string {
     // Return string directly
-    if (typeof data === 'string') {
+    if (typeof data === "string") {
       return data;
     }
 
     // Extract message from object
-    if (data && typeof data === 'object') {
+    if (data && typeof data === "object") {
       // Check common error message properties - ensure they are strings
-      if (data.message && typeof data.message === 'string') {
+      if (data.message && typeof data.message === "string") {
         return data.message;
       }
 
       if (data.error) {
         // If error is a string, return it
-        if (typeof data.error === 'string') {
+        if (typeof data.error === "string") {
           return data.error;
         }
         // If error is an object with a message, return that
-        if (typeof data.error === 'object' && typeof data.error.message === 'string') {
+        if (
+          typeof data.error === "object" &&
+          typeof data.error.message === "string"
+        ) {
           return data.error.message;
         }
       }
 
-      if (data.detail && typeof data.detail === 'string') {
+      if (data.detail && typeof data.detail === "string") {
         return data.detail;
       }
 
       // Try to stringify the object if no clear message found
       try {
         const jsonString = JSON.stringify(data);
-        if (jsonString && jsonString !== '{}') {
+        if (jsonString && jsonString !== "{}") {
           return `Server error: ${jsonString.substring(0, 200)}`;
         }
       } catch {
@@ -552,11 +599,11 @@ export class HttpClient {
       }
 
       // Fallback for objects without clear message
-      return 'An error occurred while processing your request';
+      return "An error occurred while processing your request";
     }
 
     // Fallback for null/undefined/other types
-    return 'An unexpected error occurred';
+    return "An unexpected error occurred";
   }
 
   // ==========================================================================
@@ -567,18 +614,17 @@ export class HttpClient {
    * Set authentication token
    */
   public setAuthToken(token: string | null): void {
-    console.log('🔐 HttpClient: Setting auth token:', !!token);
+    console.log("🔐 HttpClient: Setting auth token:", !!token);
     this.authToken = token;
     // Save to localStorage (client-side only)
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       if (token) {
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('aluplan_access_token', token);
-        console.log('🔐 HttpClient: Token saved to localStorage');
+        localStorage.setItem("auth_token", token);
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+        console.log("🔐 HttpClient: Token saved to localStorage");
       } else {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('aluplan_access_token');
-        console.log('🔐 HttpClient: Token removed from localStorage');
+        ACCESS_TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
+        console.log("🔐 HttpClient: Token removed from localStorage");
       }
     }
   }
@@ -596,8 +642,8 @@ export class HttpClient {
   public clearAuthToken(): void {
     this.authToken = null;
     // Remove from localStorage (client-side only)
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth_token");
     }
   }
 
@@ -622,7 +668,7 @@ export class HttpClient {
    */
   public async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.request<T>({
-      method: 'GET',
+      method: "GET",
       url,
       ...config,
     });
@@ -634,10 +680,10 @@ export class HttpClient {
   public async post<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     return this.request<T>({
-      method: 'POST',
+      method: "POST",
       url,
       data,
       ...config,
@@ -650,10 +696,10 @@ export class HttpClient {
   public async put<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     return this.request<T>({
-      method: 'PUT',
+      method: "PUT",
       url,
       data,
       ...config,
@@ -666,10 +712,10 @@ export class HttpClient {
   public async patch<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     return this.request<T>({
-      method: 'PATCH',
+      method: "PATCH",
       url,
       data,
       ...config,
@@ -681,7 +727,7 @@ export class HttpClient {
    */
   public async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.request<T>({
-      method: 'DELETE',
+      method: "DELETE",
       url,
       ...config,
     });
@@ -736,7 +782,7 @@ export class HttpClient {
   /**
    * GET request with automatic ApiResponse unwrapping
    * Use this when backend returns ApiResponse<T>
-   * 
+   *
    * @example
    * ```ts
    * const user = await httpClient.getWrapped<User>('/users/123');
@@ -744,8 +790,11 @@ export class HttpClient {
    * // This method returns: { id: '123', ... }
    * ```
    */
-  public async getWrapped<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const { unwrapResponse } = await import('./response-utils');
+  public async getWrapped<T>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const { unwrapResponse } = await import("./response-utils");
     const response = await this.get<unknown>(url, config);
     return unwrapResponse<T>(response);
   }
@@ -756,9 +805,9 @@ export class HttpClient {
   public async postWrapped<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
-    const { unwrapResponse } = await import('./response-utils');
+    const { unwrapResponse } = await import("./response-utils");
     const response = await this.post<any, D>(url, data, config);
     return unwrapResponse<T>(response);
   }
@@ -769,9 +818,9 @@ export class HttpClient {
   public async putWrapped<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
-    const { unwrapResponse } = await import('./response-utils');
+    const { unwrapResponse } = await import("./response-utils");
     const response = await this.put<any, D>(url, data, config);
     return unwrapResponse<T>(response);
   }
@@ -782,9 +831,9 @@ export class HttpClient {
   public async patchWrapped<T, D = any>(
     url: string,
     data?: D,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
-    const { unwrapResponse } = await import('./response-utils');
+    const { unwrapResponse } = await import("./response-utils");
     const response = await this.patch<any, D>(url, data, config);
     return unwrapResponse<T>(response);
   }
@@ -792,8 +841,11 @@ export class HttpClient {
   /**
    * DELETE request with automatic ApiResponse unwrapping
    */
-  public async deleteWrapped<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const { unwrapResponse } = await import('./response-utils');
+  public async deleteWrapped<T>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const { unwrapResponse } = await import("./response-utils");
     const response = await this.delete<any>(url, config);
     return unwrapResponse<T>(response);
   }

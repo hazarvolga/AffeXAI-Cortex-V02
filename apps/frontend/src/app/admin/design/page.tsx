@@ -1,7 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,37 +23,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useDesignTokens } from '@/providers/DesignTokensProvider';
-import { exportToJSON, importFromJSON, exportToCSS, exportToSCSS } from '@/lib/design-tokens/resolver';
-import type { DesignTokens, TokenExportFormat } from '@/types/design-tokens';
+import { useDesignTokens } from "@/providers/DesignTokensProvider";
+import {
+  exportToJSON,
+  importFromJSON,
+  exportToCSS,
+  exportToSCSS,
+} from "@/lib/design-tokens/resolver";
+import type { DesignTokens, TokenExportFormat } from "@/types/design-tokens";
 import {
   adminLightTokensProduction,
   adminDarkTokensProduction,
-} from '@/lib/design-tokens/production-tokens';
-import { 
-  Palette, 
-  Paintbrush, 
-  Layers, 
-  Sparkles, 
-  Save, 
-  RotateCcw, 
-  Eye, 
-  Sun, 
+} from "@/lib/design-tokens/production-tokens";
+import {
+  Palette,
+  Paintbrush,
+  Layers,
+  Sparkles,
+  Save,
+  RotateCcw,
+  Eye,
+  Sun,
   Moon,
   Download,
   Upload,
   FileJson,
   FileCode,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 
 // Color utility functions
 function hexToHSL(hex: string): string {
   // Remove # if present
-  hex = hex.replace('#', '');
-  
+  hex = hex.replace("#", "");
+
   // Convert hex to RGB
   const r = parseInt(hex.substring(0, 2), 16) / 255;
   const g = parseInt(hex.substring(2, 4), 16) / 255;
@@ -55,16 +67,24 @@ function hexToHSL(hex: string): string {
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s = 0, l = (max + min) / 2;
+  let h = 0,
+    s = 0,
+    l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
     }
   }
 
@@ -90,23 +110,23 @@ function hslToHex(hsl: string): string {
     const hue2rgb = (p: number, q: number, t: number) => {
       if (t < 0) t += 1;
       if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
       return p;
     };
 
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     const p = 2 * l - q;
 
-    r = hue2rgb(p, q, h + 1/3);
+    r = hue2rgb(p, q, h + 1 / 3);
     g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
+    b = hue2rgb(p, q, h - 1 / 3);
   }
 
   const toHex = (x: number) => {
     const hex = Math.round(x * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
+    return hex.length === 1 ? "0" + hex : hex;
   };
 
   return toHex(r) + toHex(g) + toHex(b);
@@ -115,21 +135,30 @@ function hslToHex(hsl: string): string {
 function isLightColor(color: string): boolean {
   // Parse HSL or convert from hex
   let l = 50; // default
-  
-  if (color.includes('%')) {
+
+  if (color.includes("%")) {
     const parts = color.trim().split(/\s+/);
-    l = parseInt(parts[2] || '50');
+    l = parseInt(parts[2] || "50");
   }
-  
+
   return l > 50;
 }
 
 export default function DesignManagementPage() {
-  const { context, mode, tokens, setContext, setMode, updateTokens, resetTokens, getCSSVariables } = useDesignTokens();
+  const {
+    context,
+    mode,
+    tokens,
+    setContext,
+    setMode,
+    updateTokens,
+    resetTokens,
+    getCSSVariables,
+  } = useDesignTokens();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [activeTab, setActiveTab] = useState('tokens');
+
+  const [activeTab, setActiveTab] = useState("tokens");
   const [hasChanges, setHasChanges] = useState(false);
   const [localTokens, setLocalTokens] = useState<DesignTokens>(tokens);
   const [livePreview, setLivePreview] = useState(true);
@@ -137,24 +166,24 @@ export default function DesignManagementPage() {
   const [mounted, setMounted] = useState(false);
 
   // Fix hydration mismatch - wait for client-side mount
-  useEffect(() => {
+  useAsyncEffect(() => {
     setMounted(true);
   }, []);
 
   // Sync local tokens with provider
-  useEffect(() => {
+  useAsyncEffect(() => {
     setLocalTokens(tokens);
   }, [tokens]);
 
   // Track changes
-  useEffect(() => {
+  useAsyncEffect(() => {
     setHasChanges(JSON.stringify(localTokens) !== JSON.stringify(tokens));
   }, [localTokens, tokens]);
 
   // Live preview - update provider immediately when livePreview is enabled
   useEffect(() => {
     if (livePreview && hasChanges) {
-      console.log('🔄 Live preview: updating tokens');
+      console.log("🔄 Live preview: updating tokens");
       updateTokens(localTokens);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,9 +191,9 @@ export default function DesignManagementPage() {
 
   // Update token value
   const updateToken = (path: string, value: any) => {
-    console.log('🎨 updateToken called:', { path, value });
-    
-    const parts = path.split('.');
+    console.log("🎨 updateToken called:", { path, value });
+
+    const parts = path.split(".");
     // Deep clone to avoid mutation issues
     const updated = JSON.parse(JSON.stringify(localTokens));
     let current: any = updated;
@@ -175,59 +204,60 @@ export default function DesignManagementPage() {
     }
 
     const lastKey = parts[parts.length - 1];
-    
+
     // Preserve $type and $description, update $value
     current[lastKey] = {
       ...current[lastKey],
-      $value: value
+      $value: value,
     };
 
-    console.log('🎨 Updated token at path:', path, '→', current[lastKey]);
+    console.log("🎨 Updated token at path:", path, "→", current[lastKey]);
     setLocalTokens(updated);
   };
 
   // Get token value by path
   const getTokenValue = (path: string): any => {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current: any = localTokens;
 
     for (const part of parts) {
-      if (!current?.[part]) return '';
+      if (!current?.[part]) return "";
       current = current[part];
     }
 
-    return current?.$value || '';
+    return current?.$value || "";
   };
 
   // Save changes
   const handleSave = async () => {
     try {
       updateTokens(localTokens);
-      
+
       // TODO: Save to database via API
-      const response = await fetch('/api/design-tokens', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/design-tokens", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           context,
           mode,
-          tokens: localTokens
-        })
+          tokens: localTokens,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to save tokens');
+      if (!response.ok) throw new Error("Failed to save tokens");
 
       toast({
         title: "Saved Successfully",
         description: "Design tokens have been saved.",
         variant: "default",
       });
-      
+
       setHasChanges(false);
     } catch (error) {
       toast({
         title: "Save Failed",
-        description: error instanceof Error ? error.message : "Failed to save tokens",
+        description:
+          error instanceof Error ? error.message : "Failed to save tokens",
         variant: "destructive",
       });
     }
@@ -240,13 +270,13 @@ export default function DesignManagementPage() {
     try {
       resetTokens();
       setLocalTokens(tokens);
-      
+
       toast({
         title: "Reset Complete",
         description: "All tokens have been reset to default values.",
         variant: "default",
       });
-      
+
       setHasChanges(false);
     } catch (error) {
       toast({
@@ -262,13 +292,15 @@ export default function DesignManagementPage() {
     const exportData = exportToJSON(localTokens, {
       name: `affexai-cortex-${context}-${mode}`,
       description: `AffeXAI Cortex Design Tokens - ${context} theme (${mode} mode)`,
-      author: 'AffeXAI Cortex Design System',
+      author: "AffeXAI Cortex Design System",
       exportedAt: new Date().toISOString(),
     });
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.json`;
     a.click();
@@ -283,9 +315,9 @@ export default function DesignManagementPage() {
   // Export to CSS
   const handleExportCSS = () => {
     const css = getCSSVariables();
-    const blob = new Blob([css], { type: 'text/css' });
+    const blob = new Blob([css], { type: "text/css" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.css`;
     a.click();
@@ -299,10 +331,10 @@ export default function DesignManagementPage() {
 
   // Export to SCSS
   const handleExportSCSS = () => {
-    const scss = exportToSCSS(localTokens, { prefix: 'aluplan' });
-    const blob = new Blob([scss], { type: 'text/plain' });
+    const scss = exportToSCSS(localTokens, { prefix: "affexai" });
+    const blob = new Blob([scss], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `affexai-cortex-tokens-${context}-${mode}.scss`;
     a.click();
@@ -326,10 +358,10 @@ export default function DesignManagementPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text) as TokenExportFormat;
-      
+
       const imported = importFromJSON(data);
       setLocalTokens(imported);
-      
+
       toast({
         title: "Imported",
         description: `Imported ${Object.keys(imported).length} token groups`,
@@ -337,14 +369,15 @@ export default function DesignManagementPage() {
     } catch (error) {
       toast({
         title: "Import Failed",
-        description: error instanceof Error ? error.message : "Invalid token format",
+        description:
+          error instanceof Error ? error.message : "Invalid token format",
         variant: "destructive",
       });
     }
 
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -356,21 +389,23 @@ export default function DesignManagementPage() {
         <p className="text-muted-foreground mt-1">
           Manage design tokens and theme configuration
         </p>
-        
+
         {/* Context Selector - Compact Buttons */}
         <div className="mt-4 grid grid-cols-3 gap-3">
           <button
-            onClick={() => setContext('admin')}
+            onClick={() => setContext("admin")}
             className={`py-3 px-4 rounded-lg border-2 transition-all ${
-              context === 'admin'
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border hover:border-primary/50 hover:shadow-sm'
+              context === "admin"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
             }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'admin' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "admin" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">Admin Panel</span>
-              {context === 'admin' && (
+              {context === "admin" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -380,17 +415,19 @@ export default function DesignManagementPage() {
           </button>
 
           <button
-            onClick={() => setContext('public')}
+            onClick={() => setContext("public")}
             className={`py-3 px-4 rounded-lg border-2 transition-all ${
-              context === 'public'
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border hover:border-primary/50 hover:shadow-sm'
+              context === "public"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
             }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'public' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "public" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">Public Website</span>
-              {context === 'public' && (
+              {context === "public" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -400,17 +437,19 @@ export default function DesignManagementPage() {
           </button>
 
           <button
-            onClick={() => setContext('portal')}
+            onClick={() => setContext("portal")}
             className={`py-3 px-4 rounded-lg border-2 transition-all ${
-              context === 'portal'
-                ? 'border-primary bg-primary/10 shadow-md'
-                : 'border-border hover:border-primary/50 hover:shadow-sm'
+              context === "portal"
+                ? "border-primary bg-primary/10 shadow-md"
+                : "border-border hover:border-primary/50 hover:shadow-sm"
             }`}
           >
             <div className="flex items-center justify-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${context === 'portal' ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <div
+                className={`w-2 h-2 rounded-full ${context === "portal" ? "bg-primary" : "bg-muted-foreground"}`}
+              />
               <span className="font-semibold">User Portal</span>
-              {context === 'portal' && (
+              {context === "portal" && (
                 <span className="text-xs text-primary ml-1">✓</span>
               )}
             </div>
@@ -428,30 +467,38 @@ export default function DesignManagementPage() {
           {mounted && (
             <RadioGroup
               value={mode}
-              onValueChange={(value) => setMode(value as 'light' | 'dark')}
+              onValueChange={(value) => setMode(value as "light" | "dark")}
               className="flex items-center gap-2 border rounded-lg p-1"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="light" id="mode-light" className="sr-only" />
+                <RadioGroupItem
+                  value="light"
+                  id="mode-light"
+                  className="sr-only"
+                />
                 <Label
                   htmlFor="mode-light"
                   className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
-                    mode === 'light'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-muted'
+                    mode === "light"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
                   }`}
                 >
                   <Sun className="h-4 w-4" />
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="dark" id="mode-dark" className="sr-only" />
+                <RadioGroupItem
+                  value="dark"
+                  id="mode-dark"
+                  className="sr-only"
+                />
                 <Label
                   htmlFor="mode-dark"
                   className={`cursor-pointer px-3 py-1.5 rounded-md transition-colors ${
-                    mode === 'dark'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-muted'
+                    mode === "dark"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
                   }`}
                 >
                   <Moon className="h-4 w-4" />
@@ -481,7 +528,7 @@ export default function DesignManagementPage() {
         <div className="flex items-center gap-2">
           <Button onClick={handleSave} disabled={!hasChanges || livePreview}>
             <Save className="mr-2 h-4 w-4" />
-            {livePreview ? 'Auto-Saved' : 'Save Changes'}
+            {livePreview ? "Auto-Saved" : "Save Changes"}
           </Button>
           <Button onClick={() => setShowResetDialog(true)} variant="outline">
             <RotateCcw className="mr-2 h-4 w-4" />
@@ -489,7 +536,10 @@ export default function DesignManagementPage() {
           </Button>
           <div className="flex items-center gap-2 ml-4 px-3 py-2 border rounded-md">
             <Eye className="h-4 w-4 text-muted-foreground" />
-            <Label htmlFor="live-preview-toggle" className="text-sm cursor-pointer">
+            <Label
+              htmlFor="live-preview-toggle"
+              className="text-sm cursor-pointer"
+            >
               Live Preview
             </Label>
             <input
@@ -542,7 +592,11 @@ export default function DesignManagementPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tokens">
             <Palette className="mr-2 h-4 w-4" />
@@ -574,20 +628,36 @@ export default function DesignManagementPage() {
             <CardContent>
               <div className="grid grid-cols-4 gap-4">
                 <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold">{Object.keys(localTokens).length}</div>
-                  <div className="text-sm text-muted-foreground">Token Groups</div>
+                  <div className="text-2xl font-bold">
+                    {Object.keys(localTokens).length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Token Groups
+                  </div>
                 </div>
                 <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold">{localTokens.color ? Object.keys(localTokens.color).length : 0}</div>
+                  <div className="text-2xl font-bold">
+                    {localTokens.color
+                      ? Object.keys(localTokens.color).length
+                      : 0}
+                  </div>
                   <div className="text-sm text-muted-foreground">Colors</div>
                 </div>
                 <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold">{localTokens.spacing ? Object.keys(localTokens.spacing).length : 0}</div>
+                  <div className="text-2xl font-bold">
+                    {localTokens.spacing
+                      ? Object.keys(localTokens.spacing).length
+                      : 0}
+                  </div>
                   <div className="text-sm text-muted-foreground">Spacing</div>
                 </div>
                 <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold">{mode === 'dark' ? 'Dark' : 'Light'}</div>
-                  <div className="text-sm text-muted-foreground">Current Mode</div>
+                  <div className="text-2xl font-bold">
+                    {mode === "dark" ? "Dark" : "Light"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Current Mode
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -606,7 +676,9 @@ export default function DesignManagementPage() {
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="live-preview" className="text-sm">Live Preview</Label>
+                  <Label htmlFor="live-preview" className="text-sm">
+                    Live Preview
+                  </Label>
                   <input
                     id="live-preview"
                     type="checkbox"
@@ -619,90 +691,135 @@ export default function DesignManagementPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-6">
-                {localTokens.color && (() => {
-                  // Flatten nested color tokens for rendering
-                  const flatColors: Array<{ path: string; key: string; token: any }> = [];
-                  
-                  Object.entries(localTokens.color).forEach(([key, value]: [string, any]) => {
-                    if (value.$value) {
-                      // Direct color token (e.g., border, input, ring)
-                      flatColors.push({ path: `color.${key}`, key, token: value });
-                    } else if (typeof value === 'object' && !Array.isArray(value)) {
-                      // Nested color token (e.g., primary.background, success.foreground)
-                      Object.entries(value).forEach(([subKey, subValue]: [string, any]) => {
-                        if (subValue && typeof subValue === 'object' && subValue.$value) {
+                {localTokens.color &&
+                  (() => {
+                    // Flatten nested color tokens for rendering
+                    const flatColors: Array<{
+                      path: string;
+                      key: string;
+                      token: any;
+                    }> = [];
+
+                    Object.entries(localTokens.color).forEach(
+                      ([key, value]: [string, any]) => {
+                        if (value.$value) {
+                          // Direct color token (e.g., border, input, ring)
                           flatColors.push({
-                            path: `color.${key}.${subKey}`,
-                            key: `${key}.${subKey}`,
-                            token: subValue
+                            path: `color.${key}`,
+                            key,
+                            token: value,
                           });
+                        } else if (
+                          typeof value === "object" &&
+                          !Array.isArray(value)
+                        ) {
+                          // Nested color token (e.g., primary.background, success.foreground)
+                          Object.entries(value).forEach(
+                            ([subKey, subValue]: [string, any]) => {
+                              if (
+                                subValue &&
+                                typeof subValue === "object" &&
+                                subValue.$value
+                              ) {
+                                flatColors.push({
+                                  path: `color.${key}.${subKey}`,
+                                  key: `${key}.${subKey}`,
+                                  token: subValue,
+                                });
+                              }
+                            },
+                          );
                         }
-                      });
-                    }
-                  });
+                      },
+                    );
 
-                  return flatColors.map(({ path, key, token }) => {
-                    const isHSL = typeof token.$value === 'string' && (token.$value.includes('hsl') || (!token.$value.startsWith('#') && !token.$value.startsWith('rgb')));
-                    const colorValue = isHSL 
-                      ? token.$value.replace('hsl(', '').replace(')', '')
-                      : token.$value;
+                    return flatColors.map(({ path, key, token }) => {
+                      const isHSL =
+                        typeof token.$value === "string" &&
+                        (token.$value.includes("hsl") ||
+                          (!token.$value.startsWith("#") &&
+                            !token.$value.startsWith("rgb")));
+                      const colorValue = isHSL
+                        ? token.$value.replace("hsl(", "").replace(")", "")
+                        : token.$value;
 
-                    return (
-                      <div key={path} className="space-y-3 p-4 border rounded-lg hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-semibold">{key}</Label>
-                          {livePreview && <span className="text-xs text-green-600 dark:text-green-400">● Live</span>}
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          {/* Color Picker */}
-                          <div className="relative group">
-                            <input
-                              type="color"
-                              value={isHSL ? `#${hslToHex(colorValue)}` : colorValue}
-                              onChange={(e) => {
-                                const hex = e.target.value;
-                                const hsl = hexToHSL(hex);
-                                updateToken(path, hsl);
-                              }}
-                              className="w-16 h-16 rounded-md border-2 cursor-pointer"
-                            />
-                            <div className="absolute inset-0 w-16 h-16 rounded-md border-2 pointer-events-none group-hover:border-primary transition-colors" />
+                      return (
+                        <div
+                          key={path}
+                          className="space-y-3 p-4 border rounded-lg hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-semibold">
+                              {key}
+                            </Label>
+                            {livePreview && (
+                              <span className="text-xs text-green-600 dark:text-green-400">
+                                ● Live
+                              </span>
+                            )}
                           </div>
 
-                          {/* Value Input */}
-                          <div className="flex-1 space-y-2">
-                            <Input
-                              value={colorValue}
-                              onChange={(e) => updateToken(path, e.target.value)}
-                              className="font-mono text-sm"
-                              placeholder="0 0% 0%"
-                            />
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="px-2 py-1 bg-muted rounded">
-                                {isHSL ? 'HSL' : 'HEX'}
-                              </span>
-                              {token.$description && <span>• {token.$description}</span>}
+                          <div className="flex items-center gap-3">
+                            {/* Color Picker */}
+                            <div className="relative group">
+                              <input
+                                type="color"
+                                value={
+                                  isHSL
+                                    ? `#${hslToHex(colorValue)}`
+                                    : colorValue
+                                }
+                                onChange={(e) => {
+                                  const hex = e.target.value;
+                                  const hsl = hexToHSL(hex);
+                                  updateToken(path, hsl);
+                                }}
+                                className="w-16 h-16 rounded-md border-2 cursor-pointer"
+                              />
+                              <div className="absolute inset-0 w-16 h-16 rounded-md border-2 pointer-events-none group-hover:border-primary transition-colors" />
+                            </div>
+
+                            {/* Value Input */}
+                            <div className="flex-1 space-y-2">
+                              <Input
+                                value={colorValue}
+                                onChange={(e) =>
+                                  updateToken(path, e.target.value)
+                                }
+                                className="font-mono text-sm"
+                                placeholder="0 0% 0%"
+                              />
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span className="px-2 py-1 bg-muted rounded">
+                                  {isHSL ? "HSL" : "HEX"}
+                                </span>
+                                {token.$description && (
+                                  <span>• {token.$description}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Preview */}
+                          <div className="flex gap-2">
+                            <div
+                              className="flex-1 h-8 rounded border flex items-center justify-center text-xs"
+                              style={{
+                                backgroundColor: isHSL
+                                  ? `hsl(${colorValue})`
+                                  : colorValue,
+                                color: isLightColor(colorValue)
+                                  ? "#000"
+                                  : "#fff",
+                              }}
+                            >
+                              Preview
                             </div>
                           </div>
                         </div>
-
-                        {/* Preview */}
-                        <div className="flex gap-2">
-                          <div 
-                            className="flex-1 h-8 rounded border flex items-center justify-center text-xs"
-                            style={{ 
-                              backgroundColor: isHSL ? `hsl(${colorValue})` : colorValue,
-                              color: isLightColor(colorValue) ? '#000' : '#fff'
-                            }}
-                          >
-                            Preview
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
+                      );
+                    });
+                  })()}
               </div>
             </CardContent>
           </Card>
@@ -711,16 +828,16 @@ export default function DesignManagementPage() {
           <Card>
             <CardHeader>
               <CardTitle>Live Color Preview</CardTitle>
-              <CardDescription>
-                See all color tokens in action
-              </CardDescription>
+              <CardDescription>See all color tokens in action</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 {/* Background */}
                 <div className="p-4 bg-background text-foreground border rounded">
                   <p className="font-semibold">Background</p>
-                  <p className="text-sm text-muted-foreground">bg-background + text-foreground</p>
+                  <p className="text-sm text-muted-foreground">
+                    bg-background + text-foreground
+                  </p>
                 </div>
 
                 {/* Card */}
@@ -732,13 +849,17 @@ export default function DesignManagementPage() {
                 {/* Primary */}
                 <div className="p-4 bg-primary text-primary-foreground rounded">
                   <p className="font-semibold">Primary</p>
-                  <p className="text-sm">bg-primary + text-primary-foreground</p>
+                  <p className="text-sm">
+                    bg-primary + text-primary-foreground
+                  </p>
                 </div>
 
                 {/* Secondary */}
                 <div className="p-4 bg-secondary text-secondary-foreground rounded">
                   <p className="font-semibold">Secondary</p>
-                  <p className="text-sm">bg-secondary + text-secondary-foreground</p>
+                  <p className="text-sm">
+                    bg-secondary + text-secondary-foreground
+                  </p>
                 </div>
 
                 {/* Muted */}
@@ -756,19 +877,25 @@ export default function DesignManagementPage() {
                 {/* Destructive */}
                 <div className="p-4 bg-destructive text-destructive-foreground rounded">
                   <p className="font-semibold">Destructive</p>
-                  <p className="text-sm">bg-destructive + text-destructive-foreground</p>
+                  <p className="text-sm">
+                    bg-destructive + text-destructive-foreground
+                  </p>
                 </div>
 
                 {/* Success */}
                 <div className="p-4 bg-success text-success-foreground rounded">
                   <p className="font-semibold">Success</p>
-                  <p className="text-sm">bg-success + text-success-foreground</p>
+                  <p className="text-sm">
+                    bg-success + text-success-foreground
+                  </p>
                 </div>
 
                 {/* Warning */}
                 <div className="p-4 bg-warning text-warning-foreground rounded">
                   <p className="font-semibold">Warning</p>
-                  <p className="text-sm">bg-warning + text-warning-foreground</p>
+                  <p className="text-sm">
+                    bg-warning + text-warning-foreground
+                  </p>
                 </div>
 
                 {/* Info */}
@@ -806,23 +933,32 @@ export default function DesignManagementPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Font Families</h3>
                   <div className="grid grid-cols-1 gap-4">
-                    {Object.entries(localTokens.fontFamily).map(([key, token]: [string, any]) => (
-                      <div key={key} className="p-4 border rounded-lg space-y-3">
-                        <Label className="text-sm font-medium capitalize">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontFamily.${key}`, e.target.value)}
-                          placeholder="'Inter', sans-serif"
-                          className="font-mono text-sm"
-                        />
-                        <div 
-                          className="p-3 bg-muted rounded text-lg"
-                          style={{ fontFamily: token.$value }}
+                    {Object.entries(localTokens.fontFamily).map(
+                      ([key, token]: [string, any]) => (
+                        <div
+                          key={key}
+                          className="p-4 border rounded-lg space-y-3"
                         >
-                          The quick brown fox jumps over the lazy dog
+                          <Label className="text-sm font-medium capitalize">
+                            {key}
+                          </Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontFamily.${key}`, e.target.value)
+                            }
+                            placeholder="'Inter', sans-serif"
+                            className="font-mono text-sm"
+                          />
+                          <div
+                            className="p-3 bg-muted rounded text-lg"
+                            style={{ fontFamily: token.$value }}
+                          >
+                            The quick brown fox jumps over the lazy dog
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -832,26 +968,30 @@ export default function DesignManagementPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Font Weights</h3>
                   <div className="grid grid-cols-4 gap-4">
-                    {Object.entries(localTokens.fontWeight).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-2">
-                        <Label className="text-sm capitalize">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontWeight.${key}`, e.target.value)}
-                          placeholder="400"
-                          type="number"
-                          min="100"
-                          max="900"
-                          step="100"
-                        />
-                        <div 
-                          className="p-2 bg-muted rounded text-sm text-center"
-                          style={{ fontWeight: token.$value }}
-                        >
-                          {token.$value}
+                    {Object.entries(localTokens.fontWeight).map(
+                      ([key, token]: [string, any]) => (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-sm capitalize">{key}</Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontWeight.${key}`, e.target.value)
+                            }
+                            placeholder="400"
+                            type="number"
+                            min="100"
+                            max="900"
+                            step="100"
+                          />
+                          <div
+                            className="p-2 bg-muted rounded text-sm text-center"
+                            style={{ fontWeight: token.$value }}
+                          >
+                            {token.$value}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -861,23 +1001,27 @@ export default function DesignManagementPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Font Sizes</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    {Object.entries(localTokens.fontSize).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-2">
-                        <Label className="text-sm capitalize">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`fontSize.${key}`, e.target.value)}
-                          placeholder="1rem"
-                          className="font-mono text-sm"
-                        />
-                        <div 
-                          className="p-2 bg-muted rounded"
-                          style={{ fontSize: token.$value }}
-                        >
-                          Sample Text
+                    {Object.entries(localTokens.fontSize).map(
+                      ([key, token]: [string, any]) => (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-sm capitalize">{key}</Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`fontSize.${key}`, e.target.value)
+                            }
+                            placeholder="1rem"
+                            className="font-mono text-sm"
+                          />
+                          <div
+                            className="p-2 bg-muted rounded"
+                            style={{ fontSize: token.$value }}
+                          >
+                            Sample Text
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -887,23 +1031,29 @@ export default function DesignManagementPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Line Heights</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    {Object.entries(localTokens.lineHeight).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-2">
-                        <Label className="text-sm capitalize">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`lineHeight.${key}`, e.target.value)}
-                          placeholder="1.5"
-                          className="font-mono text-sm"
-                        />
-                        <div 
-                          className="p-2 bg-muted rounded text-sm"
-                          style={{ lineHeight: token.$value }}
-                        >
-                          Line 1<br/>Line 2<br/>Line 3
+                    {Object.entries(localTokens.lineHeight).map(
+                      ([key, token]: [string, any]) => (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-sm capitalize">{key}</Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`lineHeight.${key}`, e.target.value)
+                            }
+                            placeholder="1.5"
+                            className="font-mono text-sm"
+                          />
+                          <div
+                            className="p-2 bg-muted rounded text-sm"
+                            style={{ lineHeight: token.$value }}
+                          >
+                            Line 1<br />
+                            Line 2<br />
+                            Line 3
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -913,23 +1063,27 @@ export default function DesignManagementPage() {
                 <div className="space-y-3">
                   <h3 className="font-medium">Spacing Scale</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    {Object.entries(localTokens.spacing).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-2">
-                        <Label className="text-sm">{key}</Label>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="bg-primary h-8 rounded"
-                            style={{ width: token.$value }}
-                          />
-                          <Input
-                            value={token.$value}
-                            onChange={(e) => updateToken(`spacing.${key}`, e.target.value)}
-                            className="flex-1"
-                            placeholder="1rem"
-                          />
+                    {Object.entries(localTokens.spacing).map(
+                      ([key, token]: [string, any]) => (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-sm">{key}</Label>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="bg-primary h-8 rounded"
+                              style={{ width: token.$value }}
+                            />
+                            <Input
+                              value={token.$value}
+                              onChange={(e) =>
+                                updateToken(`spacing.${key}`, e.target.value)
+                              }
+                              className="flex-1"
+                              placeholder="1rem"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -939,16 +1093,20 @@ export default function DesignManagementPage() {
                 <div className="space-y-3">
                   <h3 className="font-medium">Border Radius</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    {Object.entries(localTokens.radius).map(([key, token]: [string, any]) => (
-                      <div key={key} className="space-y-2">
-                        <Label className="text-sm">{key}</Label>
-                        <Input
-                          value={token.$value}
-                          onChange={(e) => updateToken(`radius.${key}`, e.target.value)}
-                          placeholder="0.5rem"
-                        />
-                      </div>
-                    ))}
+                    {Object.entries(localTokens.radius).map(
+                      ([key, token]: [string, any]) => (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-sm">{key}</Label>
+                          <Input
+                            value={token.$value}
+                            onChange={(e) =>
+                              updateToken(`radius.${key}`, e.target.value)
+                            }
+                            placeholder="0.5rem"
+                          />
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -983,7 +1141,7 @@ export default function DesignManagementPage() {
                   <Button variant="outline">Outline Button</Button>
                   <Button variant="ghost">Ghost Button</Button>
                 </div>
-                
+
                 <Card>
                   <CardHeader>
                     <CardTitle>Card Component</CardTitle>
@@ -1005,13 +1163,17 @@ export default function DesignManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset to Default Tokens?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will reset all design tokens to their default values. 
-              Any custom changes you've made will be lost. This action cannot be undone.
+              This action will reset all design tokens to their default values.
+              Any custom changes you&apos;ve made will be lost. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleReset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Reset All Tokens
             </AlertDialogAction>
           </AlertDialogFooter>

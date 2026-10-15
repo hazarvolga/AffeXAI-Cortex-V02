@@ -1,6 +1,6 @@
 /**
  * Token Storage Service
- * 
+ *
  * Manages secure storage and retrieval of authentication tokens.
  * Uses localStorage for persistent sessions and sessionStorage for temporary sessions.
  */
@@ -9,7 +9,14 @@
 // Types
 // ============================================================================
 
-export type StorageType = 'localStorage' | 'sessionStorage';
+import {
+  ACCESS_TOKEN_KEY,
+  LEGACY_ACCESS_TOKEN_KEY,
+  LEGACY_REFRESH_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+} from "./session-keys";
+
+export type StorageType = "localStorage" | "sessionStorage";
 
 export interface TokenStorageConfig {
   accessTokenKey: string;
@@ -30,15 +37,17 @@ export class TokenStorage {
 
   constructor(config?: Partial<TokenStorageConfig>) {
     this.config = {
-      accessTokenKey: config?.accessTokenKey || 'aluplan_access_token',
-      refreshTokenKey: config?.refreshTokenKey || 'aluplan_refresh_token',
-      storageType: config?.storageType || 'localStorage',
+      accessTokenKey: config?.accessTokenKey || ACCESS_TOKEN_KEY,
+      refreshTokenKey: config?.refreshTokenKey || REFRESH_TOKEN_KEY,
+      storageType: config?.storageType || "localStorage",
     };
 
     // Initialize storage (client-side only)
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       this.storage =
-        this.config.storageType === 'localStorage' ? window.localStorage : window.sessionStorage;
+        this.config.storageType === "localStorage"
+          ? window.localStorage
+          : window.sessionStorage;
     }
   }
 
@@ -51,7 +60,10 @@ export class TokenStorage {
    */
   getAccessToken(): string | null {
     if (!this.storage) return null;
-    return this.storage.getItem(this.config.accessTokenKey);
+    return (
+      this.storage.getItem(this.config.accessTokenKey) ??
+      this.storage.getItem(LEGACY_ACCESS_TOKEN_KEY)
+    );
   }
 
   /**
@@ -68,6 +80,7 @@ export class TokenStorage {
   removeAccessToken(): void {
     if (!this.storage) return;
     this.storage.removeItem(this.config.accessTokenKey);
+    this.storage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
   }
 
   // ==========================================================================
@@ -79,7 +92,10 @@ export class TokenStorage {
    */
   getRefreshToken(): string | null {
     if (!this.storage) return null;
-    return this.storage.getItem(this.config.refreshTokenKey);
+    return (
+      this.storage.getItem(this.config.refreshTokenKey) ??
+      this.storage.getItem(LEGACY_REFRESH_TOKEN_KEY)
+    );
   }
 
   /**
@@ -96,6 +112,7 @@ export class TokenStorage {
   removeRefreshToken(): void {
     if (!this.storage) return;
     this.storage.removeItem(this.config.refreshTokenKey);
+    this.storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
   }
 
   // ==========================================================================
@@ -142,7 +159,7 @@ export class TokenStorage {
    * Switch storage type (e.g., from sessionStorage to localStorage)
    */
   switchStorageType(storageType: StorageType): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     // Get current tokens before switching
     const accessToken = this.getAccessToken();
@@ -153,7 +170,10 @@ export class TokenStorage {
 
     // Update storage type
     this.config.storageType = storageType;
-    this.storage = storageType === 'localStorage' ? window.localStorage : window.sessionStorage;
+    this.storage =
+      storageType === "localStorage"
+        ? window.localStorage
+        : window.sessionStorage;
 
     // Restore tokens in new storage
     if (accessToken) this.setAccessToken(accessToken);
@@ -166,17 +186,17 @@ export class TokenStorage {
    */
   decodeToken(token: string): any {
     try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
       const jsonPayload = decodeURIComponent(
         atob(base64)
-          .split('')
-          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join(""),
       );
       return JSON.parse(jsonPayload);
     } catch (error) {
-      console.error('Failed to decode token:', error);
+      console.error("Failed to decode token:", error);
       return null;
     }
   }

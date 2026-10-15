@@ -42,20 +42,21 @@ interface EventInvitationEmailProps {
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 
 export const EventInvitationEmail = ({
-  eventName = "Allplan 2025 Lansmanı ve Yenilikler",
+  eventName = "XYZ Suite 2025 Lansmanı ve Yenilikler",
   eventDate = "15 Eylül 2024, 10:00",
   eventLocation = "Swissôtel The Bosphorus, İstanbul",
-  eventDescription = "Allplan'ın en yeni sürümünün getirdiği çığır açan özellikleri ve performans iyileştirmelerini ilk öğrenen siz olun. Uzmanlarımızdan canlı demolar izleyin, sorularınızı sorun ve sektör liderleriyle tanışın.",
+  eventDescription = "XYZ Suite'in en yeni sürümünün getirdiği çığır açan özellikleri ve performans iyileştirmelerini ilk öğrenen siz olun. Uzmanlarımızdan canlı demolar izleyin, sorularınızı sorun ve sektör liderleriyle tanışın.",
   eventImageUrl = "https://picsum.photos/seed/event-invite/600/300",
   registrationLink = `${baseUrl}/portal/events/evt-001`,
   siteSettings,
 }: EventInvitationEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
   const contactInfo = siteSettings?.contact || getContactInfo();
   const socialMediaLinks = siteSettings?.socialMedia || {};
-  
+
   const previewText = `Davetlisiniz: ${eventName}`;
 
   return (
@@ -74,19 +75,15 @@ export const EventInvitationEmail = ({
           </Section>
 
           <Section style={content}>
-            <Img
-              src={eventImageUrl}
-              width="100%"
-              style={mainImage}
-            />
+            <Img src={eventImageUrl} width="100%" style={mainImage} />
             <Heading style={heading}>{eventName}</Heading>
             <Section style={eventDetailsSection}>
-                <Text style={eventDetailText}>
-                    <strong>Tarih:</strong> {eventDate}
-                </Text>
-                 <Text style={eventDetailText}>
-                    <strong>Mekan:</strong> {eventLocation}
-                </Text>
+              <Text style={eventDetailText}>
+                <strong>Tarih:</strong> {eventDate}
+              </Text>
+              <Text style={eventDetailText}>
+                <strong>Mekan:</strong> {eventLocation}
+              </Text>
             </Section>
             <Text style={paragraph}>{eventDescription}</Text>
             <Section style={buttonContainer}>
@@ -120,54 +117,54 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 0 48px",
-  border: '1px solid #e5e5e5',
-  borderRadius: '4px',
-  maxWidth: '600px',
-  overflow: 'hidden'
+  border: "1px solid #e5e5e5",
+  borderRadius: "4px",
+  maxWidth: "600px",
+  overflow: "hidden",
 };
 
 const header = {
-    padding: '0 32px',
-    textAlign: 'center' as const,
-    marginBottom: '20px',
+  padding: "0 32px",
+  textAlign: "center" as const,
+  marginBottom: "20px",
 };
 
 const content = {
-    padding: '0 32px',
+  padding: "0 32px",
 };
 
 const mainImage = {
-    borderRadius: '4px',
-    marginBottom: '24px',
+  borderRadius: "4px",
+  marginBottom: "24px",
 };
 
 const heading = {
   fontSize: "28px",
   fontWeight: "bold",
   textAlign: "center" as const,
-  color: '#333333',
-  lineHeight: '36px',
+  color: "#333333",
+  lineHeight: "36px",
 };
 
 const eventDetailsSection = {
-    textAlign: 'center' as const,
-    margin: '16px 0',
+  textAlign: "center" as const,
+  margin: "16px 0",
 };
 
 const eventDetailText = {
-    fontSize: '14px',
-    color: '#6a7380',
-    margin: '4px 0',
+  fontSize: "14px",
+  color: "#6a7380",
+  margin: "4px 0",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#445354',
-  textAlign: 'center' as const,
+  color: "#445354",
+  textAlign: "center" as const,
 };
 
 const buttonContainer = {
@@ -184,7 +181,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "14px 28px",
-  fontWeight: 'bold' as const,
+  fontWeight: "bold" as const,
 };
 
 const hr = {

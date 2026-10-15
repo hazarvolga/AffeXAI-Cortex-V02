@@ -1,22 +1,21 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   type CarouselApi,
-} from '@/components/ui/carousel';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { timelineData } from '@/lib/timeline-data';
-import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { ArrowRight, Calendar, User } from 'lucide-react';
-import { Badge } from './ui/badge';
+} from "@/components/ui/carousel";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { timelineData } from "@/lib/timeline-data";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { ArrowRight, Calendar, User } from "lucide-react";
+import { Badge } from "./ui/badge";
 
 interface TimelineCarouselProps {
   backgroundColor?: string;
@@ -26,10 +25,10 @@ interface TimelineCarouselProps {
 }
 
 export function TimelineCarousel({
-  backgroundColor = 'transparent',
-  paddingTop = '4rem',
-  paddingBottom = '6rem',
-  cssClasses = '',
+  backgroundColor = "transparent",
+  paddingTop = "4rem",
+  paddingBottom = "6rem",
+  cssClasses = "",
 }: TimelineCarouselProps = {}) {
   const [mainApi, setMainApi] = useState<CarouselApi>();
   const [thumbApi, setThumbApi] = useState<CarouselApi>();
@@ -40,7 +39,7 @@ export function TimelineCarousel({
       if (!mainApi || !thumbApi) return;
       mainApi.scrollTo(index);
     },
-    [mainApi, thumbApi]
+    [mainApi, thumbApi],
   );
 
   const onSelect = useCallback(() => {
@@ -52,21 +51,28 @@ export function TimelineCarousel({
 
   useEffect(() => {
     if (!mainApi) return;
-    onSelect();
-    mainApi.on('select', onSelect);
-    mainApi.on('reInit', onSelect);
+    // Sync the thumbnails after commit, then follow the carousel until it changes.
+    const frame = requestAnimationFrame(onSelect);
+    mainApi.on("select", onSelect);
+    mainApi.on("reInit", onSelect);
+    return () => {
+      cancelAnimationFrame(frame);
+      mainApi.off("select", onSelect);
+      mainApi.off("reInit", onSelect);
+    };
   }, [mainApi, onSelect]);
 
   return (
     <section
       className={cn(
-        'w-full',
+        "w-full",
         // Only apply bg-secondary/20 if no custom backgroundColor is provided
-        backgroundColor === 'transparent' && 'bg-secondary/20',
-        cssClasses
+        backgroundColor === "transparent" && "bg-secondary/20",
+        cssClasses,
       )}
       style={{
-        backgroundColor: backgroundColor !== 'transparent' ? backgroundColor : undefined,
+        backgroundColor:
+          backgroundColor !== "transparent" ? backgroundColor : undefined,
         paddingTop,
         paddingBottom,
       }}
@@ -77,16 +83,13 @@ export function TimelineCarousel({
             Öne Çıkan Başarı Hikayeleri
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Allplan çözümlerinin, Türkiye ve dünyadan prestijli projelerde nasıl fark yarattığını keşfedin.
+            XYZ Suite çözümlerinin, Türkiye ve dünyadan prestijli projelerde
+            nasıl fark yarattığını keşfedin.
           </p>
         </div>
 
         {/* Main Carousel */}
-        <Carousel
-          setApi={setMainApi}
-          opts={{ loop: true }}
-          className="w-full"
-        >
+        <Carousel setApi={setMainApi} opts={{ loop: true }} className="w-full">
           <CarouselContent>
             {timelineData.map((slide) => (
               <CarouselItem key={slide.id}>
@@ -103,13 +106,16 @@ export function TimelineCarousel({
                     </div>
                     <div className="p-8 md:p-12 flex flex-col justify-center">
                       <div className="flex items-center gap-4 mb-4">
-                        <Badge variant="secondary" className="gap-2 items-center">
+                        <Badge
+                          variant="secondary"
+                          className="gap-2 items-center"
+                        >
                           <slide.Icon className="h-4 w-4" />
                           {slide.category}
                         </Badge>
-                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>{slide.date}</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>{slide.date}</span>
                         </div>
                       </div>
                       <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-4 font-headline leading-tight hover:text-primary transition-colors">
@@ -119,19 +125,29 @@ export function TimelineCarousel({
                         {slide.excerpt}
                       </p>
                       <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                            <Avatar>
-                                <AvatarImage src={slide.author.avatarUrl} alt={slide.author.name} />
-                                <AvatarFallback>
-                                    <User />
-                                </AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-semibold text-sm">{slide.author.name}</p>
-                                <p className="text-xs text-muted-foreground">Proje Yöneticisi</p>
-                            </div>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage
+                              src={slide.author.avatarUrl}
+                              alt={slide.author.name}
+                            />
+                            <AvatarFallback>
+                              <User />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-semibold text-sm">
+                              {slide.author.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Proje Yöneticisi
+                            </p>
+                          </div>
                         </div>
-                        <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90">
+                        <Button
+                          asChild
+                          className="bg-accent text-accent-foreground hover:bg-accent/90"
+                        >
                           <Link href={slide.ctaLink}>
                             Devamını Oku <ArrowRight className="ml-2 h-4 w-4" />
                           </Link>
@@ -150,8 +166,8 @@ export function TimelineCarousel({
           <Carousel
             setApi={setThumbApi}
             opts={{
-              align: 'start',
-              containScroll: 'keepSnaps',
+              align: "start",
+              containScroll: "keepSnaps",
               dragFree: true,
             }}
             className="w-full"
@@ -165,8 +181,10 @@ export function TimelineCarousel({
                 >
                   <div
                     className={cn(
-                      'block aspect-[4/3] relative rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ring-2 ring-transparent',
-                      selectedIndex === index ? 'ring-primary shadow-2xl' : 'hover:ring-primary/50'
+                      "block aspect-[4/3] relative rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ring-2 ring-transparent",
+                      selectedIndex === index
+                        ? "ring-primary shadow-2xl"
+                        : "hover:ring-primary/50",
                     )}
                   >
                     <Image
@@ -176,14 +194,22 @@ export function TimelineCarousel({
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                       data-ai-hint={slide.imageHint}
                     />
-                    <div className={cn(
+                    <div
+                      className={cn(
                         "absolute inset-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300",
-                        selectedIndex === index ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'
-                    )} />
-                     <div className="absolute bottom-0 left-0 p-3 text-white">
-                        <p className="text-xs font-semibold uppercase tracking-wider opacity-80">{slide.category}</p>
-                        <h4 className="text-sm font-bold leading-tight line-clamp-2">{slide.title}</h4>
-                     </div>
+                        selectedIndex === index
+                          ? "opacity-100"
+                          : "opacity-70 group-hover:opacity-100",
+                      )}
+                    />
+                    <div className="absolute bottom-0 left-0 p-3 text-white">
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-80">
+                        {slide.category}
+                      </p>
+                      <h4 className="text-sm font-bold leading-tight line-clamp-2">
+                        {slide.title}
+                      </h4>
+                    </div>
                   </div>
                 </CarouselItem>
               ))}

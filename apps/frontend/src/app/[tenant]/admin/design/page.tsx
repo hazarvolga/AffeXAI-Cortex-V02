@@ -366,7 +366,7 @@ export default function DesignManagementPage() {
 
   // Export to SCSS
   const handleExportSCSS = () => {
-    const scss = exportToSCSS(localTokens, { prefix: "aluplan" });
+    const scss = exportToSCSS(localTokens, { prefix: "affexai" });
     const blob = new Blob([scss], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

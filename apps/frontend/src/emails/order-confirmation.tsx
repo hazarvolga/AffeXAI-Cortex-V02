@@ -54,7 +54,7 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 export const OrderConfirmationEmail = ({
   userName = "Ahmet Yılmaz",
   orderId = "AL-12345-TR",
-  orderDate = new Date().toLocaleDateString('tr-TR'),
+  orderDate = new Date().toLocaleDateString("tr-TR"),
   totalPrice = "1,999.00 TL",
   shippingAddress = {
     street: "Örnek Mah. Teknoloji Cad. No:123, Kat:4 D:12",
@@ -62,16 +62,21 @@ export const OrderConfirmationEmail = ({
     zipCode: "34750",
   },
   items = [
-      { name: "Allplan Professional Lisansı (1 Yıl)", quantity: 1, price: "1,999.00 TL" },
+    {
+      name: "XYZ Suite Professional Lisansı (1 Yıl)",
+      quantity: 1,
+      price: "1,999.00 TL",
+    },
   ],
   siteSettings,
 }: OrderConfirmationEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
   const contactInfo = siteSettings?.contact || getContactInfo();
   const socialMediaLinks = siteSettings?.socialMedia || {};
-  
+
   const previewText = `Siparişiniz alındı: #${orderId}`;
 
   return (
@@ -92,7 +97,8 @@ export const OrderConfirmationEmail = ({
           <Section style={content}>
             <Heading style={heading}>Siparişiniz için teşekkürler!</Heading>
             <Text style={paragraph}>
-              Merhaba {userName}, siparişiniz başarıyla oluşturuldu. Sipariş detaylarını aşağıda bulabilirsiniz.
+              Merhaba {userName}, siparişiniz başarıyla oluşturuldu. Sipariş
+              detaylarını aşağıda bulabilirsiniz.
             </Text>
 
             <Section style={orderInfoSection}>
@@ -117,7 +123,9 @@ export const OrderConfirmationEmail = ({
               {items.map((item) => (
                 <Row key={item.name} style={itemRow}>
                   <Column>
-                    <Text style={itemText}>{item.name} (x{item.quantity})</Text>
+                    <Text style={itemText}>
+                      {item.name} (x{item.quantity})
+                    </Text>
                   </Column>
                   <Column align="right">
                     <Text style={itemPrice}>{item.price}</Text>
@@ -139,7 +147,7 @@ export const OrderConfirmationEmail = ({
               </Row>
             </Section>
 
-             <Hr style={hr} />
+            <Hr style={hr} />
 
             <Section>
               <Row>
@@ -148,9 +156,12 @@ export const OrderConfirmationEmail = ({
                     Teslimat Adresi
                   </Heading>
                   <Text style={addressText}>
-                    {userName}<br />
-                    {shippingAddress.street}<br />
-                    {shippingAddress.city}<br />
+                    {userName}
+                    <br />
+                    {shippingAddress.street}
+                    <br />
+                    {shippingAddress.city}
+                    <br />
                     {shippingAddress.zipCode}
                   </Text>
                 </Column>
@@ -158,11 +169,13 @@ export const OrderConfirmationEmail = ({
             </Section>
 
             <Section style={{ textAlign: "center", marginTop: "32px" }}>
-              <Button style={button} href={`${baseUrl}/portal/orders/${orderId}`}>
+              <Button
+                style={button}
+                href={`${baseUrl}/portal/orders/${orderId}`}
+              >
                 Sipariş Detaylarını Görüntüle
               </Button>
             </Section>
-
           </Section>
 
           <EmailFooter
@@ -188,108 +201,105 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 0 48px",
-  border: '1px solid #e5e5e5',
-  borderRadius: '4px',
-  maxWidth: '600px',
+  border: "1px solid #e5e5e5",
+  borderRadius: "4px",
+  maxWidth: "600px",
 };
 
 const header = {
-  padding: '0 32px',
-  textAlign: 'center' as const,
-  marginBottom: '20px',
+  padding: "0 32px",
+  textAlign: "center" as const,
+  marginBottom: "20px",
 };
 
 const content = {
-  padding: '0 32px',
+  padding: "0 32px",
 };
 
 const heading = {
   fontSize: "28px",
   fontWeight: "bold",
   textAlign: "center" as const,
-  color: '#333333'
+  color: "#333333",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#445354',
+  color: "#445354",
 };
 
 const orderInfoSection = {
-    padding: '16px',
-    backgroundColor: '#f6f9fc',
-    borderRadius: '4px',
-    margin: '20px 0',
-}
+  padding: "16px",
+  backgroundColor: "#f6f9fc",
+  borderRadius: "4px",
+  margin: "20px 0",
+};
 
 const orderInfoLabel = {
-    margin: 0,
-    fontSize: '12px',
-    color: '#6a7380',
-    textTransform: 'uppercase' as const,
-}
+  margin: 0,
+  fontSize: "12px",
+  color: "#6a7380",
+  textTransform: "uppercase" as const,
+};
 
 const orderInfoValue = {
-    margin: '4px 0 0 0',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#333333',
-}
-
+  margin: "4px 0 0 0",
+  fontSize: "16px",
+  fontWeight: "bold",
+  color: "#333333",
+};
 
 const sectionHeading = {
   fontSize: "20px",
   fontWeight: "bold",
-  color: '#333333',
-  margin: '24px 0 12px 0',
+  color: "#333333",
+  margin: "24px 0 12px 0",
 };
 
 const itemRow = {
-    padding: '8px 0',
+  padding: "8px 0",
 };
 
 const itemText = {
-    margin: 0,
-    fontSize: '14px',
-    color: '#333333',
+  margin: 0,
+  fontSize: "14px",
+  color: "#333333",
 };
 
 const itemPrice = {
-    margin: 0,
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#333333',
+  margin: 0,
+  fontSize: "14px",
+  fontWeight: "bold",
+  color: "#333333",
 };
 
 const totalRow = {
-    padding: '8px 0',
+  padding: "8px 0",
 };
 
 const totalLabel = {
-    margin: 0,
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#333333',
+  margin: 0,
+  fontSize: "16px",
+  fontWeight: "bold",
+  color: "#333333",
 };
 
 const totalValue = {
-    margin: 0,
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#ED7D31',
+  margin: 0,
+  fontSize: "16px",
+  fontWeight: "bold",
+  color: "#ED7D31",
 };
-
 
 const addressText = {
   fontSize: "14px",
   lineHeight: "22px",
-  color: '#445354',
+  color: "#445354",
 };
-
 
 const button = {
   backgroundColor: "#ED7D31",
@@ -300,7 +310,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "14px 28px",
-  fontWeight: 'bold',
+  fontWeight: "bold",
 };
 
 const hr = {

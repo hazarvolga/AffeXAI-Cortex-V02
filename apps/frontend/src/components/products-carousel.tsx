@@ -1,19 +1,18 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   type CarouselApi,
-} from '@/components/ui/carousel';
-import { Card, CardContent } from '@/components/ui/card';
-import { productsData } from '@/lib/products-data';
-import { cn } from '@/lib/utils';
-import { Badge } from './ui/badge';
+} from "@/components/ui/carousel";
+import { Card, CardContent } from "@/components/ui/card";
+import { productsData } from "@/lib/products-data";
+import { cn } from "@/lib/utils";
+import { Badge } from "./ui/badge";
 
 export function ProductsCarousel() {
   const [mainApi, setMainApi] = useState<CarouselApi>();
@@ -25,7 +24,7 @@ export function ProductsCarousel() {
       if (!mainApi || !thumbApi) return;
       mainApi.scrollTo(index);
     },
-    [mainApi, thumbApi]
+    [mainApi, thumbApi],
   );
 
   const onSelect = useCallback(() => {
@@ -37,9 +36,15 @@ export function ProductsCarousel() {
 
   useEffect(() => {
     if (!mainApi) return;
-    onSelect();
-    mainApi.on('select', onSelect);
-    mainApi.on('reInit', onSelect);
+    // Sync the thumbnails after commit, then follow the carousel until it changes.
+    const frame = requestAnimationFrame(onSelect);
+    mainApi.on("select", onSelect);
+    mainApi.on("reInit", onSelect);
+    return () => {
+      cancelAnimationFrame(frame);
+      mainApi.off("select", onSelect);
+      mainApi.off("reInit", onSelect);
+    };
   }, [mainApi, onSelect]);
 
   return (
@@ -50,22 +55,19 @@ export function ProductsCarousel() {
             Ürünlerimiz
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            İhtiyaçlarınıza özel olarak tasarlanmış, sektör lideri Allplan ve iş ortağı ürünlerini keşfedin.
+            İhtiyaçlarınıza özel olarak tasarlanmış, sektör lideri XYZ Suite ve
+            iş ortağı ürünlerini keşfedin.
           </p>
         </div>
 
         {/* Main Carousel */}
-        <Carousel
-          setApi={setMainApi}
-          opts={{ loop: true }}
-          className="w-full"
-        >
+        <Carousel setApi={setMainApi} opts={{ loop: true }} className="w-full">
           <CarouselContent>
             {productsData.map((slide) => (
               <CarouselItem key={slide.id}>
                 <Card className="overflow-hidden shadow-lg border-none bg-secondary/20">
                   <div className="grid grid-cols-1 lg:grid-cols-2">
-                     <div className="relative aspect-[4/3] lg:aspect-auto min-h-[300px]">
+                    <div className="relative aspect-[4/3] lg:aspect-auto min-h-[300px]">
                       <Image
                         src={slide.imageUrl}
                         alt={slide.title}
@@ -75,25 +77,33 @@ export function ProductsCarousel() {
                       />
                     </div>
                     <div className="p-8 md:p-12 flex flex-col justify-center">
-                        <div className="flex items-center gap-4 mb-4">
-                        <Badge variant="secondary" className="gap-2 items-center">
-                            <slide.Icon className="h-4 w-4" />
-                            {slide.category}
+                      <div className="flex items-center gap-4 mb-4">
+                        <Badge
+                          variant="secondary"
+                          className="gap-2 items-center"
+                        >
+                          <slide.Icon className="h-4 w-4" />
+                          {slide.category}
                         </Badge>
-                        </div>
-                        <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-4 font-headline leading-tight hover:text-primary transition-colors">
-                            {slide.title}
-                        </h3>
-                        <p className="text-muted-foreground mb-6">
-                            {slide.description}
-                        </p>
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-muted-foreground">
-                            {slide.items.map(item => (
-                                <li key={item.title}>
-                                    <Link href={item.href} className="hover:text-primary transition-colors">{item.title}</Link>
-                                </li>
-                            ))}
-                        </ul>
+                      </div>
+                      <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-4 font-headline leading-tight hover:text-primary transition-colors">
+                        {slide.title}
+                      </h3>
+                      <p className="text-muted-foreground mb-6">
+                        {slide.description}
+                      </p>
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-muted-foreground">
+                        {slide.items.map((item) => (
+                          <li key={item.title}>
+                            <Link
+                              href={item.href}
+                              className="hover:text-primary transition-colors"
+                            >
+                              {item.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </Card>
@@ -107,8 +117,8 @@ export function ProductsCarousel() {
           <Carousel
             setApi={setThumbApi}
             opts={{
-              align: 'start',
-              containScroll: 'keepSnaps',
+              align: "start",
+              containScroll: "keepSnaps",
               dragFree: true,
             }}
             className="w-full"
@@ -122,8 +132,10 @@ export function ProductsCarousel() {
                 >
                   <div
                     className={cn(
-                      'block aspect-[4/3] relative rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ring-2 ring-transparent',
-                      selectedIndex === index ? 'ring-primary shadow-2xl' : 'hover:ring-primary/50'
+                      "block aspect-[4/3] relative rounded-lg overflow-hidden cursor-pointer transition-all duration-300 ring-2 ring-transparent",
+                      selectedIndex === index
+                        ? "ring-primary shadow-2xl"
+                        : "hover:ring-primary/50",
                     )}
                   >
                     <Image
@@ -133,13 +145,19 @@ export function ProductsCarousel() {
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                       data-ai-hint={slide.imageHint}
                     />
-                    <div className={cn(
+                    <div
+                      className={cn(
                         "absolute inset-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300",
-                        selectedIndex === index ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'
-                    )} />
-                     <div className="absolute bottom-0 left-0 p-3 text-white">
-                        <h4 className="text-sm font-bold leading-tight line-clamp-2">{slide.title}</h4>
-                     </div>
+                        selectedIndex === index
+                          ? "opacity-100"
+                          : "opacity-70 group-hover:opacity-100",
+                      )}
+                    />
+                    <div className="absolute bottom-0 left-0 p-3 text-white">
+                      <h4 className="text-sm font-bold leading-tight line-clamp-2">
+                        {slide.title}
+                      </h4>
+                    </div>
                   </div>
                 </CarouselItem>
               ))}

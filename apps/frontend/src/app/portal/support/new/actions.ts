@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { cookies } from "next/headers";
+import { readAccessToken } from "@/lib/auth/session-keys";
 
 const FormSchema = z.object({
   title: z.string().min(10, "Başlık en az 10 karakter olmalıdır.").max(300),
@@ -24,7 +25,12 @@ export type FormState = {
   ticketCreated?: boolean;
   ticketId?: string;
   originalInput?: z.infer<typeof FormSchema>;
-  data?: { analysisAvailable: boolean; summary: string; priority: string; suggestion: string };
+  data?: {
+    analysisAvailable: boolean;
+    summary: string;
+    priority: string;
+    suggestion: string;
+  };
 };
 
 export async function analyzeSupportTicket(
@@ -60,8 +66,7 @@ export async function analyzeSupportTicket(
     };
   const input = parsed.data;
   const store = await cookies();
-  const token =
-    store.get("auth_token")?.value || store.get("aluplan_access_token")?.value;
+  const token = readAccessToken((name) => store.get(name)?.value);
   if (!token)
     return {
       ...prevState,
@@ -121,7 +126,9 @@ export async function analyzeSupportTicket(
         throw new Error("Invalid ticket response");
       return {
         step: 2,
-        message: data.notificationWarnings?.length ? "Destek talebiniz oluşturuldu; e-posta bildirimi gönderilemedi." : "Destek talebiniz başarıyla oluşturuldu!",
+        message: data.notificationWarnings?.length
+          ? "Destek talebiniz oluşturuldu; e-posta bildirimi gönderilemedi."
+          : "Destek talebiniz başarıyla oluşturuldu!",
         ticketCreated: true,
         ticketId: data.id,
         originalInput: input,
@@ -138,14 +145,19 @@ export async function analyzeSupportTicket(
     const analysisAvailable = data.analysisAvailable === true;
     return {
       step: 2,
-      message: analysisAvailable ? "Analiz başarılı!" : "AI analizi kullanılamıyor. Talebinizi kontrol edip oluşturabilirsiniz.",
+      message: analysisAvailable
+        ? "Analiz başarılı!"
+        : "AI analizi kullanılamıyor. Talebinizi kontrol edip oluşturabilirsiniz.",
       originalInput: input,
-      data: analysisAvailable ? { ...data, analysisAvailable: true } : {
-        analysisAvailable: false,
-        summary: input.title,
-        priority: input.priority,
-        suggestion: "AI önerisi oluşturulmadı. Seçtiğiniz öncelik korundu; talebinizi destek ekibine gönderebilirsiniz.",
-      },
+      data: analysisAvailable
+        ? { ...data, analysisAvailable: true }
+        : {
+            analysisAvailable: false,
+            summary: input.title,
+            priority: input.priority,
+            suggestion:
+              "AI önerisi oluşturulmadı. Seçtiğiniz öncelik korundu; talebinizi destek ekibine gönderebilirsiniz.",
+          },
     };
   } catch {
     return {

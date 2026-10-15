@@ -14,6 +14,7 @@ import {
   RefreshTokenResponse,
   ChangePasswordDto,
 } from "@affexai/shared-types";
+import { SESSION_STORAGE_KEYS } from "@/lib/auth/session-keys";
 
 export type {
   LoginDto,
@@ -106,8 +107,7 @@ class AuthService {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("user");
-        localStorage.removeItem("aluplan_access_token");
-        localStorage.removeItem("aluplan_refresh_token");
+        SESSION_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
         localStorage.removeItem("cortex_access_token");
         localStorage.removeItem("cortex_refresh_token");
         window.location.href = "/login";

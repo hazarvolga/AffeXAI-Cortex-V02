@@ -16,7 +16,11 @@ import {
 import * as React from "react";
 import { siteSettingsData } from "@/lib/site-settings-data";
 import { getLogoUrl } from "@/lib/utils/siteSettings";
-import { getSocialMediaLinks, getCompanyName, getContactInfo } from "@/lib/server/siteSettings";
+import {
+  getSocialMediaLinks,
+  getCompanyName,
+  getContactInfo,
+} from "@/lib/server/siteSettings";
 import { EmailFooter } from "./components/EmailFooter";
 
 interface WelcomeEmailProps {
@@ -39,7 +43,7 @@ interface WelcomeEmailProps {
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 
 export const WelcomeEmail = ({
-  userName = 'Değerli Kullanıcı',
+  userName = "Değerli Kullanıcı",
   siteSettings,
 }: WelcomeEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
@@ -47,7 +51,7 @@ export const WelcomeEmail = ({
   const logoUrl = siteSettings?.logoUrl || getLogoUrl();
   const contactInfo = siteSettings?.contact || getContactInfo();
   const socialMediaLinks = siteSettings?.socialMedia || getSocialMediaLinks();
-  
+
   const previewText = `${companyName}'e hoş geldiniz!`;
 
   return (
@@ -57,22 +61,17 @@ export const WelcomeEmail = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={logoContainer}>
-            <Img
-              src={logoUrl}
-              width="150"
-              height="auto"
-              alt={companyName}
-            />
+            <Img src={logoUrl} width="150" height="auto" alt={companyName} />
           </Section>
           <Section style={content}>
             <Text style={title}>
-              <strong>{companyName}</strong>'e hoş geldiniz!
+              <strong>{companyName}</strong>&apos;e hoş geldiniz!
             </Text>
+            <Text style={paragraph}>Merhaba {userName},</Text>
             <Text style={paragraph}>
-              Merhaba {userName},
-            </Text>
-            <Text style={paragraph}>
-              Allplan dünyasındaki yenilikleri, eğitimleri ve özel fırsatları sizinle paylaşacağımız için heyecanlıyız. Topluluğumuza katıldığınız için teşekkür ederiz.
+              XYZ Suite dünyasındaki yenilikleri, eğitimleri ve özel fırsatları
+              sizinle paylaşacağımız için heyecanlıyız. Topluluğumuza
+              katıldığınız için teşekkür ederiz.
             </Text>
             <Section style={buttonContainer}>
               <Button style={button} href={`${baseUrl}/portal/dashboard`}>
@@ -85,7 +84,7 @@ export const WelcomeEmail = ({
               {companyName} Ekibi
             </Text>
           </Section>
-          
+
           <EmailFooter
             companyName={companyName}
             contactInfo={contactInfo}
@@ -108,37 +107,37 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "0",
-  marginBottom: '64px',
-  border: '1px solid #f0f0f0',
-  borderRadius: '4px',
-  maxWidth: '580px',
-  overflow: 'hidden',
+  marginBottom: "64px",
+  border: "1px solid #f0f0f0",
+  borderRadius: "4px",
+  maxWidth: "580px",
+  overflow: "hidden",
 };
 
 const logoContainer = {
-  padding: '32px 0',
-  textAlign: 'center' as const,
+  padding: "32px 0",
+  textAlign: "center" as const,
 };
 
 const content = {
-  padding: '0 32px',
+  padding: "0 32px",
 };
 
 const title = {
-    fontSize: "24px",
-    fontWeight: "600" as const,
-    lineHeight: "32px",
-    color: '#1a1a1a',
-    margin: '16px 0 24px',
+  fontSize: "24px",
+  fontWeight: "600" as const,
+  lineHeight: "32px",
+  color: "#1a1a1a",
+  margin: "16px 0 24px",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#3c4043',
+  color: "#3c4043",
 };
 
 const buttonContainer = {
@@ -155,5 +154,5 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "14px 24px",
-  fontWeight: '600' as const,
+  fontWeight: "600" as const,
 };

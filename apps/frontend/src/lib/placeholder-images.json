@@ -1,4 +1,3 @@
-
 {
   "placeholderImages": [
     {
@@ -8,7 +7,7 @@
       "imageHint": "abstract architecture"
     },
     {
-      "id": "why-aluplan",
+      "id": "why-xyz-company",
       "description": "Image for the sample tenant 'Why XYZ Company' section showing collaboration",
       "imageUrl": "https://images.unsplash.com/photo-1549692520-204740157989?q=80&w=600&auto=format&fit=crop",
       "imageHint": "engineers collaborating"
@@ -98,28 +97,28 @@
       "imageHint": "construction site"
     },
     {
-        "id": "hero-bim",
-        "description": "Hero image for BIM collaboration",
-        "imageUrl": "https://images.unsplash.com/photo-1658140139638-34f3d1797c21?q=80&w=1920&auto=format&fit=crop",
-        "imageHint": "digital twin"
+      "id": "hero-bim",
+      "description": "Hero image for BIM collaboration",
+      "imageUrl": "https://images.unsplash.com/photo-1658140139638-34f3d1797c21?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "digital twin"
     },
     {
-        "id": "hero-precast",
-        "description": "Hero image for Precast solutions",
-        "imageUrl": "https://images.unsplash.com/photo-1629281720179-a41443588267?q=80&w=1920&auto=format&fit=crop",
-        "imageHint": "concrete production"
+      "id": "hero-precast",
+      "description": "Hero image for Precast solutions",
+      "imageUrl": "https://images.unsplash.com/photo-1629281720179-a41443588267?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "concrete production"
     },
     {
-        "id": "hero-civil",
-        "description": "Hero image for Civil Engineering products",
-        "imageUrl": "https://images.unsplash.com/photo-1543633461-c304a0815104?q=80&w=1920&auto=format&fit=crop",
-        "imageHint": "infrastructure project"
+      "id": "hero-civil",
+      "description": "Hero image for Civil Engineering products",
+      "imageUrl": "https://images.unsplash.com/photo-1543633461-c304a0815104?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "infrastructure project"
     },
     {
-        "id": "hero-bridge-success",
-        "description": "Hero image for a bridge success story",
-        "imageUrl": "https://images.unsplash.com/photo-1429041966141-44d228a42775?q=80&w=1920&auto=format&fit=crop",
-        "imageHint": "bridge sunset"
+      "id": "hero-bridge-success",
+      "description": "Hero image for a bridge success story",
+      "imageUrl": "https://images.unsplash.com/photo-1429041966141-44d228a42775?q=80&w=1920&auto=format&fit=crop",
+      "imageHint": "bridge sunset"
     }
   ]
 }

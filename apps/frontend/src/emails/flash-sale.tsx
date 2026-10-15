@@ -43,7 +43,7 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 export const FlashSaleEmail = ({
   userName = "Kullanıcı",
   saleTitle = "Sadece 24 Saat: %30 İndirim!",
-  saleDescription = "Tüm Allplan eğitim paketlerinde geçerli, kaçırılmayacak flaş indirim başladı. Bilginizi artırmanın tam zamanı!",
+  saleDescription = "Tüm XYZ Suite eğitim paketlerinde geçerli, kaçırılmayacak flaş indirim başladı. Bilginizi artırmanın tam zamanı!",
   discountPercentage = 30,
   countdown = "23:59:59",
   ctaLink = `${baseUrl}/education/training`,
@@ -51,10 +51,11 @@ export const FlashSaleEmail = ({
 }: FlashSaleEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
   const contactInfo = siteSettings?.contact || getContactInfo();
   const socialMediaLinks = siteSettings?.socialMedia || {};
-  
+
   const previewText = `Hızlı Davran! %${discountPercentage} İndirim İçin Son Saatler!`;
 
   return (
@@ -75,9 +76,9 @@ export const FlashSaleEmail = ({
           <Section style={content}>
             <Heading style={heading}>{saleTitle}</Heading>
             <Text style={paragraph}>{saleDescription}</Text>
-            
+
             <Section style={countdownSection}>
-                <Text style={countdownText}>Kalan Süre: {countdown}</Text>
+              <Text style={countdownText}>Kalan Süre: {countdown}</Text>
             </Section>
 
             <Section style={buttonContainer}>
@@ -85,7 +86,7 @@ export const FlashSaleEmail = ({
                 İndirimi Yakala
               </Button>
             </Section>
-            
+
             <Text style={paragraphSmall}>
               Bu fırsat sadece 24 saat için geçerlidir ve stoklarla sınırlıdır.
             </Text>
@@ -114,61 +115,61 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 0 48px",
-  border: '1px solid #e5e5e5',
-  borderRadius: '4px',
-  maxWidth: '600px',
-  overflow: 'hidden'
+  border: "1px solid #e5e5e5",
+  borderRadius: "4px",
+  maxWidth: "600px",
+  overflow: "hidden",
 };
 
 const header = {
-    padding: '0 32px',
-    textAlign: 'center' as const,
-    marginBottom: '20px',
+  padding: "0 32px",
+  textAlign: "center" as const,
+  marginBottom: "20px",
 };
 
 const content = {
-    padding: '0 32px',
-    textAlign: 'center' as const,
+  padding: "0 32px",
+  textAlign: "center" as const,
 };
 
 const heading = {
   fontSize: "32px",
   fontWeight: "bold",
   textAlign: "center" as const,
-  color: '#d94848', // A more urgent color
-  lineHeight: '40px',
+  color: "#d94848", // A more urgent color
+  lineHeight: "40px",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#445354',
-  textAlign: 'center' as const,
+  color: "#445354",
+  textAlign: "center" as const,
 };
 
 const paragraphSmall = {
-    ...paragraph,
-    fontSize: '12px',
-    color: '#6a7380',
+  ...paragraph,
+  fontSize: "12px",
+  color: "#6a7380",
 };
 
 const countdownSection = {
-    margin: '32px 0',
-    padding: '16px',
-    backgroundColor: '#fffbeb',
-    border: '1px dashed #facc15',
-    borderRadius: '8px',
+  margin: "32px 0",
+  padding: "16px",
+  backgroundColor: "#fffbeb",
+  border: "1px dashed #facc15",
+  borderRadius: "8px",
 };
 
 const countdownText = {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#b45309',
-    margin: 0,
-    letterSpacing: '1px'
+  fontSize: "20px",
+  fontWeight: "bold",
+  color: "#b45309",
+  margin: 0,
+  letterSpacing: "1px",
 };
 
 const buttonContainer = {
@@ -185,7 +186,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "16px 32px",
-  fontWeight: 'bold' as const,
+  fontWeight: "bold" as const,
 };
 
 const hr = {

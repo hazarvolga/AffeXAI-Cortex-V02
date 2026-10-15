@@ -16,7 +16,11 @@ import {
 } from "@react-email/components";
 import * as React from "react";
 import { siteSettingsData } from "@/lib/site-settings-data";
-import { getSocialMediaLinks, getCompanyName, getContactInfo } from "@/lib/server/siteSettings";
+import {
+  getSocialMediaLinks,
+  getCompanyName,
+  getContactInfo,
+} from "@/lib/server/siteSettings";
 import { EmailFooter } from "./components/EmailFooter";
 
 interface MonthlyNewsletterProps {
@@ -52,26 +56,40 @@ interface MonthlyNewsletterProps {
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 
 export const MonthlyNewsletterEmail = ({
-  headline = 'Aylık Bültenimize Hoş Geldiniz!',
+  headline = "Aylık Bültenimize Hoş Geldiniz!",
   mainStory = {
-    title: "Allplan 2025 Yenilikleri Yayınlandı!",
-    excerpt: "En son Allplan sürümü, yapay zeka destekli modelleme, gelişmiş işbirliği araçları ve sürdürülebilirlik analizleri ile projelerinizi bir üst seviyeye taşıyor. Tüm yenilikleri keşfedin.",
+    title: "XYZ Suite 2025 Yenilikleri Yayınlandı!",
+    excerpt:
+      "En son XYZ Suite sürümü, yapay zeka destekli modelleme, gelişmiş işbirliği araçları ve sürdürülebilirlik analizleri ile projelerinizi bir üst seviyeye taşıyor. Tüm yenilikleri keşfedin.",
     imageUrl: "https://picsum.photos/seed/newsletter-main/600/300",
     ctaText: "Detayları İncele",
-    ctaLink: `${baseUrl}/products/allplan`
+    ctaLink: `${baseUrl}/products/xyz-suite`,
   },
   secondaryStories = [
-    { title: "Webinar: Allplan Bridge ile Parametrik Köprü Tasarımı", excerpt: "Uzmanlarımızdan parametrik tasarımın gücünü öğrenin. Kayıtlar başladı!", ctaText: "Şimdi Kaydol", ctaLink: `${baseUrl}/events` },
-    { title: "Yeni Başarı Hikayesi: İstanbul Finans Merkezi", excerpt: "İkonik bir kulenin karmaşık geometrisinin Allplan ile nasıl modellendiğini okuyun.", ctaText: "Hikayeyi Oku", ctaLink: `${baseUrl}/case-studies` },
+    {
+      title: "Webinar: XYZ Suite Bridge ile Parametrik Köprü Tasarımı",
+      excerpt:
+        "Uzmanlarımızdan parametrik tasarımın gücünü öğrenin. Kayıtlar başladı!",
+      ctaText: "Şimdi Kaydol",
+      ctaLink: `${baseUrl}/events`,
+    },
+    {
+      title: "Yeni Başarı Hikayesi: İstanbul Finans Merkezi",
+      excerpt:
+        "İkonik bir kulenin karmaşık geometrisinin XYZ Suite ile nasıl modellendiğini okuyun.",
+      ctaText: "Hikayeyi Oku",
+      ctaLink: `${baseUrl}/case-studies`,
+    },
   ],
   siteSettings,
 }: MonthlyNewsletterProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
   const contactInfo = siteSettings?.contact || getContactInfo();
   const socialMediaLinks = siteSettings?.socialMedia || getSocialMediaLinks();
-  
+
   const previewText = `${companyName}'den haberler: ${mainStory.title}`;
 
   return (
@@ -92,34 +110,34 @@ export const MonthlyNewsletterEmail = ({
           <Section style={content}>
             <Heading style={heading}>{headline}</Heading>
           </Section>
-          
+
           <Section style={content}>
-            <Img
-              src={mainStory.imageUrl}
-              width="100%"
-              style={mainImage}
-            />
-            <Heading as="h2" style={mainStoryTitle}>{mainStory.title}</Heading>
+            <Img src={mainStory.imageUrl} width="100%" style={mainImage} />
+            <Heading as="h2" style={mainStoryTitle}>
+              {mainStory.title}
+            </Heading>
             <Text style={paragraph}>{mainStory.excerpt}</Text>
             <Button style={button} href={mainStory.ctaLink}>
               {mainStory.ctaText}
             </Button>
           </Section>
-          
+
           <Hr style={hr} />
 
           <Section style={content}>
-             <Row>
-                {secondaryStories.map((story, index) => (
-                    <Column key={index} style={secondaryStoryColumn}>
-                        <Heading as="h3" style={secondaryStoryTitle}>{story.title}</Heading>
-                        <Text style={secondaryStoryText}>{story.excerpt}</Text>
-                         <Link href={story.ctaLink} style={secondaryStoryLink}>
-                          {story.ctaText} &rarr;
-                        </Link>
-                    </Column>
-                ))}
-             </Row>
+            <Row>
+              {secondaryStories.map((story, index) => (
+                <Column key={index} style={secondaryStoryColumn}>
+                  <Heading as="h3" style={secondaryStoryTitle}>
+                    {story.title}
+                  </Heading>
+                  <Text style={secondaryStoryText}>{story.excerpt}</Text>
+                  <Link href={story.ctaLink} style={secondaryStoryLink}>
+                    {story.ctaText} &rarr;
+                  </Link>
+                </Column>
+              ))}
+            </Row>
           </Section>
 
           <EmailFooter
@@ -145,49 +163,49 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 0 48px",
-  marginBottom: '64px',
-  border: '1px solid #e5e5e5',
-  borderRadius: '4px',
-  maxWidth: '600px',
-  overflow: 'hidden'
+  marginBottom: "64px",
+  border: "1px solid #e5e5e5",
+  borderRadius: "4px",
+  maxWidth: "600px",
+  overflow: "hidden",
 };
 
 const header = {
-    padding: '0 32px',
-    marginBottom: '20px',
+  padding: "0 32px",
+  marginBottom: "20px",
 };
 
 const content = {
-    padding: '0 32px',
+  padding: "0 32px",
 };
 
 const heading = {
   fontSize: "28px",
   fontWeight: "bold",
   textAlign: "center" as const,
-  color: '#333333'
+  color: "#333333",
 };
 
 const mainImage = {
-    borderRadius: '4px',
-    marginBottom: '20px',
+  borderRadius: "4px",
+  marginBottom: "20px",
 };
 
 const mainStoryTitle = {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    margin: '0 0 10px 0',
-    color: '#333333'
+  fontSize: "20px",
+  fontWeight: "bold",
+  margin: "0 0 10px 0",
+  color: "#333333",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#445354',
-  margin: '0 0 20px 0',
+  color: "#445354",
+  margin: "0 0 20px 0",
 };
 
 const button = {
@@ -199,7 +217,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "12px 24px",
-  fontWeight: 'bold',
+  fontWeight: "bold",
 };
 
 const hr = {
@@ -208,26 +226,26 @@ const hr = {
 };
 
 const secondaryStoryColumn = {
-    width: '50%',
-    padding: '0 10px',
+  width: "50%",
+  padding: "0 10px",
 };
 
 const secondaryStoryTitle = {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    margin: '0 0 8px 0',
-    color: '#333333'
+  fontSize: "16px",
+  fontWeight: "bold",
+  margin: "0 0 8px 0",
+  color: "#333333",
 };
 
 const secondaryStoryText = {
-    fontSize: '14px',
-    lineHeight: '20px',
-    color: '#666666',
-    margin: '0 0 12px 0',
+  fontSize: "14px",
+  lineHeight: "20px",
+  color: "#666666",
+  margin: "0 0 12px 0",
 };
 
 const secondaryStoryLink = {
-    fontSize: '14px',
-    color: '#ED7D31',
-    textDecoration: 'none',
+  fontSize: "14px",
+  color: "#ED7D31",
+  textDecoration: "none",
 };

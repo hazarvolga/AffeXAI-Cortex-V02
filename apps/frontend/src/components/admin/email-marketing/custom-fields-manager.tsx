@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { httpClient } from "@/lib/api/http-client";
+import { useTenantAdminHref } from "@/hooks/use-tenant-admin-href";
 import {
   Card,
   CardContent,
@@ -80,6 +80,7 @@ const fieldTypeLabels = {
 };
 
 export default function CustomFieldsManager() {
+  const tenantHref = useTenantAdminHref();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const {
     customFields,
@@ -423,80 +424,21 @@ export default function CustomFieldsManager() {
   }
 
   if (!isAuthenticated) {
-    // Debug info
-    const debugInfo = {
-      localStorage_auth_token:
-        typeof window !== "undefined"
-          ? localStorage.getItem("auth_token")
-          : null,
-      localStorage_aluplan_access_token:
-        typeof window !== "undefined"
-          ? localStorage.getItem("aluplan_access_token")
-          : null,
-      localStorage_keys:
-        typeof window !== "undefined" ? Object.keys(localStorage) : [],
-      httpClient_token: httpClient.getAuthToken(),
-    };
-
-    console.log("🔐 Debug - Auth state:", debugInfo);
-
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Giriş Gerekli</h3>
+        <div className="text-center" role="alert">
+          <AlertCircle
+            className="h-12 w-12 text-red-500 mx-auto mb-4"
+            aria-hidden="true"
+          />
+          <h3 className="text-lg font-semibold mb-2">Giriş gerekli</h3>
           <p className="text-muted-foreground mb-4">
-            Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.
+            Oturumunuz sona ermiş olabilir. Özel alanları görmek için yeniden
+            giriş yapın.
           </p>
-
-          {/* Debug info */}
-          <div className="text-xs text-left bg-gray-100 p-2 rounded mb-4 max-w-md">
-            <strong>Debug Info:</strong>
-            <br />
-            localStorage auth_token:{" "}
-            {debugInfo.localStorage_auth_token ? "EXISTS" : "MISSING"}
-            <br />
-            localStorage aluplan_access_token:{" "}
-            {debugInfo.localStorage_aluplan_access_token ? "EXISTS" : "MISSING"}
-            <br />
-            httpClient token:{" "}
-            {debugInfo.httpClient_token ? "EXISTS" : "MISSING"}
-            <br />
-            localStorage keys: {debugInfo.localStorage_keys.join(", ")}
-          </div>
-
-          <div className="space-y-2">
-            <Button onClick={() => (window.location.href = "/login")}>
-              Giriş Yap
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                localStorage.clear();
-                sessionStorage.clear();
-                window.location.reload();
-              }}
-            >
-              Oturumu Temizle
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                // Try to manually set token from localStorage
-                const token =
-                  localStorage.getItem("auth_token") ||
-                  localStorage.getItem("aluplan_access_token");
-                if (token) {
-                  httpClient.setAuthToken(token);
-                  window.location.reload();
-                } else {
-                  notify.error("Token bulunamadı");
-                }
-              }}
-            >
-              Token&apos;ı Yenile
-            </Button>
-          </div>
+          <Button asChild>
+            <a href={tenantHref("/login")}>Giriş yap</a>
+          </Button>
         </div>
       </div>
     );

@@ -428,3 +428,11 @@ Açık: kiracı CMS sayfalarının ziyaretçiye sunumu (slug uç noktası JWT ko
 - **Kabul testi:** `scripts/acceptance/legacy-admin.cjs` (`LEGACY_ACCEPTANCE_ISOLATED=1`).
 
 Açık: billing ve sistem e-posta katalogları için kiracı sayfası; kiracısız personel için platform paneli.
+
+## UI/UX F3.8 — Allplan/Aluplan izleri — 2026-10-15
+
+- **Oturum anahtarları:** tek kaynak `apps/frontend/src/lib/auth/session-keys.ts`. Yeni kod `ACCESS_TOKEN_KEY` / `REFRESH_TOKEN_KEY` yazar, okumada `readAccessToken`, çıkışta `SESSION_STORAGE_KEYS` kullanır. `aluplan_*` adları yalnız burada, geçiş için; 15.11.2026'dan sonra `LEGACY_*` sabitleri ve okuma yedeği kaldırılabilir.
+- **Kabul edilen grep istisnaları:** `app/_dev/legacy-aluplan/**`, `app/(public-backup)/**`, `lib/auth/session-keys.ts`. Yeni örnek veri XYZ Company / XYZ Suite kullanır; gerçek müşteri veya distribütör adı yazmayın.
+- **Backend'de başıboş kopya:** `apps/backend/src/app`, `src/lib`, `src/ai` Nest uygulamasının parçası değil (eski Next.js kopyası); dokunmadan önce ayrı bir temizlik görevinde ele alın.
+
+Açık: backend başıboş Next.js kopyası; eski oturum anahtarlarının kaldırılması.

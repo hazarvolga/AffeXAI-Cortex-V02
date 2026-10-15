@@ -41,17 +41,22 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 
 export const BackInStockEmail = ({
   userName = "Kullanıcı",
-  productName = "Allplan Mimari Paketi",
+  productName = "XYZ Suite Mimari Paketi",
   productImageUrl = "https://picsum.photos/seed/back-in-stock/200/200",
-  productLink = `${baseUrl}/products/allplan`,
+  productLink = `${baseUrl}/products/xyz-suite`,
   siteSettings,
 }: BackInStockEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
-  const contactInfo = siteSettings?.contact || { address: '', phone: '', email: '' };
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const contactInfo = siteSettings?.contact || {
+    address: "",
+    phone: "",
+    email: "",
+  };
   const socialMediaLinks = siteSettings?.socialMedia || {};
-  
+
   const previewText = `Beklediğiniz ürün tekrar stokta: ${productName}`;
 
   return (
@@ -70,26 +75,31 @@ export const BackInStockEmail = ({
           </Section>
           <Section style={content}>
             <Heading style={heading}>Harika Haber!</Heading>
+            <Text style={paragraph}>Merhaba {userName},</Text>
             <Text style={paragraph}>
-              Merhaba {userName},
-            </Text>
-            <Text style={paragraph}>
-              Beklediğiniz ürün tekrar stoklarımızda! Fırsatı kaçırmadan hemen inceleyin.
+              Beklediğiniz ürün tekrar stoklarımızda! Fırsatı kaçırmadan hemen
+              inceleyin.
             </Text>
 
             <Section style={productSection}>
-                <Img src={productImageUrl} width="120" height="120" alt={productName} style={productImage} />
-                <Heading as="h2" style={productNameStyle}>{productName}</Heading>
-                 <Button style={button} href={productLink}>
-                    Şimdi İncele
-                </Button>
+              <Img
+                src={productImageUrl}
+                width="120"
+                height="120"
+                alt={productName}
+                style={productImage}
+              />
+              <Heading as="h2" style={productNameStyle}>
+                {productName}
+              </Heading>
+              <Button style={button} href={productLink}>
+                Şimdi İncele
+              </Button>
             </Section>
 
-            <Text style={paragraph}>
-              İlginiz için teşekkür ederiz.
-            </Text>
+            <Text style={paragraph}>İlginiz için teşekkür ederiz.</Text>
           </Section>
-          
+
           <EmailFooter
             companyName={companyName}
             contactInfo={contactInfo}
@@ -112,53 +122,53 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 48px 48px 48px",
-  marginBottom: '64px',
-  border: '1px solid #f0f0f0',
-  borderRadius: '4px',
-  maxWidth: '580px',
+  marginBottom: "64px",
+  border: "1px solid #f0f0f0",
+  borderRadius: "4px",
+  maxWidth: "580px",
 };
 
 const logoContainer = {
-  padding: '0 0 20px 0',
-  textAlign: 'center' as const,
+  padding: "0 0 20px 0",
+  textAlign: "center" as const,
 };
 
 const content = {
-  padding: '0',
-  textAlign: 'center' as const,
+  padding: "0",
+  textAlign: "center" as const,
 };
 
 const heading = {
-    fontSize: "24px",
-    fontWeight: "600" as const,
-    lineHeight: "32px",
-    color: '#1a1a1a',
-    margin: '16px 0 24px',
+  fontSize: "24px",
+  fontWeight: "600" as const,
+  lineHeight: "32px",
+  color: "#1a1a1a",
+  margin: "16px 0 24px",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#3c4043',
+  color: "#3c4043",
 };
 
 const productSection = {
-    padding: '24px 0',
-}
+  padding: "24px 0",
+};
 
 const productImage = {
-    borderRadius: '8px',
-    margin: '0 auto'
+  borderRadius: "8px",
+  margin: "0 auto",
 };
 
 const productNameStyle = {
-    fontSize: '20px',
-    fontWeight: 600,
-    color: '#1a1a1a',
-    margin: '16px 0 8px 0',
+  fontSize: "20px",
+  fontWeight: 600,
+  color: "#1a1a1a",
+  margin: "16px 0 8px 0",
 };
 
 const buttonContainer = {
@@ -175,7 +185,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "14px 24px",
-  fontWeight: '600' as const,
+  fontWeight: "600" as const,
 };
 
 const hr = {

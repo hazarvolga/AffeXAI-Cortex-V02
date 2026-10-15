@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
+import { useAsyncEffect } from "@/hooks/use-async-effect";
 import {
   Dialog,
   DialogContent,
@@ -8,21 +9,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { cmsService, type Category } from '@/lib/cms/cms-service';
-import { Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cmsService, type Category } from "@/lib/cms/cms-service";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreatePageDialogProps {
   open: boolean;
@@ -35,67 +36,74 @@ interface CreatePageDialogProps {
  */
 function generateSlug(text: string): string {
   const turkishMap: Record<string, string> = {
-    'ç': 'c', 'Ç': 'C',
-    'ğ': 'g', 'Ğ': 'G',
-    'ı': 'i', 'İ': 'I',
-    'ö': 'o', 'Ö': 'O',
-    'ş': 's', 'Ş': 'S',
-    'ü': 'u', 'Ü': 'U',
+    ç: "c",
+    Ç: "C",
+    ğ: "g",
+    Ğ: "G",
+    ı: "i",
+    İ: "I",
+    ö: "o",
+    Ö: "O",
+    ş: "s",
+    Ş: "S",
+    ü: "u",
+    Ü: "U",
   };
 
   let slug = text;
 
   // Replace Turkish characters
-  Object.keys(turkishMap).forEach(key => {
-    slug = slug.replace(new RegExp(key, 'g'), turkishMap[key]);
+  Object.keys(turkishMap).forEach((key) => {
+    slug = slug.replace(new RegExp(key, "g"), turkishMap[key]);
   });
 
   // Convert to lowercase, replace spaces with hyphens, remove special characters
   slug = slug
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, '-')           // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-    .replace(/^-+/, '')             // Trim - from start
-    .replace(/-+$/, '');            // Trim - from end
+    .replace(/\s+/g, "-") // Replace spaces with -
+    .replace(/[^\w\-]+/g, "") // Remove all non-word chars
+    .replace(/\-\-+/g, "-") // Replace multiple - with single -
+    .replace(/^-+/, "") // Trim - from start
+    .replace(/-+$/, ""); // Trim - from end
 
   return slug;
 }
 
-export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDialogProps) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState<string>('');
-  const [slug, setSlug] = useState('');
+export function CreatePageDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: CreatePageDialogProps) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [manualSlug, setManualSlug] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchingCategories, setFetchingCategories] = useState(true);
   const [autoSlug, setAutoSlug] = useState(true);
   const { toast } = useToast();
 
-  // Fetch categories on mount
-  useEffect(() => {
+  // Each time the dialog opens it starts from an empty form (adjusted during render).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
-      fetchCategories();
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setCategoryId('');
-      setSlug('');
+      setTitle("");
+      setDescription("");
+      setCategoryId("");
+      setManualSlug("");
       setAutoSlug(true);
     }
-  }, [open]);
+  }
 
-  // Auto-generate slug when title or category changes
-  useEffect(() => {
-    if (autoSlug && title) {
-      const selectedCategory = categories.find(c => c.id === categoryId);
-      const categoryPath = selectedCategory ? `${selectedCategory.slug}/` : '';
-      const titleSlug = generateSlug(title);
-      setSlug(`${categoryPath}${titleSlug}`);
-    }
-  }, [title, categoryId, autoSlug, categories]);
+  // The automatic slug follows the title and category; a manual one is kept as typed.
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const automaticSlug = title
+    ? `${selectedCategory ? `${selectedCategory.slug}/` : ""}${generateSlug(title)}`
+    : "";
+  const slug = autoSlug ? automaticSlug : manualSlug;
 
   const fetchCategories = async () => {
     try {
@@ -103,43 +111,45 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
       const categoriesData = await cmsService.getCategories();
       setCategories(categoriesData);
     } catch (error) {
-      console.error('Failed to fetch categories:', error);
+      console.error("Failed to fetch categories:", error);
       toast({
-        title: 'Hata',
-        description: 'Kategoriler yüklenirken bir hata oluştu.',
-        variant: 'destructive',
+        title: "Hata",
+        description: "Kategoriler yüklenirken bir hata oluştu.",
+        variant: "destructive",
       });
     } finally {
       setFetchingCategories(false);
     }
   };
 
+  useAsyncEffect(() => (open ? fetchCategories() : undefined), [open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
       toast({
-        title: 'Uyarı',
-        description: 'Lütfen sayfa başlığını girin.',
-        variant: 'destructive',
+        title: "Uyarı",
+        description: "Lütfen sayfa başlığını girin.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!categoryId) {
       toast({
-        title: 'Uyarı',
-        description: 'Lütfen bir kategori seçin.',
-        variant: 'destructive',
+        title: "Uyarı",
+        description: "Lütfen bir kategori seçin.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!slug.trim()) {
       toast({
-        title: 'Uyarı',
-        description: 'Slug boş olamaz.',
-        variant: 'destructive',
+        title: "Uyarı",
+        description: "Slug boş olamaz.",
+        variant: "destructive",
       });
       return;
     }
@@ -154,21 +164,23 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
       });
 
       toast({
-        title: 'Başarılı',
-        description: 'Sayfa başarıyla oluşturuldu.',
+        title: "Başarılı",
+        description: "Sayfa başarıyla oluşturuldu.",
       });
 
       onOpenChange(false);
       onSuccess(createdPage.id);
     } catch (error: any) {
-      console.error('Failed to create page:', error);
+      console.error("Failed to create page:", error);
 
-      const errorMessage = error.response?.data?.message || 'Sayfa oluşturulurken bir hata oluştu.';
+      const errorMessage =
+        error.response?.data?.message ||
+        "Sayfa oluşturulurken bir hata oluştu.";
 
       toast({
-        title: 'Hata',
+        title: "Hata",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -177,7 +189,7 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
 
   // Build hierarchical category display
   const buildCategoryLabel = (category: Category): string => {
-    const parent = categories.find(c => c.id === category.parentId);
+    const parent = categories.find((c) => c.id === category.parentId);
     if (parent) {
       return `${buildCategoryLabel(parent)} → ${category.name}`;
     }
@@ -191,7 +203,8 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
           <DialogHeader>
             <DialogTitle>Yeni Sayfa Oluştur</DialogTitle>
             <DialogDescription>
-              Sayfa başlığını ve kategorisini girin. Slug otomatik olarak oluşturulacaktır.
+              Sayfa başlığını ve kategorisini girin. Slug otomatik olarak
+              oluşturulacaktır.
             </DialogDescription>
           </DialogHeader>
 
@@ -205,7 +218,7 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Örn: Allplan 2024 Architecture"
+                placeholder="Örn: XYZ Suite 2024 Architecture"
                 autoFocus
               />
             </div>
@@ -235,7 +248,7 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
                 </Select>
               )}
               <p className="text-xs text-muted-foreground">
-                Kategori slug'ı otomatik olarak URL'e eklenecektir.
+                Kategori slug&apos;ı otomatik olarak URL&apos;e eklenecektir.
               </p>
             </div>
 
@@ -261,27 +274,30 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setAutoSlug(!autoSlug)}
+                  onClick={() => {
+                    if (autoSlug) setManualSlug(automaticSlug);
+                    setAutoSlug(!autoSlug);
+                  }}
                   className="h-auto py-1 text-xs"
                 >
-                  {autoSlug ? '🔒 Otomatik' : '🔓 Manuel'}
+                  {autoSlug ? "🔒 Otomatik" : "🔓 Manuel"}
                 </Button>
               </div>
               <Input
                 id="slug"
                 value={slug}
                 onChange={(e) => {
-                  setSlug(e.target.value);
+                  setManualSlug(e.target.value);
                   setAutoSlug(false);
                 }}
                 placeholder="kategori-slug/sayfa-slug"
                 disabled={autoSlug}
-                className={autoSlug ? 'bg-muted' : ''}
+                className={autoSlug ? "bg-muted" : ""}
               />
               <p className="text-xs text-muted-foreground">
                 {autoSlug
-                  ? 'Başlık ve kategoriye göre otomatik oluşturulur.'
-                  : 'Manuel düzenleme modu aktif.'}
+                  ? "Başlık ve kategoriye göre otomatik oluşturulur."
+                  : "Manuel düzenleme modu aktif."}
               </p>
             </div>
           </div>
@@ -295,7 +311,10 @@ export function CreatePageDialog({ open, onOpenChange, onSuccess }: CreatePageDi
             >
               İptal
             </Button>
-            <Button type="submit" disabled={loading || !title.trim() || !categoryId}>
+            <Button
+              type="submit"
+              disabled={loading || !title.trim() || !categoryId}
+            >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Oluştur
             </Button>

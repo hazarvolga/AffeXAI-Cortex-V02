@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth/login-outcome";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/lib/auth/session-keys";
 
 // Get API URL from environment - server-side route can use internal URL
 const getApiUrl = () => {
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    cookieStore.set("aluplan_access_token", data.access_token, {
+    cookieStore.set(ACCESS_TOKEN_KEY, data.access_token, {
       httpOnly: false, // Client-side accessible for API calls
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (data.refresh_token) {
-      cookieStore.set("aluplan_refresh_token", data.refresh_token, {
+      cookieStore.set(REFRESH_TOKEN_KEY, data.refresh_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

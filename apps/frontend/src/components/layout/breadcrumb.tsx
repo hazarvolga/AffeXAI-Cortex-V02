@@ -72,10 +72,6 @@ const LABEL_MAP: Record<string, string> = {
   "building-design": "Bina Tasarımı",
 
   // Products
-  allplan: "ALLPLAN",
-  "allplan-architecture": "ALLPLAN Architecture",
-  "allplan-engineering": "ALLPLAN Engineering",
-  "allplan-bim": "ALLPLAN BIM",
   basic: "Basic",
   professional: "Professional",
   ultimate: "Ultimate",

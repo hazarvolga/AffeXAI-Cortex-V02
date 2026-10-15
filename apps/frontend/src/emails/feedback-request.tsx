@@ -40,16 +40,21 @@ const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:9002";
 
 export const FeedbackRequestEmail = ({
   userName = "Ahmet",
-  productName = "Allplan Professional",
+  productName = "XYZ Suite Professional",
   feedbackLink = `${baseUrl}/portal/feedback`,
   siteSettings,
 }: FeedbackRequestEmailProps) => {
   // Use dynamic site settings if provided, otherwise fallback to static data
   const companyName = siteSettings?.companyName || getCompanyName();
-  const logoUrl = siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
-  const contactInfo = siteSettings?.contact || { address: '', phone: '', email: '' };
+  const logoUrl =
+    siteSettings?.logoUrl || siteSettingsData.logoUrl || `${baseUrl}/logo.png`;
+  const contactInfo = siteSettings?.contact || {
+    address: "",
+    phone: "",
+    email: "",
+  };
   const socialMediaLinks = siteSettings?.socialMedia || {};
-  
+
   const previewText = `Deneyiminizi merak ediyoruz: ${productName}`;
 
   return (
@@ -68,14 +73,15 @@ export const FeedbackRequestEmail = ({
           </Section>
           <Section style={content}>
             <Heading style={heading}>Düşünceleriniz Bizim İçin Değerli</Heading>
+            <Text style={paragraph}>Merhaba {userName},</Text>
             <Text style={paragraph}>
-              Merhaba {userName},
+              Kısa bir süre önce {productName} ürününü kullanmaya başladınız.
+              Size daha iyi hizmet verebilmemiz için deneyimlerinizi duymak
+              isteriz.
             </Text>
             <Text style={paragraph}>
-              Kısa bir süre önce {productName} ürününü kullanmaya başladınız. Size daha iyi hizmet verebilmemiz için deneyimlerinizi duymak isteriz.
-            </Text>
-            <Text style={paragraph}>
-              Sadece birkaç dakikanızı alacak kısa anketimize katılarak bize yardımcı olur musunuz?
+              Sadece birkaç dakikanızı alacak kısa anketimize katılarak bize
+              yardımcı olur musunuz?
             </Text>
             <Section style={buttonContainer}>
               <Button style={button} href={feedbackLink}>
@@ -88,7 +94,7 @@ export const FeedbackRequestEmail = ({
               {companyName} Ekibi
             </Text>
           </Section>
-           <Hr style={hr} />
+          <Hr style={hr} />
           <EmailFooter
             companyName={companyName}
             contactInfo={contactInfo}
@@ -111,37 +117,37 @@ const main = {
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: "#ffffff",
   margin: "0 auto",
   padding: "20px 48px 48px 48px",
-  marginBottom: '64px',
-  border: '1px solid #f0f0f0',
-  borderRadius: '4px',
-  maxWidth: '580px',
+  marginBottom: "64px",
+  border: "1px solid #f0f0f0",
+  borderRadius: "4px",
+  maxWidth: "580px",
 };
 
 const logoContainer = {
-  padding: '0 0 20px 0',
-  textAlign: 'center' as const,
+  padding: "0 0 20px 0",
+  textAlign: "center" as const,
 };
 
 const content = {
-  padding: '0',
+  padding: "0",
 };
 
 const heading = {
-    fontSize: "24px",
-    fontWeight: "600" as const,
-    lineHeight: "32px",
-    color: '#1a1a1a',
-    textAlign: 'center' as const,
-    margin: '16px 0 24px',
+  fontSize: "24px",
+  fontWeight: "600" as const,
+  lineHeight: "32px",
+  color: "#1a1a1a",
+  textAlign: "center" as const,
+  margin: "16px 0 24px",
 };
 
 const paragraph = {
   fontSize: "16px",
   lineHeight: "26px",
-  color: '#3c4043',
+  color: "#3c4043",
 };
 
 const buttonContainer = {
@@ -158,7 +164,7 @@ const button = {
   textAlign: "center" as const,
   display: "inline-block",
   padding: "14px 24px",
-  fontWeight: '600' as const,
+  fontWeight: "600" as const,
 };
 
 const hr = {

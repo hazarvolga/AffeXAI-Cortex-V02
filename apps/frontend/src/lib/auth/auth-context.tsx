@@ -20,6 +20,7 @@ import { authService } from "../api/authService";
 import { hasPlatformAuthority } from "./platform-authority";
 import { tokenStorage } from "./token-storage";
 import { isTenantSelection, type LoginOutcome } from "./login-outcome";
+import { SESSION_STORAGE_KEYS } from "./session-keys";
 
 // ============================================================================
 // Types
@@ -246,8 +247,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Clear invalid tokens
         tokenStorage.clear();
         if (typeof window !== "undefined") {
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("aluplan_access_token");
+          SESSION_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
         }
       } finally {
         setIsLoading(false);

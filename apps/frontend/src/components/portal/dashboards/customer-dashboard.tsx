@@ -32,7 +32,7 @@ const quickLinks = [
 
 const recentActivity = [
   {
-    description: "Allplan 2024 Kurulum Kılavuzu'nu indirdiniz.",
+    description: "XYZ Suite 2024 Kurulum Kılavuzu'nu indirdiniz.",
     time: "2 saat önce",
   },
   { description: "Destek talebiniz güncellendi: #78945", time: "1 gün önce" },
@@ -190,7 +190,7 @@ export default function CustomerDashboard() {
           <CardContent className="space-y-4">
             <div>
               <h3 className="font-semibold text-sm">
-                Allplan 2024.1 Güncellemesi Yayınlandı
+                XYZ Suite 2024.1 Güncellemesi Yayınlandı
               </h3>
               <p className="text-sm text-muted-foreground">
                 Performans iyileştirmeleri ve yeni özellikler içeriyor. Hemen
