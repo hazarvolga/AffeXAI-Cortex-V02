@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailLog } from './entities/email-log.entity';
-import { EmailCampaign } from './entities/email-campaign.entity';
-import { Subscriber } from './entities/subscriber.entity';
-import { EmailOpenHistory } from './entities/email-open-history.entity';
-import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
-import { TenantService } from '../../core/tenant/tenant.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EmailLog } from "./entities/email-log.entity";
+import { EmailCampaign } from "./entities/email-campaign.entity";
+import { Subscriber } from "./entities/subscriber.entity";
+import { EmailOpenHistory } from "./entities/email-open-history.entity";
+import { ConfigService } from "@nestjs/config";
+import { v4 as uuidv4 } from "uuid";
+import { createHmac, timingSafeEqual } from "crypto";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { UnauthorizedException } from "@nestjs/common";
 
 interface TrackingMetadata {
   userAgent?: string;
@@ -55,6 +56,7 @@ export interface TrackingStats {
 @Injectable()
 export class TrackingService {
   private readonly baseUrl: string;
+  private readonly linkKey: Buffer | null;
 
   constructor(
     @InjectRepository(EmailLog)
@@ -69,12 +71,63 @@ export class TrackingService {
     private configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    this.baseUrl = this.configService.get<string>('BASE_URL', 'http://localhost:9005');
+    this.baseUrl = this.configService.get<string>(
+      "BASE_URL",
+      "http://localhost:9005",
+    );
+    // A key derived for link signing only; the JWT secret itself never signs links.
+    const secret = this.configService.get<string>("JWT_SECRET");
+    this.linkKey = secret
+      ? createHmac("sha256", secret).update("email-link-tracking").digest()
+      : null;
+  }
+
+  /** Signature binding a redirect target to the email it was sent in. */
+  signLink(trackingId: string, url: string): string {
+    if (!this.linkKey) return "";
+    return createHmac("sha256", this.linkKey)
+      .update(`${trackingId}\n${url}`)
+      .digest("base64url");
+  }
+
+  /**
+   * The URL a click may redirect to, or null. Signed links must match; unsigned links from
+   * emails sent before signing only resolve for a real tracking id. Only http(s) targets.
+   */
+  async resolveClickTarget(
+    trackingId: string,
+    url: string | undefined,
+    signature?: string,
+  ): Promise<string | null> {
+    if (!url) return null;
+    let target: URL;
+    try {
+      target = new URL(url);
+    } catch {
+      return null;
+    }
+    if (target.protocol !== "http:" && target.protocol !== "https:")
+      return null;
+
+    if (signature) {
+      const expected = Buffer.from(this.signLink(trackingId, url));
+      const given = Buffer.from(signature);
+      return expected.length > 0 &&
+        expected.length === given.length &&
+        timingSafeEqual(expected, given)
+        ? url
+        : null;
+    }
+    const known = await this.emailLogRepository.findOne({
+      where: { id: trackingId },
+      select: ["id"],
+    });
+    return known ? url : null;
   }
 
   private getTenantId(): string {
     const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) throw new UnauthorizedException('Tenant context required');
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
     return tenantId;
   }
 
@@ -100,7 +153,7 @@ export class TrackingService {
         id: uuidv4(),
         campaignId,
         recipientEmail,
-        status: 'pending',
+        status: "pending",
         tenantId,
         metadata: {},
       });
@@ -112,7 +165,9 @@ export class TrackingService {
 
     const linkWrapper = (originalUrl: string): string => {
       const encodedUrl = encodeURIComponent(originalUrl);
-      return `${this.baseUrl}/api/email-marketing/track/click/${trackingId}?url=${encodedUrl}`;
+      const signature = this.signLink(trackingId, originalUrl);
+      const signed = signature ? `&sig=${signature}` : "";
+      return `${this.baseUrl}/api/email-marketing/track/click/${trackingId}?url=${encodedUrl}${signed}`;
     };
 
     return {
@@ -125,10 +180,13 @@ export class TrackingService {
   /**
    * Track email open event
    */
-  async trackEmailOpen(trackingId: string, metadata: TrackingMetadata): Promise<void> {
+  async trackEmailOpen(
+    trackingId: string,
+    metadata: TrackingMetadata,
+  ): Promise<void> {
     const emailLog = await this.emailLogRepository.findOne({
       where: { id: trackingId },
-      relations: ['campaign'],
+      relations: ["campaign"],
     });
 
     if (!emailLog) {
@@ -150,10 +208,18 @@ export class TrackingService {
       await this.emailLogRepository.save(emailLog);
 
       // Update campaign statistics
-      await this.updateCampaignStats(emailLog.campaignId, 'opened', emailLog.tenantId);
+      await this.updateCampaignStats(
+        emailLog.campaignId,
+        "opened",
+        emailLog.tenantId,
+      );
 
       // Update subscriber statistics
-      await this.updateSubscriberStats(emailLog.recipientEmail, 'opens', emailLog.tenantId);
+      await this.updateSubscriberStats(
+        emailLog.recipientEmail,
+        "opens",
+        emailLog.tenantId,
+      );
 
       // Find subscriber by email to get ID
       const subscriber = await this.subscriberRepository.findOne({
@@ -164,6 +230,7 @@ export class TrackingService {
       if (subscriber) {
         const openTime = new Date(metadata.timestamp);
         const openHistory = this.emailOpenHistoryRepository.create({
+          tenantId: emailLog.tenantId,
           subscriberId: subscriber.id,
           campaignId: emailLog.campaignId,
           openedAt: openTime,
@@ -178,13 +245,16 @@ export class TrackingService {
         await this.emailOpenHistoryRepository.save(openHistory);
 
         // 🧠 NEURAL GRID SIGNAL: Email Opened
-        this.eventEmitter.emit('neural.signal', {
+        this.eventEmitter.emit("neural.signal", {
           tenantId: emailLog.tenantId,
-          source: 'email',
-          type: 'email.opened',
+          source: "email",
+          type: "email.opened",
           successScore: 1,
           context: `Email campaign ${emailLog.campaignId} was opened by ${emailLog.recipientEmail}`,
-          data: { campaignId: emailLog.campaignId, recipient: emailLog.recipientEmail }
+          data: {
+            campaignId: emailLog.campaignId,
+            recipient: emailLog.recipientEmail,
+          },
         });
       }
     }
@@ -193,18 +263,22 @@ export class TrackingService {
   /**
    * Track email click event
    */
-  async trackEmailClick(trackingId: string, metadata: TrackingMetadata): Promise<void> {
+  async trackEmailClick(
+    trackingId: string,
+    metadata: TrackingMetadata,
+  ): Promise<void> {
     const emailLog = await this.emailLogRepository.findOne({
       where: { id: trackingId },
-      relations: ['campaign'],
+      relations: ["campaign"],
     });
 
     if (!emailLog) {
       throw new Error(`Email log not found for tracking ID: ${trackingId}`);
     }
 
-    // Track click (can have multiple clicks)
-    if (!emailLog.clickedAt) {
+    // Track click (can have multiple clicks); only the first one counts as unique
+    const isFirstClick = !emailLog.clickedAt;
+    if (isFirstClick) {
       emailLog.clickedAt = metadata.timestamp;
     }
 
@@ -226,21 +300,33 @@ export class TrackingService {
     await this.emailLogRepository.save(emailLog);
 
     // Update campaign statistics (only count first click for unique clicks)
-    if (emailLog.clickedAt === metadata.timestamp) {
-      await this.updateCampaignStats(emailLog.campaignId, 'clicked', emailLog.tenantId);
+    if (isFirstClick) {
+      await this.updateCampaignStats(
+        emailLog.campaignId,
+        "clicked",
+        emailLog.tenantId,
+      );
     }
 
     // Update subscriber statistics
-    await this.updateSubscriberStats(emailLog.recipientEmail, 'clicks', emailLog.tenantId);
+    await this.updateSubscriberStats(
+      emailLog.recipientEmail,
+      "clicks",
+      emailLog.tenantId,
+    );
 
     // 🧠 NEURAL GRID SIGNAL: Email Clicked
-    this.eventEmitter.emit('neural.signal', {
+    this.eventEmitter.emit("neural.signal", {
       tenantId: emailLog.tenantId,
-      source: 'email',
-      type: 'email.clicked',
+      source: "email",
+      type: "email.clicked",
       successScore: 5,
       context: `Link clicked in email campaign ${emailLog.campaignId} by ${emailLog.recipientEmail}. URL: ${metadata.originalUrl}`,
-      data: { campaignId: emailLog.campaignId, recipient: emailLog.recipientEmail, url: metadata.originalUrl }
+      data: {
+        campaignId: emailLog.campaignId,
+        recipient: emailLog.recipientEmail,
+        url: metadata.originalUrl,
+      },
     });
   }
 
@@ -260,21 +346,21 @@ export class TrackingService {
     // Get all email logs for this campaign
     const emailLogs = await this.emailLogRepository.find({
       where: { campaignId, tenantId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
 
     const totalSent = emailLogs.length;
-    const totalOpened = emailLogs.filter(log => log.openedAt).length;
-    const totalClicked = emailLogs.filter(log => log.clickedAt).length;
+    const totalOpened = emailLogs.filter((log) => log.openedAt).length;
+    const totalClicked = emailLogs.filter((log) => log.clickedAt).length;
 
     const openRate = totalSent > 0 ? (totalOpened / totalSent) * 100 : 0;
     const clickRate = totalSent > 0 ? (totalClicked / totalSent) * 100 : 0;
 
     // Recent opens (last 10)
     const recentOpens = emailLogs
-      .filter(log => log.openedAt)
+      .filter((log) => log.openedAt)
       .slice(0, 10)
-      .map(log => ({
+      .map((log) => ({
         recipientEmail: log.recipientEmail,
         openedAt: log.openedAt!,
         userAgent: log.metadata?.openTracking?.userAgent,
@@ -283,9 +369,9 @@ export class TrackingService {
 
     // Recent clicks (last 10)
     const recentClicks = emailLogs
-      .filter(log => log.clickedAt)
+      .filter((log) => log.clickedAt)
       .slice(0, 10)
-      .map(log => ({
+      .map((log) => ({
         recipientEmail: log.recipientEmail,
         clickedAt: log.clickedAt!,
         originalUrl: log.metadata?.clicks?.[0]?.originalUrl,
@@ -312,7 +398,7 @@ export class TrackingService {
    */
   private async updateCampaignStats(
     campaignId: string,
-    metric: 'opened' | 'clicked',
+    metric: "opened" | "clicked",
     tenantId: string,
   ): Promise<void> {
     const campaign = await this.campaignRepository.findOne({
@@ -320,9 +406,9 @@ export class TrackingService {
     });
 
     if (campaign) {
-      if (metric === 'opened') {
+      if (metric === "opened") {
         campaign.openedCount = (campaign.openedCount || 0) + 1;
-      } else if (metric === 'clicked') {
+      } else if (metric === "clicked") {
         campaign.clickedCount = (campaign.clickedCount || 0) + 1;
       }
 
@@ -335,7 +421,7 @@ export class TrackingService {
    */
   private async updateSubscriberStats(
     email: string,
-    metric: 'opens' | 'clicks',
+    metric: "opens" | "clicks",
     tenantId: string,
   ): Promise<void> {
     const subscriber = await this.subscriberRepository.findOne({
@@ -343,9 +429,9 @@ export class TrackingService {
     });
 
     if (subscriber) {
-      if (metric === 'opens') {
+      if (metric === "opens") {
         subscriber.opens = (subscriber.opens || 0) + 1;
-      } else if (metric === 'clicks') {
+      } else if (metric === "clicks") {
         subscriber.clicks = (subscriber.clicks || 0) + 1;
       }
 
@@ -361,14 +447,20 @@ export class TrackingService {
     campaignId: string,
     recipientEmail: string,
   ): Promise<string> {
-    const trackingData = await this.generateTrackingData(campaignId, recipientEmail);
+    const trackingData = await this.generateTrackingData(
+      campaignId,
+      recipientEmail,
+    );
 
     // Add tracking pixel before closing body tag
     const trackingPixel = `<img src="${trackingData.pixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
-    let processedContent = htmlContent.replace('</body>', `${trackingPixel}</body>`);
+    let processedContent = htmlContent.replace(
+      "</body>",
+      `${trackingPixel}</body>`,
+    );
 
     // If no body tag, add pixel at the end
-    if (!processedContent.includes('</body>')) {
+    if (!processedContent.includes("</body>")) {
       processedContent += trackingPixel;
     }
 
@@ -377,11 +469,15 @@ export class TrackingService {
       /href="([^"]+)"/g,
       (match, url) => {
         // Skip tracking URLs and mailto links
-        if (url.includes('/track/') || url.startsWith('mailto:') || url.startsWith('#')) {
+        if (
+          url.includes("/track/") ||
+          url.startsWith("mailto:") ||
+          url.startsWith("#")
+        ) {
           return match;
         }
         return `href="${trackingData.linkWrapper(url)}"`;
-      }
+      },
     );
 
     return processedContent;
@@ -391,40 +487,44 @@ export class TrackingService {
    * Detect device type from user agent
    */
   private detectDeviceType(userAgent?: string): string {
-    if (!userAgent) return 'unknown';
+    if (!userAgent) return "unknown";
 
     const ua = userAgent.toLowerCase();
-    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
-      return 'mobile';
+    if (
+      ua.includes("mobile") ||
+      ua.includes("android") ||
+      ua.includes("iphone")
+    ) {
+      return "mobile";
     }
-    if (ua.includes('tablet') || ua.includes('ipad')) {
-      return 'tablet';
+    if (ua.includes("tablet") || ua.includes("ipad")) {
+      return "tablet";
     }
-    return 'desktop';
+    return "desktop";
   }
 
   /**
    * Detect email client from user agent
    */
   private detectEmailClient(userAgent?: string): string {
-    if (!userAgent) return 'unknown';
+    if (!userAgent) return "unknown";
 
     const ua = userAgent.toLowerCase();
 
     // Common email clients
-    if (ua.includes('outlook')) return 'Outlook';
-    if (ua.includes('thunderbird')) return 'Thunderbird';
-    if (ua.includes('apple mail')) return 'Apple Mail';
+    if (ua.includes("outlook")) return "Outlook";
+    if (ua.includes("thunderbird")) return "Thunderbird";
+    if (ua.includes("apple mail")) return "Apple Mail";
 
     // Webmail clients
-    if (ua.includes('gmail')) return 'Gmail';
-    if (ua.includes('yahoo')) return 'Yahoo Mail';
-    if (ua.includes('hotmail') || ua.includes('live.com')) return 'Outlook.com';
+    if (ua.includes("gmail")) return "Gmail";
+    if (ua.includes("yahoo")) return "Yahoo Mail";
+    if (ua.includes("hotmail") || ua.includes("live.com")) return "Outlook.com";
 
     // Mobile clients
-    if (ua.includes('android') && ua.includes('mail')) return 'Android Mail';
-    if (ua.includes('iphone') && ua.includes('mail')) return 'iOS Mail';
+    if (ua.includes("android") && ua.includes("mail")) return "Android Mail";
+    if (ua.includes("iphone") && ua.includes("mail")) return "iOS Mail";
 
-    return 'Other';
+    return "Other";
   }
 }

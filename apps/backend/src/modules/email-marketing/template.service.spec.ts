@@ -1,279 +1,126 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
-import { TemplateService } from '../template.service';
-import { EmailTemplate, TemplateType } from '../entities/email-template.entity';
-import { MjmlRendererService } from '../services/mjml-renderer.service';
-import { CreateEmailTemplateDto } from '../dto/create-template.dto';
-import { UpdateEmailTemplateDto } from '../dto/update-template.dto';
-import { CloneTemplateDto } from '../dto/clone-template.dto';
+import { NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { Repository } from "typeorm";
+import { TenantService } from "../../core/tenant/tenant.service";
+import { EmailTemplate, TemplateType } from "./entities/email-template.entity";
+import { MjmlRendererService } from "./services/mjml-renderer.service";
+import { TemplateService } from "./template.service";
 
-describe('TemplateService', () => {
-    let service: TemplateService;
-    let templateRepository: Repository<EmailTemplate>;
-    let mjmlRendererService: MjmlRendererService;
+jest.mock("./services/mjml-renderer.service", () => ({
+  MjmlRendererService: class {},
+}));
 
-    const mockTemplate: Partial<EmailTemplate> = {
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        name: 'Test Template',
-        description: 'Test Description',
-        type: TemplateType.CUSTOM,
-        isActive: true,
-        isEditable: true,
-        content: '<html>Test</html>',
-        compiledHtml: '<html>Test</html>',
-        compiledMjml: '<mjml>Test</mjml>',
-        structure: { rows: [] },
-        variables: [],
-        version: 1,
-    };
+const TENANT = "tenant-a";
 
-    const mockRepository = {
-        create: jest.fn(),
-        save: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        update: jest.fn(),
-        remove: jest.fn(),
-    };
+function setup(
+  stored: Partial<EmailTemplate> | null = {
+    id: "t1",
+    name: "Welcome",
+    content: "<p>Hi</p>",
+    tenantId: TENANT,
+  },
+  tenant: string | null = TENANT,
+) {
+  const templates = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+    find: jest.fn(async () => [stored]),
+    findOne: jest.fn(async () => stored),
+    update: jest.fn(async () => ({ affected: 1 })),
+    remove: jest.fn(async () => undefined),
+  };
+  const renderer = {
+    renderEmail: jest.fn(async () => ({
+      mjml: "<mjml/>",
+      html: "<html/>",
+      errors: [],
+    })),
+  };
+  const service = new TemplateService(
+    templates as unknown as Repository<EmailTemplate>,
+    renderer as unknown as MjmlRendererService,
+    { getTenantId: () => tenant } as unknown as TenantService,
+  );
+  return { service, templates, renderer };
+}
 
-    const mockMjmlRendererService = {
-        renderEmail: jest.fn(),
-    };
-
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                TemplateService,
-                {
-                    provide: getRepositoryToken(EmailTemplate),
-                    useValue: mockRepository,
-                },
-                {
-                    provide: MjmlRendererService,
-                    useValue: mockMjmlRendererService,
-                },
-            ],
-        }).compile();
-
-        service = module.get<TemplateService>(TemplateService);
-        templateRepository = module.get<Repository<EmailTemplate>>(
-            getRepositoryToken(EmailTemplate),
-        );
-        mjmlRendererService = module.get<MjmlRendererService>(MjmlRendererService);
-
-        jest.clearAllMocks();
+describe("TemplateService", () => {
+  it("creates and lists templates in the active tenant", async () => {
+    const { service, templates } = setup();
+    await service.create({ name: "Promo" } as never);
+    expect(templates.create).toHaveBeenCalledWith({
+      name: "Promo",
+      tenantId: TENANT,
     });
-
-    describe('create', () => {
-        it('should create a new template', async () => {
-            const createDto: CreateEmailTemplateDto = {
-                name: 'New Template',
-                description: 'New Description',
-                type: TemplateType.CUSTOM,
-            };
-
-            mockRepository.create.mockReturnValue(mockTemplate);
-            mockRepository.save.mockResolvedValue(mockTemplate);
-
-            const result = await service.create(createDto);
-
-            expect(mockRepository.create).toHaveBeenCalledWith(createDto);
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result).toEqual(mockTemplate);
-        });
+    await service.findAll();
+    expect(templates.find).toHaveBeenCalledWith({
+      where: { tenantId: TENANT },
     });
+  });
 
-    describe('findAll', () => {
-        it('should return all templates', async () => {
-            const templates = [mockTemplate];
-            mockRepository.find.mockResolvedValue(templates);
-
-            const result = await service.findAll();
-
-            expect(mockRepository.find).toHaveBeenCalled();
-            expect(result).toEqual(templates);
-        });
+  it("keeps id and tenant when an update tries to change them", async () => {
+    const { service } = setup();
+    const updated = await service.update("t1", {
+      name: "Renamed",
+      id: "x",
+      tenantId: "tenant-b",
+    } as never);
+    expect(updated).toMatchObject({
+      id: "t1",
+      name: "Renamed",
+      tenantId: TENANT,
     });
+  });
 
-    describe('findOne', () => {
-        it('should return a template by id', async () => {
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-
-            const result = await service.findOne(mockTemplate.id);
-
-            expect(mockRepository.findOne).toHaveBeenCalledWith({
-                where: { id: mockTemplate.id },
-            });
-            expect(result).toEqual(mockTemplate);
-        });
-
-        it('should throw NotFoundException if template not found', async () => {
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.findOne('non-existent-id')).rejects.toThrow(
-                NotFoundException,
-            );
-        });
+  it("clones an HTML-only template into an editable structured copy", async () => {
+    const { service, templates, renderer } = setup();
+    const clone = await service.cloneTemplate("t1", {} as never);
+    expect(clone).toMatchObject({
+      name: "Welcome (Copy)",
+      type: TemplateType.CUSTOM,
+      isEditable: true,
+      createdFrom: "cloned",
+      tenantId: TENANT,
+      compiledHtml: "<html/>",
     });
-
-    describe('findByName', () => {
-        it('should return a template by name', async () => {
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-
-            const result = await service.findByName(mockTemplate.name);
-
-            expect(mockRepository.findOne).toHaveBeenCalledWith({
-                where: { name: mockTemplate.name },
-            });
-            expect(result).toEqual(mockTemplate);
-        });
-
-        it('should throw NotFoundException if template not found', async () => {
-            mockRepository.findOne.mockResolvedValue(null);
-
-            await expect(service.findByName('Non Existent')).rejects.toThrow(
-                NotFoundException,
-            );
-        });
+    expect(clone.structure.rows[0].columns[0].blocks[0]).toMatchObject({
+      type: "html",
+      properties: { html: "<p>Hi</p>" },
     });
+    expect(renderer.renderEmail).toHaveBeenCalledTimes(1);
+    expect(templates.save).toHaveBeenCalled();
+  });
 
-    describe('update', () => {
-        it('should update a template', async () => {
-            const updateDto: UpdateEmailTemplateDto = {
-                name: 'Updated Template',
-            };
-
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-            mockRepository.save.mockResolvedValue({
-                ...mockTemplate,
-                ...updateDto,
-            });
-
-            const result = await service.update(mockTemplate.id, updateDto);
-
-            expect(mockRepository.findOne).toHaveBeenCalled();
-            expect(mockRepository.save).toHaveBeenCalled();
-            expect(result.name).toBe(updateDto.name);
-        });
+  it("renders a structured template and stores the output inside the tenant", async () => {
+    const { service, templates } = setup({
+      id: "t1",
+      tenantId: TENANT,
+      structure: { rows: [], settings: {} },
+    } as never);
+    await expect(service.renderTemplate("t1")).resolves.toEqual({
+      html: "<html/>",
+      mjml: "<mjml/>",
     });
+    expect(templates.update).toHaveBeenCalledWith(
+      { id: "t1", tenantId: TENANT },
+      { compiledHtml: "<html/>", compiledMjml: "<mjml/>" },
+    );
+  });
 
-    describe('remove', () => {
-        it('should remove a template', async () => {
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-            mockRepository.remove.mockResolvedValue(mockTemplate);
-
-            await service.remove(mockTemplate.id);
-
-            expect(mockRepository.findOne).toHaveBeenCalled();
-            expect(mockRepository.remove).toHaveBeenCalledWith(mockTemplate);
-        });
+  it("returns legacy HTML without rendering", async () => {
+    const { service, renderer } = setup();
+    await expect(service.renderTemplate("t1")).resolves.toEqual({
+      html: "<p>Hi</p>",
+      mjml: null,
     });
+    expect(renderer.renderEmail).not.toHaveBeenCalled();
+  });
 
-    describe('cloneTemplate', () => {
-        it('should clone a template with new name', async () => {
-            const cloneDto: CloneTemplateDto = {
-                newName: 'Cloned Template',
-            };
-
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-            mockRepository.create.mockReturnValue({
-                ...mockTemplate,
-                name: cloneDto.newName,
-            });
-            mockRepository.save.mockResolvedValue({
-                ...mockTemplate,
-                name: cloneDto.newName,
-            });
-            mockMjmlRendererService.renderEmail.mockResolvedValue({
-                mjml: '<mjml>Rendered</mjml>',
-                html: '<html>Rendered</html>',
-            });
-
-            const result = await service.cloneTemplate(mockTemplate.id, cloneDto);
-
-            expect(mockRepository.findOne).toHaveBeenCalled();
-            expect(mockRepository.create).toHaveBeenCalled();
-            expect(result.name).toBe(cloneDto.newName);
-        });
-
-        it('should use default name if not provided', async () => {
-            const cloneDto: CloneTemplateDto = {};
-
-            mockRepository.findOne.mockResolvedValue(mockTemplate);
-            mockRepository.create.mockReturnValue(mockTemplate);
-            mockRepository.save.mockResolvedValue(mockTemplate);
-            mockMjmlRendererService.renderEmail.mockResolvedValue({
-                mjml: '<mjml>Rendered</mjml>',
-                html: '<html>Rendered</html>',
-            });
-
-            const result = await service.cloneTemplate(mockTemplate.id, cloneDto);
-
-            expect(result.name).toContain('(Copy)');
-        });
-
-        it('should render structure if template has structure', async () => {
-            const templateWithStructure = {
-                ...mockTemplate,
-                structure: { rows: [{ type: 'section' }] },
-            };
-
-            mockRepository.findOne.mockResolvedValue(templateWithStructure);
-            mockRepository.create.mockReturnValue(templateWithStructure);
-            mockRepository.save.mockResolvedValue(templateWithStructure);
-            mockMjmlRendererService.renderEmail.mockResolvedValue({
-                mjml: '<mjml>Rendered</mjml>',
-                html: '<html>Rendered</html>',
-            });
-
-            await service.cloneTemplate(mockTemplate.id, {});
-
-            expect(mockMjmlRendererService.renderEmail).toHaveBeenCalled();
-        });
-    });
-
-    describe('renderTemplate', () => {
-        it('should render template with structure', async () => {
-            const templateWithStructure = {
-                ...mockTemplate,
-                structure: { rows: [] },
-            };
-
-            mockRepository.findOne.mockResolvedValue(templateWithStructure);
-            mockRepository.update.mockResolvedValue({ affected: 1 });
-            mockMjmlRendererService.renderEmail.mockResolvedValue({
-                mjml: '<mjml>Rendered</mjml>',
-                html: '<html>Rendered</html>',
-            });
-
-            const result = await service.renderTemplate(mockTemplate.id);
-
-            expect(mockMjmlRendererService.renderEmail).toHaveBeenCalled();
-            expect(mockRepository.update).toHaveBeenCalled();
-            expect(result).toEqual({
-                mjml: '<mjml>Rendered</mjml>',
-                html: '<html>Rendered</html>',
-            });
-        });
-
-        it('should return legacy HTML if no structure', async () => {
-            const legacyTemplate = {
-                ...mockTemplate,
-                structure: null,
-                content: '<html>Legacy</html>',
-            };
-
-            mockRepository.findOne.mockResolvedValue(legacyTemplate);
-
-            const result = await service.renderTemplate(mockTemplate.id);
-
-            expect(mockMjmlRendererService.renderEmail).not.toHaveBeenCalled();
-            expect(result).toEqual({
-                html: '<html>Legacy</html>',
-                mjml: null,
-            });
-        });
-    });
+  it("reports a missing template and requires a tenant", async () => {
+    await expect(setup(null).service.findByName("nope")).rejects.toThrow(
+      NotFoundException,
+    );
+    await expect(setup(undefined, null).service.findAll()).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
 });

@@ -501,3 +501,12 @@ Eski spec'ler artık var olmayan dosya yollarını ve API'leri anlatıyordu; mev
 - **CSV formül enjeksiyonu:** abone verisi herkese açık formlardan geliyor; `=`, `+`, `-`, `@`, sekme ile başlayan hücreler artık `'` önekiyle yazılıyor (Excel/LibreOffice'te formül çalışmaz).
 - **Temizlik:** içe ve dışa aktarma `cleanupOldJobs` Mongo sözdizimi (`{ $lt: date }`) kullanıyordu; TypeORM/Postgres'te anlamsız. `LessThan` ile düzeltildi.
 - **Bilinen açık (S3):** içe aktarma iptali kuyruktaki işi kaldırmıyor (kodda not var); işleyici iş durumuna bakmalı.
+
+### Sprint 1 P1 — email-marketing spec'leri, 6. parti (2026-10-15)
+
+- **Güvenlik — açık yönlendirme:** herkese açık `GET /api/email-marketing/track/click/:id?url=` her URL'ye (bilinmeyen takip kimliğiyle ve `javascript:` dahil) yönlendiriyordu; kiracı alan adı üzerinden oltalama için kullanılabilirdi. Sarılan bağlantılar artık `sig` (JWT_SECRET'tan türetilmiş ayrı anahtarla HMAC, takip kimliği + URL) taşıyor; yönlendirme yalnız imzası tutan ya da (imzasız eski e-postalar için) gerçek bir takip kimliğine ait http(s) hedeflerine yapılıyor, diğerleri 404. URL artık iki kez çözülmüyor. Açılma/tıklama IP'si sahte olabilen `X-Forwarded-For` yerine güvenilen proxy politikasıyla gelen `req.ip`.
+- **Gönderim zamanı verisi:** açılma geçmişi `tenantId` olmadan yazılıyordu; kiracıyla okuyan gönderim zamanı servisi hiçbir açılmayı görmüyordu.
+- **Abone e-postası:** yönetici panelinden eklenen adresler normalize edilmiyordu, abonelikten çıkma/bastırma sorguları büyük/küçük harfe duyarlıydı; aboneliğini iptal etmiş kişi farklı yazımla "bastırılmamış" görünebilirdi. Oluşturmada küçük harfe çevriliyor, aramalar `LOWER(email)` ile.
+- **Şablon:** güncelleme gövdesindeki `id`/`tenantId` yok sayılıyor; derlenmiş çıktı kiracı kapsamında yazılıyor.
+- **Düzeltilen kendi hatam:** `fbeabf5`'teki `getJobCounts` değişikliği `email-delivery-boundaries.spec`in kuyruk mock'unu kırmıştı (o partide koşmamıştım); mock güncellendi.
+- **S3 için açık:** abone tablosundaki benzersizlik (`tenantId, email`) büyük/küçük harfe duyarlı; mevcut karışık yazımlı kopyalar için veri temizliği + `LOWER` dizini gerekir.

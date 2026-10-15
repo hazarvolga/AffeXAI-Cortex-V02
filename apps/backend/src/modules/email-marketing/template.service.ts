@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmailTemplate, TemplateType } from './entities/email-template.entity';
-import { CreateEmailTemplateDto } from './dto/create-template.dto';
-import { UpdateEmailTemplateDto } from './dto/update-template.dto';
-import { CloneTemplateDto } from './dto/clone-template.dto';
-import { MjmlRendererService } from './services/mjml-renderer.service';
-import { TenantService } from '../../core/tenant/tenant.service';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EmailTemplate, TemplateType } from "./entities/email-template.entity";
+import { CreateEmailTemplateDto } from "./dto/create-template.dto";
+import { UpdateEmailTemplateDto } from "./dto/update-template.dto";
+import { CloneTemplateDto } from "./dto/clone-template.dto";
+import { MjmlRendererService } from "./services/mjml-renderer.service";
+import { TenantService } from "../../core/tenant/tenant.service";
 
 @Injectable()
 export class TemplateService {
@@ -15,17 +19,22 @@ export class TemplateService {
     private templatesRepository: Repository<EmailTemplate>,
     private readonly mjmlRendererService: MjmlRendererService,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private getTenantId(): string {
     const tenantId = this.tenantService.getTenantId();
-    if (!tenantId) throw new UnauthorizedException('Tenant context required');
+    if (!tenantId) throw new UnauthorizedException("Tenant context required");
     return tenantId;
   }
 
-  async create(createTemplateDto: CreateEmailTemplateDto): Promise<EmailTemplate> {
+  async create(
+    createTemplateDto: CreateEmailTemplateDto,
+  ): Promise<EmailTemplate> {
     const tenantId = this.getTenantId();
-    const template = this.templatesRepository.create({ ...createTemplateDto, tenantId });
+    const template = this.templatesRepository.create({
+      ...createTemplateDto,
+      tenantId,
+    });
     return this.templatesRepository.save(template);
   }
 
@@ -36,7 +45,9 @@ export class TemplateService {
 
   async findOne(id: string): Promise<EmailTemplate> {
     const tenantId = this.getTenantId();
-    const template = await this.templatesRepository.findOne({ where: { id, tenantId } });
+    const template = await this.templatesRepository.findOne({
+      where: { id, tenantId },
+    });
     if (!template) {
       throw new NotFoundException(`Template with ID ${id} not found`);
     }
@@ -45,24 +56,36 @@ export class TemplateService {
 
   async findByName(name: string): Promise<EmailTemplate> {
     const tenantId = this.getTenantId();
-    const template = await this.templatesRepository.findOne({ where: { name, tenantId } });
+    const template = await this.templatesRepository.findOne({
+      where: { name, tenantId },
+    });
     if (!template) {
       throw new NotFoundException(`Template with name ${name} not found`);
     }
     return template;
   }
 
-  async update(id: string, updateTemplateDto: UpdateEmailTemplateDto): Promise<EmailTemplate> {
+  async update(
+    id: string,
+    updateTemplateDto: UpdateEmailTemplateDto,
+  ): Promise<EmailTemplate> {
     const template = await this.findOne(id);
-    Object.assign(template, updateTemplateDto);
-    return this.templatesRepository.save(template);
+    // Identity and ownership never come from the request body.
+    const {
+      id: _ignoredId,
+      tenantId: _ignoredTenant,
+      ...changes
+    } = updateTemplateDto as UpdateEmailTemplateDto & {
+      id?: string;
+      tenantId?: string;
+    };
+    return this.templatesRepository.save({ ...template, ...changes });
   }
 
   async remove(id: string): Promise<void> {
     const template = await this.findOne(id);
     await this.templatesRepository.remove(template);
   }
-
 
   /**
    * Clone an existing database template
@@ -77,7 +100,8 @@ export class TemplateService {
 
     // Generate new name
     const newName = cloneDto.newName || `${originalTemplate.name} (Copy)`;
-    const newDescription = cloneDto.newDescription || originalTemplate.description;
+    const newDescription =
+      cloneDto.newDescription || originalTemplate.description;
     const makeEditable = cloneDto.makeEditable !== false; // Default true
 
     // Create cloned template
@@ -87,11 +111,13 @@ export class TemplateService {
       type: TemplateType.CUSTOM,
       isActive: true,
       isEditable: makeEditable,
-      createdFrom: 'cloned',
+      createdFrom: "cloned",
       version: 1,
 
       // Copy structure if exists, otherwise create basic structure from HTML content
-      structure: originalTemplate.structure || this.htmlToStructure(originalTemplate.content),
+      structure:
+        originalTemplate.structure ||
+        this.htmlToStructure(originalTemplate.content),
 
       // Copy or generate compiled versions
       compiledHtml: originalTemplate.compiledHtml || originalTemplate.content,
@@ -124,15 +150,15 @@ export class TemplateService {
       rows: [
         {
           id: this.generateId(),
-          type: 'section',
+          type: "section",
           columns: [
             {
               id: this.generateId(),
-              width: '100%',
+              width: "100%",
               blocks: [
                 {
                   id: this.generateId(),
-                  type: 'html',
+                  type: "html",
                   properties: {
                     html: html,
                   },
@@ -145,8 +171,8 @@ export class TemplateService {
         },
       ],
       settings: {
-        backgroundColor: '#f5f5f5',
-        contentWidth: '600px',
+        backgroundColor: "#f5f5f5",
+        contentWidth: "600px",
         fonts: [],
       },
     };
@@ -172,10 +198,13 @@ export class TemplateService {
     );
 
     // Update compiled versions
-    await this.templatesRepository.update(id, {
-      compiledHtml: html,
-      compiledMjml: mjml,
-    });
+    await this.templatesRepository.update(
+      { id, tenantId },
+      {
+        compiledHtml: html,
+        compiledMjml: mjml,
+      },
+    );
 
     return { html, mjml };
   }
