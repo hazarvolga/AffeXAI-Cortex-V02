@@ -33,10 +33,9 @@ import { JwtAuthGuard } from "../../../core/auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../../core/auth/guards/permissions.guard";
 import { RequirePermissions } from "../../../core/auth/decorators/permissions.decorator";
 import { CurrentUser } from "../../../core/auth/decorators/current-user.decorator";
-import { PERMISSIONS } from "../../../lib/permissions";
+import { PERMISSIONS } from "../../../core/auth/permissions";
 import { User } from "../../users/entities/user.entity";
 import {
-  AutomationAction,
   AutomationActionType,
   AutomationRule,
 } from "../entities/automation-rule.entity";
@@ -320,8 +319,7 @@ function safeRuleChanges(
     changes.triggerEventType = input.triggerEventType;
   if (input.triggerConditions !== undefined)
     changes.triggerConditions = input.triggerConditions;
-  if (input.actions !== undefined)
-    changes.actions = input.actions as AutomationAction[];
+  if (input.actions !== undefined) changes.actions = input.actions;
   if (input.priority !== undefined) changes.priority = input.priority;
   if (creating || input.requiresApproval !== undefined)
     changes.requiresApproval = true;
@@ -344,7 +342,7 @@ export class AutomationRulesController {
   @Get()
   findAll(@CurrentUser() user: User) {
     return this.ruleRepository.find({
-      where: { tenantId: user.tenantId } as any,
+      where: { tenantId: user.tenantId },
       order: { createdAt: "DESC" },
     });
   }
@@ -352,7 +350,7 @@ export class AutomationRulesController {
   @Get("active")
   findActive(@CurrentUser() user: User) {
     return this.ruleRepository.find({
-      where: { isActive: true, tenantId: user.tenantId } as any,
+      where: { isActive: true, tenantId: user.tenantId },
       order: { priority: "DESC" },
     });
   }
@@ -360,7 +358,7 @@ export class AutomationRulesController {
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: User) {
     return this.ruleRepository.findOne({
-      where: { id, tenantId: user.tenantId } as any,
+      where: { id, tenantId: user.tenantId },
     });
   }
 
@@ -380,11 +378,11 @@ export class AutomationRulesController {
     @CurrentUser() user: User,
   ) {
     await this.ruleRepository.update(
-      { id, tenantId: user.tenantId } as any,
+      { id, tenantId: user.tenantId },
       safeRuleChanges(data, false),
     );
     return this.ruleRepository.findOne({
-      where: { id, tenantId: user.tenantId } as any,
+      where: { id, tenantId: user.tenantId },
     });
   }
 
@@ -393,14 +391,14 @@ export class AutomationRulesController {
     await this.ruleRepository.softDelete({
       id,
       tenantId: user.tenantId,
-    } as any);
+    });
     return { success: true };
   }
 
   @Put(":id/toggle")
   async toggle(@Param("id") id: string, @CurrentUser() user: User) {
     const rule = await this.ruleRepository.findOne({
-      where: { id, tenantId: user.tenantId } as any,
+      where: { id, tenantId: user.tenantId },
     });
     if (!rule) throw new NotFoundException(`Rule not found: ${id}`);
     return this.ruleRepository.save({ ...rule, isActive: !rule.isActive });

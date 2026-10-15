@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import { PERMISSIONS } from "../../../lib/permissions";
+import { PERMISSIONS } from "../../../core/auth/permissions";
 import { AutomationRulesController } from "./automation-rules.controller";
 import { ApprovalsController } from "./approvals.controller";
 import {
@@ -112,7 +112,9 @@ describe("automation administration security boundaries", () => {
         } as any,
         tenantUser,
       ),
-    ).toThrow("email.send is unavailable until crash-safe idempotency is enabled");
+    ).toThrow(
+      "email.send is unavailable until crash-safe idempotency is enabled",
+    );
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -122,30 +124,51 @@ describe("automation administration security boundaries", () => {
     const base = {
       name: "Governed webhook",
       triggerEventType: PlatformEventType.FORM_SUBMITTED,
-      actions: [{
-        type: AutomationActionType.TRIGGER_WEBHOOK,
-        config: { webhookId: "safe" },
-        order: 0,
-      }],
+      actions: [
+        {
+          type: AutomationActionType.TRIGGER_WEBHOOK,
+          config: { webhookId: "safe" },
+          order: 0,
+        },
+      ],
     };
 
-    expect(() => controller.create({ ...base, requiresApproval: false } as any, tenantUser))
-      .toThrow("requires approval");
-    expect(() => controller.create({
-      ...base,
-      requiresApproval: true,
-      impactLevel: ActionImpactLevel.LOW,
-    } as any, tenantUser)).toThrow("medium impact");
-    expect(() => controller.create({
-      ...base,
-      requiresApproval: true,
-      impactLevel: ActionImpactLevel.CRITICAL,
-    } as any, tenantUser)).toThrow("Critical automation");
-    expect(() => controller.create({
-      ...base,
-      requiresApproval: true,
-      autoApprovalConditions: { eventSource: "admin" },
-    } as any, tenantUser)).toThrow("Auto-approval");
+    expect(() =>
+      controller.create(
+        { ...base, requiresApproval: false } as any,
+        tenantUser,
+      ),
+    ).toThrow("requires approval");
+    expect(() =>
+      controller.create(
+        {
+          ...base,
+          requiresApproval: true,
+          impactLevel: ActionImpactLevel.LOW,
+        } as any,
+        tenantUser,
+      ),
+    ).toThrow("medium impact");
+    expect(() =>
+      controller.create(
+        {
+          ...base,
+          requiresApproval: true,
+          impactLevel: ActionImpactLevel.CRITICAL,
+        } as any,
+        tenantUser,
+      ),
+    ).toThrow("Critical automation");
+    expect(() =>
+      controller.create(
+        {
+          ...base,
+          requiresApproval: true,
+          autoApprovalConditions: { eventSource: "admin" },
+        } as any,
+        tenantUser,
+      ),
+    ).toThrow("Auto-approval");
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -181,11 +204,13 @@ describe("automation administration security boundaries", () => {
 
   function approvalController(approval: any) {
     const transactionalRepository = {
-      findOne: jest.fn(async (_options?: unknown) => approval),
+      findOne: jest.fn<Promise<unknown>, [options?: unknown]>(
+        async () => approval,
+      ),
       save: jest.fn(async (value) => value),
     };
     const ruleRepository = {
-      findOne: jest.fn(async (_options?: unknown) => approval.rule),
+      findOne: jest.fn(async () => approval.rule),
     };
     const dataSource = {
       transaction: jest.fn(async (callback) =>
@@ -277,8 +302,9 @@ describe("automation administration security boundaries", () => {
     selfRequested.requestedBy = tenantUser.id;
     const { controller, executor } = approvalController(selfRequested);
 
-    await expect(controller.approve("approval-1", {}, tenantUser))
-      .rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      controller.approve("approval-1", {}, tenantUser),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(executor.executeApprovedAutomation).not.toHaveBeenCalled();
   });
 
@@ -291,8 +317,9 @@ describe("automation administration security boundaries", () => {
     };
     const { controller, executor } = approvalController(approval);
 
-    await expect(controller.approve("approval-1", {}, delegatedAdmin as any))
-      .rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      controller.approve("approval-1", {}, delegatedAdmin as any),
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(executor.executeApprovedAutomation).not.toHaveBeenCalled();
   });
 

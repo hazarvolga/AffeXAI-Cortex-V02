@@ -1,7 +1,7 @@
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { JwtAuthGuard } from "../../core/auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../core/auth/guards/permissions.guard";
-import { PERMISSIONS } from "../../lib/permissions";
+import { PERMISSIONS } from "../../core/auth/permissions";
 
 jest.mock("./dto/create-event.dto", () => ({
   CreateEventDto: class CreateEventDto {},

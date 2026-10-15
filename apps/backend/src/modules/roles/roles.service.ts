@@ -1,26 +1,38 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Role } from './entities/role.entity';
-import { RoleTemplate } from './entities/role-template.entity';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
-import { TenantService } from '../../core/tenant/tenant.service';
-import { assertTenantRoleDefinition, normalizeTenantRoleName } from './tenant-role-policy';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Role } from "./entities/role.entity";
+import { RoleTemplate } from "./entities/role-template.entity";
+import { CreateRoleDto } from "./dto/create-role.dto";
+import { UpdateRoleDto } from "./dto/update-role.dto";
+import { TenantService } from "../../core/tenant/tenant.service";
+import {
+  assertTenantRoleDefinition,
+  normalizeTenantRoleName,
+} from "./tenant-role-policy";
 import {
   ORGANIZATION_ADMIN_ROLES,
   assertAdminRoleCanBeRevoked,
-} from '../organizations/organization-admin-invariant';
+} from "../organizations/organization-admin-invariant";
 import {
   TENANT_PERMISSION_CATALOG,
   getPermissionCategory,
-} from '../../lib/permissions';
+} from "../../core/auth/permissions";
 
 export interface PermissionResource {
   id: string;
   name: string;
   category: string;
   description: string;
+}
+
+interface AssignmentCountRow {
+  assignment_count?: number;
 }
 
 @Injectable()
@@ -31,12 +43,12 @@ export class RolesService {
     @InjectRepository(RoleTemplate)
     private roleTemplateRepository: Repository<RoleTemplate>,
     private tenantService: TenantService,
-  ) { }
+  ) {}
 
   private getActiveTenantId(tenantId?: string): string {
     const id = tenantId || this.tenantService.getTenantId();
     if (!id) {
-      throw new BadRequestException('Tenant context required');
+      throw new BadRequestException("Tenant context required");
     }
     return id;
   }
@@ -47,7 +59,8 @@ export class RolesService {
       ...createRoleDto,
       name: normalizeTenantRoleName(createRoleDto.name),
     };
-    if (!normalizedRole.name) throw new BadRequestException('Role name cannot be blank');
+    if (!normalizedRole.name)
+      throw new BadRequestException("Role name cannot be blank");
     assertTenantRoleDefinition(normalizedRole);
     // Check if role name already exists in this tenant
     const existingRole = await this.rolesRepository.findOne({
@@ -55,7 +68,9 @@ export class RolesService {
     });
 
     if (existingRole) {
-      throw new ConflictException(`Role with name "${normalizedRole.name}" already exists in this tenant`);
+      throw new ConflictException(
+        `Role with name "${normalizedRole.name}" already exists in this tenant`,
+      );
     }
 
     const role = this.rolesRepository.create({
@@ -67,20 +82,22 @@ export class RolesService {
     return await this.rolesRepository.save(role);
   }
 
-  async findAll(tenantId?: string): Promise<Array<Role & { userCount: number }>> {
+  async findAll(
+    tenantId?: string,
+  ): Promise<Array<Role & { userCount: number }>> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     const roles = await this.rolesRepository.find({
       where: { tenantId: activeTenantId },
-      relations: ['template', 'userRoles', 'users'],
+      relations: ["template", "userRoles", "users"],
       order: {
-        createdAt: 'DESC',
+        createdAt: "DESC",
       },
     });
-    return roles.map(role => {
+    return roles.map((role) => {
       const { userRoles, users, ...publicRole } = role;
       const assignedUserIds = new Set([
-        ...(userRoles || []).map(assignment => assignment.userId),
-        ...(users || []).map(user => user.id),
+        ...(userRoles || []).map((assignment) => assignment.userId),
+        ...(users || []).map((user) => user.id),
       ]);
       return {
         ...publicRole,
@@ -91,28 +108,28 @@ export class RolesService {
   }
 
   getResources(): PermissionResource[] {
-    return [...TENANT_PERMISSION_CATALOG]
-      .sort()
-      .map(id => ({
-        id,
-        name: id
-          .split(/[.:_]/)
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' '),
-        category: getPermissionCategory(id) || 'Legacy',
-        description: `${id} tenant izni`,
-      }));
+    return [...TENANT_PERMISSION_CATALOG].sort().map((id) => ({
+      id,
+      name: id
+        .split(/[.:_]/)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" "),
+      category: getPermissionCategory(id) || "Legacy",
+      description: `${id} tenant izni`,
+    }));
   }
 
   async findOne(id: string, tenantId?: string): Promise<Role> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     const role = await this.rolesRepository.findOne({
       where: { id, tenantId: activeTenantId },
-      relations: ['template'],
+      relations: ["template"],
     });
 
     if (!role) {
-      throw new NotFoundException(`Role with ID "${id}" not found in this tenant`);
+      throw new NotFoundException(
+        `Role with ID "${id}" not found in this tenant`,
+      );
     }
 
     return role;
@@ -125,33 +142,56 @@ export class RolesService {
     });
   }
 
-  async update(id: string, updateRoleDto: UpdateRoleDto, tenantId?: string): Promise<Role> {
+  async update(
+    id: string,
+    updateRoleDto: UpdateRoleDto,
+    tenantId?: string,
+  ): Promise<Role> {
     const activeTenantId = this.getActiveTenantId(tenantId);
-    const normalizedUpdate = updateRoleDto.name === undefined
-      ? { ...updateRoleDto }
-      : { ...updateRoleDto, name: normalizeTenantRoleName(updateRoleDto.name) };
-    if (normalizedUpdate.name === '') throw new BadRequestException('Role name cannot be blank');
-    return this.rolesRepository.manager.transaction(async manager => {
+    const normalizedUpdate =
+      updateRoleDto.name === undefined
+        ? { ...updateRoleDto }
+        : {
+            ...updateRoleDto,
+            name: normalizeTenantRoleName(updateRoleDto.name),
+          };
+    if (normalizedUpdate.name === "")
+      throw new BadRequestException("Role name cannot be blank");
+    return this.rolesRepository.manager.transaction(async (manager) => {
       const repository = manager.withRepository(this.rolesRepository);
       const role = await repository.findOne({
         where: { id, tenantId: activeTenantId },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: "pessimistic_write" },
       });
       if (!role) {
-        throw new NotFoundException(`Role with ID "${id}" not found in this tenant`);
+        throw new NotFoundException(
+          `Role with ID "${id}" not found in this tenant`,
+        );
       }
 
       assertTenantRoleDefinition(role);
       assertTenantRoleDefinition(normalizedUpdate);
-      if (!role.isCustom && normalizedUpdate.name && normalizedUpdate.name !== role.name) {
-        throw new BadRequestException('Cannot change name of template-based roles');
+      if (
+        !role.isCustom &&
+        normalizedUpdate.name &&
+        normalizedUpdate.name !== role.name
+      ) {
+        throw new BadRequestException(
+          "Cannot change name of template-based roles",
+        );
       }
 
-      const isAdminRole = role.isActive !== false
-        && ORGANIZATION_ADMIN_ROLES.includes(role.name as typeof ORGANIZATION_ADMIN_ROLES[number]);
+      const isAdminRole =
+        role.isActive !== false &&
+        ORGANIZATION_ADMIN_ROLES.includes(
+          role.name as (typeof ORGANIZATION_ADMIN_ROLES)[number],
+        );
       const nextName = normalizedUpdate.name ?? role.name;
-      const remainsAdminRole = normalizedUpdate.isActive !== false
-        && ORGANIZATION_ADMIN_ROLES.includes(nextName as typeof ORGANIZATION_ADMIN_ROLES[number]);
+      const remainsAdminRole =
+        normalizedUpdate.isActive !== false &&
+        ORGANIZATION_ADMIN_ROLES.includes(
+          nextName as (typeof ORGANIZATION_ADMIN_ROLES)[number],
+        );
       if (isAdminRole && !remainsAdminRole) {
         await assertAdminRoleCanBeRevoked(manager, role);
       }
@@ -161,7 +201,9 @@ export class RolesService {
           where: { name: normalizedUpdate.name, tenantId: activeTenantId },
         });
         if (existingRole) {
-          throw new ConflictException(`Role with name "${normalizedUpdate.name}" already exists in this tenant`);
+          throw new ConflictException(
+            `Role with name "${normalizedUpdate.name}" already exists in this tenant`,
+          );
         }
       }
 
@@ -171,21 +213,23 @@ export class RolesService {
 
   async remove(id: string, tenantId?: string): Promise<void> {
     const activeTenantId = this.getActiveTenantId(tenantId);
-    await this.rolesRepository.manager.transaction(async manager => {
+    await this.rolesRepository.manager.transaction(async (manager) => {
       const repository = manager.withRepository(this.rolesRepository);
       const role = await repository.findOne({
         where: { id, tenantId: activeTenantId },
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: "pessimistic_write" },
       });
       if (!role) {
-        throw new NotFoundException(`Role with ID "${id}" not found in this tenant`);
+        throw new NotFoundException(
+          `Role with ID "${id}" not found in this tenant`,
+        );
       }
 
       assertTenantRoleDefinition(role);
       if (!role.isCustom) {
-        throw new BadRequestException('Cannot delete template-based roles');
+        throw new BadRequestException("Cannot delete template-based roles");
       }
-      const [assignmentState] = await manager.query(
+      const [assignmentState]: AssignmentCountRow[] = await manager.query(
         `SELECT count(DISTINCT assigned.user_id)::int AS assignment_count
            FROM (
              SELECT ur."userId" AS user_id
@@ -215,15 +259,20 @@ export class RolesService {
     return role.permissions || [];
   }
 
-  async updatePermissions(id: string, permissions: string[], tenantId?: string): Promise<Role> {
+  async updatePermissions(
+    id: string,
+    permissions: string[],
+    tenantId?: string,
+  ): Promise<Role> {
     const activeTenantId = this.getActiveTenantId(tenantId);
     return this.update(id, { permissions }, activeTenantId);
   }
 
   async getUserCount(id: string, tenantId?: string): Promise<number> {
     const activeTenantId = this.getActiveTenantId(tenantId);
-    const [state] = await this.rolesRepository.manager.query(
-      `SELECT count(DISTINCT assigned.user_id)::int AS assignment_count
+    const [state]: AssignmentCountRow[] =
+      await this.rolesRepository.manager.query(
+        `SELECT count(DISTINCT assigned.user_id)::int AS assignment_count
          FROM (
            SELECT ur."userId" AS user_id
              FROM user_roles ur
@@ -233,8 +282,8 @@ export class RolesService {
              FROM users u
             WHERE u."roleId"=$1 AND u.tenant_id=$2 AND u.deleted_at IS NULL
          ) assigned`,
-      [id, activeTenantId],
-    );
+        [id, activeTenantId],
+      );
     return Number(state?.assignment_count || 0);
   }
 
@@ -248,7 +297,7 @@ export class RolesService {
     }
 
     return this.rolesRepository.find({
-      where: ids.map(id => ({ id, tenantId })),
+      where: ids.map((id) => ({ id, tenantId })),
     });
   }
 }

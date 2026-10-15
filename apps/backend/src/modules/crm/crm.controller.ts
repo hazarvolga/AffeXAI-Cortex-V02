@@ -17,7 +17,7 @@ import { JwtAuthGuard } from "../../core/auth/guards/jwt-auth.guard";
 import { UpdateCrmCustomerDto } from "./dto/update-crm-customer.dto";
 import { PermissionsGuard } from "../../core/auth/guards/permissions.guard";
 import { RequirePermissions } from "../../core/auth/decorators/permissions.decorator";
-import { PERMISSIONS } from "../../lib/permissions";
+import { PERMISSIONS } from "../../core/auth/permissions";
 import { Throttle } from "@nestjs/throttler";
 import { ListCrmCustomersDto } from "./dto/list-crm-customers.dto";
 

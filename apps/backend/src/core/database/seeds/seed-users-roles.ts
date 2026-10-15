@@ -199,7 +199,7 @@ async function seedData() {
     // 2. Check and seed admin user
     console.log("👤 Checking admin user...");
     const adminExists = (await queryRunner.query(
-      "SELECT * FROM users WHERE email = 'admin@aluplan.com'",
+      "SELECT * FROM users WHERE email = 'admin@xyzcompany.com'",
     )) as unknown[];
 
     if (adminExists.length === 0) {
@@ -222,7 +222,7 @@ async function seedData() {
           updated_at
         ) VALUES (
           gen_random_uuid(),
-          'admin@aluplan.com',
+          'admin@xyzcompany.com',
           $1,
           'Admin',
           'User',
@@ -238,7 +238,7 @@ async function seedData() {
       );
 
       console.log("✅ Admin user created successfully");
-      console.log("   Email: admin@aluplan.com");
+      console.log("   Email: admin@xyzcompany.com");
     } else {
       console.log("✅ Admin user already exists");
     }
@@ -248,28 +248,28 @@ async function seedData() {
 
     const testUsers = [
       {
-        email: "editor@aluplan.com",
+        email: "editor@xyzcompany.com",
         password: seedPasswords.editor,
         firstName: "Editor",
         lastName: "User",
         roleId: "a1b2c3d4-e5f6-4789-abcd-000000000002", // editor
       },
       {
-        email: "customer@aluplan.com",
+        email: "customer@xyzcompany.com",
         password: seedPasswords.customer,
         firstName: "Customer",
         lastName: "User",
         roleId: "a1b2c3d4-e5f6-4789-abcd-000000000003", // customer
       },
       {
-        email: "support@aluplan.com",
+        email: "support@xyzcompany.com",
         password: seedPasswords.support,
         firstName: "Support",
         lastName: "User",
         roleId: "a1b2c3d4-e5f6-4789-abcd-000000000004", // support
       },
       {
-        email: "viewer@aluplan.com",
+        email: "viewer@xyzcompany.com",
         password: seedPasswords.viewer,
         firstName: "Viewer",
         lastName: "User",

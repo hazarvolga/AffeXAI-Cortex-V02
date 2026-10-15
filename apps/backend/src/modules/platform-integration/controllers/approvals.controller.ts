@@ -22,7 +22,7 @@ import { JwtAuthGuard } from "../../../core/auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../../core/auth/guards/permissions.guard";
 import { RequirePermissions } from "../../../core/auth/decorators/permissions.decorator";
 import { CurrentUser } from "../../../core/auth/decorators/current-user.decorator";
-import { PERMISSIONS } from "../../../lib/permissions";
+import { PERMISSIONS } from "../../../core/auth/permissions";
 import { User } from "../../users/entities/user.entity";
 
 class ApprovalDecisionDto {
@@ -46,7 +46,7 @@ export class ApprovalsController {
   @Get()
   findAll(@CurrentUser() user: User) {
     return this.approvalRepository.find({
-      where: { tenantId: user.tenantId } as any,
+      where: { tenantId: user.tenantId },
       order: { createdAt: "DESC" },
       relations: ["rule"],
     });
@@ -55,7 +55,7 @@ export class ApprovalsController {
   @Get("pending")
   findPending(@CurrentUser() user: User) {
     return this.approvalRepository.find({
-      where: { status: ApprovalStatus.PENDING, tenantId: user.tenantId } as any,
+      where: { status: ApprovalStatus.PENDING, tenantId: user.tenantId },
       order: { priority: "ASC", createdAt: "ASC" },
       relations: ["rule"],
     });
@@ -64,7 +64,7 @@ export class ApprovalsController {
   @Get(":id")
   findOne(@Param("id") id: string, @CurrentUser() user: User) {
     return this.approvalRepository.findOne({
-      where: { id, tenantId: user.tenantId } as any,
+      where: { id, tenantId: user.tenantId },
       relations: ["rule", "event"],
     });
   }
@@ -100,7 +100,7 @@ export class ApprovalsController {
   @Get("stats/overview")
   async getStats(@CurrentUser() user: User) {
     const all = await this.approvalRepository.find({
-      where: { tenantId: user.tenantId } as any,
+      where: { tenantId: user.tenantId },
     });
     return {
       total: all.length,
@@ -156,7 +156,8 @@ export class ApprovalsController {
         );
       approval.rule = rule;
 
-      const snapshottedApprovers = approval.requestContext?.authorizedApprovers;
+      const snapshottedApprovers: unknown =
+        approval.requestContext?.authorizedApprovers;
       const authorizedApprovers = Array.isArray(snapshottedApprovers)
         ? snapshottedApprovers.filter(
             (candidate): candidate is string => typeof candidate === "string",

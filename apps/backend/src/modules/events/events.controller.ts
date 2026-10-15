@@ -16,7 +16,7 @@ import { ApiTags, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../core/auth/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../core/auth/guards/permissions.guard";
 import { RequirePermissions } from "../../core/auth/decorators/permissions.decorator";
-import { PERMISSIONS } from "../../lib/permissions";
+import { PERMISSIONS } from "../../core/auth/permissions";
 import { EventsService } from "./events.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";

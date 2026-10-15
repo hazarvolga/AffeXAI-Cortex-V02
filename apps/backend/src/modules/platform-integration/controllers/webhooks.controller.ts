@@ -14,7 +14,7 @@ import { PermissionsGuard } from "../../../core/auth/guards/permissions.guard";
 import { RequirePermissions } from "../../../core/auth/decorators/permissions.decorator";
 import { CurrentUser } from "../../../core/auth/decorators/current-user.decorator";
 import { User } from "../../users/entities/user.entity";
-import { PERMISSIONS } from "../../../lib/permissions";
+import { PERMISSIONS } from "../../../core/auth/permissions";
 
 /**
  * Webhooks Controller
