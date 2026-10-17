@@ -537,7 +537,7 @@ export class EventsService {
                 <p>Katılımınızı bekliyoruz!</p>
               </div>
               <div class="footer">
-                <p>© 2025 Aluplan. Tüm hakları saklıdır.</p>
+                <p>© 2025 XYZ Company. Tüm hakları saklıdır.</p>
                 <p>Bu email info@affexai.com tarafından gönderilmiştir.</p>
               </div>
             </div>
@@ -626,7 +626,7 @@ export class EventsService {
                 <p>Lütfen zamanında katılmayı unutmayın!</p>
               </div>
               <div class="footer">
-                <p>© 2025 Aluplan. Tüm hakları saklıdır.</p>
+                <p>© 2025 XYZ Company. Tüm hakları saklıdır.</p>
               </div>
             </div>
           </body>
@@ -701,7 +701,7 @@ export class EventsService {
                 <p>Bu durumdan dolayı özür dileriz. Gelecek etkinliklerimizden haberdar olmak için takipte kalın.</p>
               </div>
               <div class="footer">
-                <p>© 2025 Aluplan. Tüm hakları saklıdır.</p>
+                <p>© 2025 XYZ Company. Tüm hakları saklıdır.</p>
                 <p>Sorularınız için: support@affexai.com</p>
               </div>
             </div>
@@ -795,7 +795,7 @@ export class EventsService {
                 <p>Lütfen bu değişiklikleri not alın.</p>
               </div>
               <div class="footer">
-                <p>© 2025 Aluplan. Tüm hakları saklıdır.</p>
+                <p>© 2025 XYZ Company. Tüm hakları saklıdır.</p>
               </div>
             </div>
           </body>

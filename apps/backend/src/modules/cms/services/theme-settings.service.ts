@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ThemeSettings } from '../entities/theme-settings.entity';
-import { CreateThemeSettingsDto, UpdateThemeSettingsDto } from '../dto/theme-settings.dto';
-import { TenantService } from '../../../core/tenant/tenant.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { ThemeSettings } from "../entities/theme-settings.entity";
+import {
+  CreateThemeSettingsDto,
+  UpdateThemeSettingsDto,
+} from "../dto/theme-settings.dto";
+import { TenantService } from "../../../core/tenant/tenant.service";
 
 @Injectable()
 export class ThemeSettingsService {
@@ -11,7 +18,7 @@ export class ThemeSettingsService {
     @InjectRepository(ThemeSettings)
     private readonly themeSettingsRepository: Repository<ThemeSettings>,
     private readonly tenantService: TenantService,
-  ) { }
+  ) {}
 
   private get tenantId(): string {
     return this.tenantService.getTenantId();
@@ -24,7 +31,7 @@ export class ThemeSettingsService {
   async getActiveTheme(): Promise<ThemeSettings> {
     let activeTheme = await this.themeSettingsRepository.findOne({
       where: { isActive: true, tenantId: this.tenantId },
-      relations: ['headerMenu', 'headerMenu.items'],
+      relations: ["headerMenu", "headerMenu.items"],
     });
 
     // If no active theme exists, create a default one
@@ -41,8 +48,8 @@ export class ThemeSettingsService {
   async findAll(): Promise<ThemeSettings[]> {
     return await this.themeSettingsRepository.find({
       where: { tenantId: this.tenantId },
-      relations: ['headerMenu'],
-      order: { createdAt: 'DESC' },
+      relations: ["headerMenu"],
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -52,7 +59,7 @@ export class ThemeSettingsService {
   async findOne(id: string): Promise<ThemeSettings> {
     const theme = await this.themeSettingsRepository.findOne({
       where: { id, tenantId: this.tenantId },
-      relations: ['headerMenu', 'headerMenu.items'],
+      relations: ["headerMenu", "headerMenu.items"],
     });
 
     if (!theme) {
@@ -113,7 +120,9 @@ export class ThemeSettingsService {
     const theme = await this.findOne(id);
 
     if (theme.isActive) {
-      throw new BadRequestException('Cannot delete active theme. Please activate another theme first.');
+      throw new BadRequestException(
+        "Cannot delete active theme. Please activate another theme first.",
+      );
     }
 
     await this.themeSettingsRepository.remove(theme);
@@ -148,35 +157,43 @@ export class ThemeSettingsService {
    */
   private async createDefaultTheme(): Promise<ThemeSettings> {
     const defaultTheme = this.themeSettingsRepository.create({
-      name: 'Default Theme',
+      name: "Default Theme",
       headerConfig: {
         topBarLinks: [
-          { text: 'Yardım Merkezi', href: '/help', order: 1 },
-          { text: 'ALLPLAN FAQ', href: '/downloads#faq', order: 2 },
-          { text: 'LEARN NOW', href: '/education/training', order: 3 },
-          { text: 'Duyurular', href: '#', order: 4 },
-          { text: 'Microsoft Teams', href: '/downloads#remote', order: 5 },
-          { text: 'Product Lifecycle', href: '#', order: 6 },
-          { text: 'Allplan Connect: Login', href: '/downloads#customer', order: 7 },
-          { text: 'Allplan Connect License', href: '/downloads#license', order: 8 },
+          { text: "Yardım Merkezi", href: "/help", order: 1 },
+          { text: "XYZ Suite FAQ", href: "/downloads#faq", order: 2 },
+          { text: "LEARN NOW", href: "/education/training", order: 3 },
+          { text: "Duyurular", href: "#", order: 4 },
+          { text: "Microsoft Teams", href: "/downloads#remote", order: 5 },
+          { text: "Product Lifecycle", href: "#", order: 6 },
+          {
+            text: "XYZ Suite Connect: Login",
+            href: "/downloads#customer",
+            order: 7,
+          },
+          {
+            text: "XYZ Suite Connect License",
+            href: "/downloads#license",
+            order: 8,
+          },
         ],
         ctaButtons: {
           contact: {
             show: true,
-            text: 'İletişim',
-            href: '/contact',
+            text: "İletişim",
+            href: "/contact",
           },
           demo: {
             show: true,
-            text: 'Demo İste',
-            href: '#demo',
+            text: "Demo İste",
+            href: "#demo",
           },
         },
         authLinks: {
           showLogin: true,
           showSignup: true,
-          loginText: 'Giriş Yap',
-          signupText: 'Kayıt Ol',
+          loginText: "Giriş Yap",
+          signupText: "Kayıt Ol",
         },
         layout: {
           sticky: true,
@@ -187,32 +204,32 @@ export class ThemeSettingsService {
       footerConfig: {
         sections: [
           {
-            title: 'Keşfet',
+            title: "Keşfet",
             customLinks: [
-              { name: 'Çözümler', href: '/solutions', order: 1 },
-              { name: 'Ürünler', href: '/products', order: 2 },
-              { name: 'Başarı Hikayeleri', href: '/case-studies', order: 3 },
+              { name: "Çözümler", href: "/solutions", order: 1 },
+              { name: "Ürünler", href: "/products", order: 2 },
+              { name: "Başarı Hikayeleri", href: "/case-studies", order: 3 },
             ],
           },
           {
-            title: 'Destek',
+            title: "Destek",
             customLinks: [
-              { name: 'Eğitim & Destek', href: '/education', order: 1 },
-              { name: 'İndirme Merkezi', href: '/downloads', order: 2 },
-              { name: 'İletişim', href: '/contact', order: 3 },
+              { name: "Eğitim & Destek", href: "/education", order: 1 },
+              { name: "İndirme Merkezi", href: "/downloads", order: 2 },
+              { name: "İletişim", href: "/contact", order: 3 },
             ],
           },
           {
-            title: 'Yasal',
+            title: "Yasal",
             customLinks: [
-              { name: 'Gizlilik Politikası', href: '/privacy', order: 1 },
-              { name: 'Kullanım Koşulları', href: '/terms', order: 2 },
+              { name: "Gizlilik Politikası", href: "/privacy", order: 1 },
+              { name: "Kullanım Koşulları", href: "/terms", order: 2 },
             ],
           },
         ],
         showLanguageSelector: true,
-        languageText: 'Türkiye (Türkçe)',
-        copyrightText: 'Tüm hakları saklıdır.',
+        languageText: "Türkiye (Türkçe)",
+        copyrightText: "Tüm hakları saklıdır.",
       },
       isActive: true,
       tenantId: this.tenantId,

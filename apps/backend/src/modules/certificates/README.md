@@ -252,7 +252,7 @@ MAIL_PORT=587
 MAIL_SECURE=false
 MAIL_USER=your-email@gmail.com
 MAIL_PASSWORD=your-app-password
-MAIL_FROM="Aluplan Training Platform <noreply@aluplan.com>"
+MAIL_FROM="XYZ Company Training Platform <noreply@xyzcompany.com>"
 
 # Frontend URL (for verification links)
 FRONTEND_URL=http://localhost:9002
@@ -399,7 +399,7 @@ curl http://localhost:9005/certificates/v2/statistics
 
 ## 📝 License
 
-Internal Project - Aluplan BIM Solutions
+Internal Project - XYZ Company BIM Solutions
 
 ## 👥 Authors
 

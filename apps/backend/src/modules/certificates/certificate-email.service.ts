@@ -1,16 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Certificate } from './entities/certificate.entity';
-import { join } from 'path';
-import { readFileSync } from 'fs';
-import { MailService } from '../mail/mail.service';
-import { MailChannel, MailPriority } from '../mail/interfaces/mail-service.interface';
+import { Injectable, Logger } from "@nestjs/common";
+import { Certificate } from "./entities/certificate.entity";
+import { join } from "path";
+import { readFileSync } from "fs";
+import { MailService } from "../mail/mail.service";
+import {
+  MailChannel,
+  MailPriority,
+} from "../mail/interfaces/mail-service.interface";
 
 @Injectable()
 export class CertificateEmailService {
   private readonly logger = new Logger(CertificateEmailService.name);
 
   constructor(private readonly mailService: MailService) {
-    this.logger.log('Certificate email service initialized with MailService');
+    this.logger.log("Certificate email service initialized with MailService");
   }
 
   /**
@@ -19,11 +22,11 @@ export class CertificateEmailService {
   async sendCertificateEmail(certificate: Certificate): Promise<void> {
     try {
       if (!certificate.pdfUrl) {
-        throw new Error('Certificate PDF not generated yet');
+        throw new Error("Certificate PDF not generated yet");
       }
 
       if (!certificate.recipientEmail) {
-        throw new Error('Recipient email is required');
+        throw new Error("Recipient email is required");
       }
 
       // Read PDF file as buffer
@@ -36,7 +39,7 @@ export class CertificateEmailService {
           email: certificate.recipientEmail,
           name: certificate.recipientName || undefined,
         },
-        subject: `Sertifikanız: ${certificate.trainingTitle || 'Sertifika'}`,
+        subject: `Sertifikanız: ${certificate.trainingTitle || "Sertifika"}`,
         html: this.generateEmailHtml(certificate),
         channel: MailChannel.CERTIFICATE,
         priority: MailPriority.HIGH,
@@ -44,20 +47,23 @@ export class CertificateEmailService {
           {
             filename: `sertifika-${certificate.certificateNumber}.pdf`,
             content: pdfBuffer,
-            contentType: 'application/pdf',
+            contentType: "application/pdf",
           },
         ],
-        tags: ['certificate', certificate.certificateNumber],
+        tags: ["certificate", certificate.certificateNumber],
       });
 
       if (!result.success) {
-        throw new Error(result.error || 'Email sending failed');
+        throw new Error(result.error || "Email sending failed");
       }
-      
-      this.logger.log(`Certificate email sent to ${certificate.recipientEmail}, messageId: ${result.messageId}`);
-    } catch (error) {
-      this.logger.error('Failed to send certificate email', error);
-      throw new Error(`Email sending failed: ${error.message}`);
+
+      this.logger.log(
+        `Certificate email sent to ${certificate.recipientEmail}, messageId: ${result.messageId}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error("Failed to send certificate email", error);
+      const reason = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Email sending failed: ${reason}`);
     }
   }
 
@@ -130,17 +136,17 @@ export class CertificateEmailService {
             <ul>
               <li><strong>Sertifika No:</strong> ${certificate.certificateNumber}</li>
               <li><strong>Eğitim:</strong> ${certificate.trainingTitle}</li>
-              <li><strong>Veriliş Tarihi:</strong> ${new Date(certificate.issuedAt).toLocaleDateString('tr-TR')}</li>
-              ${certificate.validUntil ? `<li><strong>Geçerlilik:</strong> ${new Date(certificate.validUntil).toLocaleDateString('tr-TR')} tarihine kadar</li>` : ''}
+              <li><strong>Veriliş Tarihi:</strong> ${new Date(certificate.issuedAt).toLocaleDateString("tr-TR")}</li>
+              ${certificate.validUntil ? `<li><strong>Geçerlilik:</strong> ${new Date(certificate.validUntil).toLocaleDateString("tr-TR")} tarihine kadar</li>` : ""}
             </ul>
           </div>
 
-          ${certificate.description ? `<p><em>${certificate.description}</em></p>` : ''}
+          ${certificate.description ? `<p><em>${certificate.description}</em></p>` : ""}
           
           <p>Sertifikanız bu e-postaya eklenmiştir. Ayrıca hesap panelinizden her zaman erişebilirsiniz.</p>
           
           <center>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:9002'}${certificate.verificationUrl}" class="button">
+            <a href="${process.env.FRONTEND_URL || "http://localhost:9002"}${certificate.verificationUrl}" class="button">
               Sertifikayı Doğrula
             </a>
           </center>
@@ -150,9 +156,9 @@ export class CertificateEmailService {
           <p>Başarılarınızın devamını dileriz!</p>
 
           <div class="footer">
-            <p><strong>Aluplan Eğitim Platformu</strong></p>
+            <p><strong>XYZ Company Eğitim Platformu</strong></p>
             <p>Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayınız.</p>
-            <p>© ${new Date().getFullYear()} Aluplan. Tüm hakları saklıdır.</p>
+            <p>© ${new Date().getFullYear()} XYZ Company. Tüm hakları saklıdır.</p>
           </div>
         </div>
       </body>
@@ -165,10 +171,10 @@ export class CertificateEmailService {
    */
   private getPdfFilePath(pdfUrl: string): string {
     // If URL is relative, convert to absolute file path
-    if (pdfUrl.startsWith('/uploads/')) {
+    if (pdfUrl.startsWith("/uploads/")) {
       return join(process.cwd(), pdfUrl.substring(1));
     }
-    
+
     // If it's already an absolute path or external URL, return as is
     return pdfUrl;
   }
@@ -180,13 +186,13 @@ export class CertificateEmailService {
     try {
       const isConnected = await this.mailService.testConnection();
       if (isConnected) {
-        this.logger.log('Mail service connection verified');
+        this.logger.log("Mail service connection verified");
       } else {
-        this.logger.error('Mail service connection failed');
+        this.logger.error("Mail service connection failed");
       }
       return isConnected;
     } catch (error) {
-      this.logger.error('Mail service connection test failed', error);
+      this.logger.error("Mail service connection test failed", error);
       return false;
     }
   }

@@ -4,7 +4,6 @@ import {
   Container,
   Head,
   Html,
-  Img,
   Link,
   Preview,
   Section,
@@ -46,12 +45,11 @@ export const CertificateIssuedEmail = ({
   verificationUrl = `${baseUrl}/certificates/verify/ABC123`,
   siteSettings,
 }: CertificateIssuedEmailProps) => {
-  const companyName = siteSettings?.companyName || 'Aluplan';
-  const logoUrl = siteSettings?.logoUrl || `${baseUrl}/logo.png`;
+  const companyName = siteSettings?.companyName || "XYZ Company";
   const contactInfo = siteSettings?.contact || {
-    email: 'support@affexai.com',
-    phone: '',
-    address: ''
+    email: "support@affexai.com",
+    phone: "",
+    address: "",
   };
   const socialMediaLinks = siteSettings?.socialMedia || {};
 
@@ -80,8 +78,8 @@ export const CertificateIssuedEmail = ({
             </Text>
 
             <Text style={paragraph}>
-              Tebrikler! <strong>{trainingTitle}</strong> eğitimini başarıyla tamamladınız.
-              Sertifikanız ekte yer almaktadır.
+              Tebrikler! <strong>{trainingTitle}</strong> eğitimini başarıyla
+              tamamladınız. Sertifikanız ekte yer almaktadır.
             </Text>
 
             {/* Certificate Info Box */}
@@ -101,8 +99,9 @@ export const CertificateIssuedEmail = ({
             </Section>
 
             <Text style={paragraph}>
-              Sertifikanızı PDF formatında ekte bulabilirsiniz. Ayrıca sertifikanızın geçerliliğini
-              aşağıdaki doğrulama bağlantısı ile kontrol edebilirsiniz:
+              Sertifikanızı PDF formatında ekte bulabilirsiniz. Ayrıca
+              sertifikanızın geçerliliğini aşağıdaki doğrulama bağlantısı ile
+              kontrol edebilirsiniz:
             </Text>
 
             {/* Verification Button */}
@@ -113,17 +112,17 @@ export const CertificateIssuedEmail = ({
             </Section>
 
             <Text style={noteText}>
-              <strong>Not:</strong> Bu sertifika numarası ile sertifikanızın özgünlüğünü
-              istediğiniz zaman doğrulayabilirsiniz.
+              <strong>Not:</strong> Bu sertifika numarası ile sertifikanızın
+              özgünlüğünü istediğiniz zaman doğrulayabilirsiniz.
             </Text>
 
             <Hr style={hr} />
 
             <Text style={footer}>
-              Eğitimlerimiz hakkında daha fazla bilgi için{' '}
+              Eğitimlerimiz hakkında daha fazla bilgi için{" "}
               <Link href={`${baseUrl}/egitim`} style={link}>
                 eğitim sayfamızı
-              </Link>{' '}
+              </Link>{" "}
               ziyaret edebilirsiniz.
             </Text>
           </Section>
